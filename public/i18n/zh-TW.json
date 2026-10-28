@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "osu! Render",
-    "tagline": "danser-go replay 渲染服務"
+    "title": "osu! Render"
   },
   "nav": {
     "skip": "跳到主要內容",
@@ -19,12 +18,14 @@
   },
   "renderer": {
     "label": "渲染器狀態：",
-    "chip": "{kind} · {encoder}",
+    "chip": "{encoder} · {kind}",
     "none": "沒有可用的影片編碼器",
     "kind": {
       "hardware": "GPU",
       "software": "CPU"
-    }
+    },
+    "readyHardware": "硬體編碼器就緒",
+    "readySoftware": "找不到 GPU 編碼器，渲染會比較慢"
   },
   "encoder": {
     "nvenc": "NVIDIA NVENC",
@@ -41,7 +42,7 @@
     "storage_low": "磁碟空間不足"
   },
   "update": {
-    "available": "osu-render {version} 已推出（目前版本 {current}）。",
+    "available": "{version} 版已推出",
     "apply": "立即更新",
     "notes": "更新內容",
     "gitHint": "從原始碼安裝的請執行 git pull、npm ci 和 npm run build，然後重新啟動 osu-render。",
@@ -50,26 +51,27 @@
     "restarting": "正在安裝更新並重新啟動，頁面會自動重新整理。",
     "done": "已更新到 osu-render {version}。",
     "notInstalled": "更新沒有安裝成功，目前仍是 {version}。詳細資訊在 data\\update\\apply-update.log。",
-    "timeout": "osu-render 沒有重新啟動。請查看 osu-render 視窗，然後重新整理這個頁面。"
+    "timeout": "osu-render 沒有重新啟動。請查看 osu-render 視窗，然後重新整理這個頁面。",
+    "current": "目前是 {current}"
   },
   "upload": {
-    "drop": "拖入 .osr replay",
-    "browse": "或點擊選擇檔案",
-    "limits": "上限 5 MiB · 僅支援 osu!standard",
-    "token": "服務 Token",
-    "tokenPlaceholder": "這台伺服器需要 token"
+    "drop": "把 replay 拖到這裡，或點擊選擇檔案",
+    "limits": "一個 .osr 檔案 · 上限 5 MiB · 僅支援 osu!standard",
+    "token": "服務 Token（只有伺服器設了密碼才需要）",
+    "tokenLabel": "服務 Token"
   },
   "quick": {
     "title": "快速設定",
-    "hint": "只套用到下一次渲染。",
-    "manageSkins": "管理",
-    "more": "更多設定"
+    "more": "所有設定",
+    "skipIntro": "跳過前奏",
+    "on": "開啟",
+    "off": "關閉",
+    "moreHint": "還有 {n} 項：音訊、游標、HUD、物件…"
   },
   "presets": {
     "label": "預設組合",
-    "choose": "載入預設組合…",
-    "save": "另存為預設",
-    "delete": "刪除預設",
+    "save": "+ 儲存目前設定",
+    "delete": "刪除預設「{name}」",
     "reset": "還原預設值",
     "namePrompt": "為這組設定命名：",
     "saved": "已儲存預設「{name}」。",
@@ -82,8 +84,8 @@
   "job": {
     "steps": {
       "uploaded": "已上傳",
-      "resolving": "尋找圖譜中",
-      "downloading": "下載中",
+      "resolving": "找到圖譜",
+      "downloading": "圖譜已下載",
       "queued": "排隊中",
       "rendering": "渲染中",
       "completed": "完成"
@@ -92,13 +94,37 @@
     "download": "下載 MP4",
     "retry": "再試一次",
     "cancel": "取消任務",
-    "another": "渲染另一個 replay",
+    "another": "再渲染一個",
     "untitled": "你的 replay",
     "by": "玩家 {player}",
-    "speed": "{speed}× 速度",
-    "eta": "剩餘 {eta}",
+    "speed": "速度",
     "cancelled": "這次渲染已取消。",
-    "uploadFailed": "上傳失敗，請檢查網路連線後再試。"
+    "uploadFailed": "上傳失敗，請檢查網路連線後再試。",
+    "ring": {
+      "uploaded": "上傳中",
+      "resolving": "尋找圖譜中",
+      "downloading": "下載圖譜中",
+      "queued": "排隊中 · 第 {position} 位",
+      "rendering": "渲染中",
+      "finalizing": "影片收尾中",
+      "completed": "完成",
+      "failed": "失敗",
+      "cancelled": "已取消"
+    },
+    "stages": "階段",
+    "left": "剩餘",
+    "length": "長度",
+    "mappedBy": "作圖者 {creator}",
+    "doneIn": "{duration} 完成",
+    "activeTitle": "準備渲染中",
+    "renderingTitle": "渲染中",
+    "activeLede": "你可以關閉這個分頁，任務會在伺服器上繼續進行。",
+    "doneTitle": "影片完成了",
+    "doneLede": "檔案會保留 {hours} 小時。",
+    "expiredLede": "這支影片的檔案已被刪除。",
+    "failedTitle": "渲染失敗",
+    "cancelledTitle": "渲染已取消",
+    "failedLede": "沒有產生影片。可以再試一次，或換一個 replay。"
   },
   "status": {
     "uploaded": "已上傳",
@@ -139,7 +165,7 @@
     "UPDATE_FAILED": "無法下載或驗證更新，沒有任何檔案被變更。請稍後再試。"
   },
   "settings": {
-    "title": "所有渲染設定",
+    "title": "所有設定",
     "hint": "只套用到這次渲染，不會修改伺服器的基礎設定。",
     "search": "篩選設定",
     "searchPlaceholder": "搜尋設定…",
@@ -150,7 +176,6 @@
     },
     "playback": {
       "legend": "播放與音量",
-      "skipIntro": "自動跳過前奏",
       "masterVolume": "總音量",
       "musicVolume": "音樂音量",
       "sampleVolume": "打擊音量"
@@ -207,38 +232,36 @@
   },
   "history": {
     "title": "歷史紀錄",
-    "hint": "你最近在這台伺服器上的渲染。影片過一段時間後會自動刪除。",
+    "hint": "你最近的 20 次渲染。檔案過一段時間後會自動刪除。",
     "refresh": "重新整理",
-    "empty": "還沒有渲染紀錄。上傳一個 replay 開始吧。",
+    "empty": "還沒有渲染紀錄。到「渲染」頁拖入一個 replay 吧。",
     "emptyAction": "渲染 replay",
     "failed": "無法載入歷史紀錄。",
     "unknownMap": "未知圖譜",
-    "created": "開始時間",
-    "encoder": "輸出",
-    "renderTime": "渲染耗時",
+    "renderTime": "渲染 {duration}",
     "deleted": "檔案已刪除",
     "expires": "檔案保留到 {time}",
     "preview": "預覽",
     "download": "下載",
     "deleteFiles": "刪除檔案",
-    "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。"
+    "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。",
+    "done": "完成"
   },
   "skins": {
     "title": "Skin",
-    "hint": "上傳的皮膚會保存在這台伺服器上，之後每次渲染都能選用。",
-    "drop": "拖入 .osk skin",
+    "hint": "已安裝在這台伺服器上。把 .osk 拖到這個頁面任何地方即可新增。",
+    "drop": "或直接拖放",
     "uploading": "正在上傳並安裝皮膚…",
     "installed": "已安裝「{name}」，下一次渲染會使用它。",
     "failed": "皮膚上傳失敗，請檢查網路連線後再試一次。",
     "use": "用於下一次渲染",
-    "inUse": "已選擇",
-    "selected": "下一次渲染會使用「{name}」。"
+    "inUse": "下一次渲染會使用",
+    "selected": "下一次渲染會使用「{name}」。",
+    "upload": "上傳 .osk"
   },
   "diagnostics": {
     "title": "診斷",
-    "hint": "協助排查 GPU 與渲染器問題",
-    "includes": "內容包含作業系統、GPU 型號與驅動版本、編碼器自我測試、danser 與 ffmpeg 資訊，以及最近的渲染結果與日誌；家目錄路徑會被遮蔽。",
-    "excludes": "不包含 token、密鑰、IP 位址或玩家名稱。",
+    "hint": "哪裡怪怪的？報告能幫開發者看到你的電腦做了什麼。",
     "privacy": "不會自動上傳任何資料，是否分享由你決定。",
     "autoSend": "此伺服器會在每次渲染結束後，自動把遮蔽過個人資訊的報告傳送給開發者。",
     "download": "下載報告",
@@ -257,7 +280,7 @@
     "noIssueLink": "報告中沒有有效的 GitHub issue 連結。",
     "sending": "正在把報告傳送給開發者…",
     "sent": "已把報告傳送給開發者，感謝！",
-    "report": "診斷報告",
+    "report": "報告包含哪些內容",
     "renderer": {
       "title": "渲染器",
       "status": "狀態",
@@ -272,9 +295,20 @@
       "disk": "可用磁碟空間",
       "reason": "問題",
       "probes": "編碼器自我測試",
-      "probesHint": "下載或複製報告時會執行自我測試，結果會顯示在這裡。",
+      "probesHint": "下載或複製報告時會執行自我測試。",
       "probeOk": "正常",
       "probeFailed": "失敗"
-    }
+    },
+    "list": {
+      "system": "作業系統、CPU、GPU 與驅動程式版本",
+      "encoders": "編碼器自我測試結果、danser 與 FFmpeg 資訊",
+      "renders": "最近的渲染結果、錯誤與日誌（已移除家目錄路徑）"
+    },
+    "neverLabel": "絕不包含：",
+    "never": "token、密鑰、IP 位址或玩家名稱。"
+  },
+  "render": {
+    "title": "把 replay 變成影片",
+    "lede": "拖入 .osr 檔案，我們會找到圖譜、渲染並交給你一支 MP4。"
   }
 }

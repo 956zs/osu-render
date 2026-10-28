@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "osu! Render",
-    "tagline": "danser-go replay renderer"
+    "title": "osu! Render"
   },
   "nav": {
     "skip": "Skip to content",
@@ -19,12 +18,14 @@
   },
   "renderer": {
     "label": "Renderer status:",
-    "chip": "{kind} · {encoder}",
+    "chip": "{encoder} · {kind}",
     "none": "No video encoder",
     "kind": {
       "hardware": "GPU",
       "software": "CPU"
-    }
+    },
+    "readyHardware": "Hardware encoder ready",
+    "readySoftware": "No GPU encoder found — renders will be slower"
   },
   "encoder": {
     "nvenc": "NVIDIA NVENC",
@@ -41,7 +42,7 @@
     "storage_low": "Low disk space"
   },
   "update": {
-    "available": "osu-render {version} is available (you have {current}).",
+    "available": "Version {version} is out",
     "apply": "Update now",
     "notes": "What's new",
     "gitHint": "To update a source install, run git pull, npm ci and npm run build, then restart osu-render.",
@@ -50,26 +51,27 @@
     "restarting": "Installing the update and restarting. This page reloads by itself.",
     "done": "Updated to osu-render {version}.",
     "notInstalled": "The update wasn't installed, so you're still on {version}. Details are in data\\update\\apply-update.log.",
-    "timeout": "osu-render didn't come back. Check the osu-render window, then reload this page."
+    "timeout": "osu-render didn't come back. Check the osu-render window, then reload this page.",
+    "current": "You are on {current}"
   },
   "upload": {
-    "drop": "Drop an .osr replay here",
-    "browse": "or click to choose a file",
-    "limits": "Max 5 MiB · osu!standard only",
-    "token": "Service token",
-    "tokenPlaceholder": "Required by this server"
+    "drop": "Drop your replay here or click to choose",
+    "limits": "One .osr file · max 5 MiB · osu!standard only",
+    "token": "Service token (only if the server has a password)",
+    "tokenLabel": "Service token"
   },
   "quick": {
     "title": "Quick settings",
-    "hint": "Applied to your next render only.",
-    "manageSkins": "Manage",
-    "more": "More settings"
+    "more": "All settings",
+    "skipIntro": "Skip intro",
+    "on": "On",
+    "off": "Off",
+    "moreHint": "{n} more: audio, cursor, HUD, hit objects…"
   },
   "presets": {
     "label": "Presets",
-    "choose": "Load a preset…",
-    "save": "Save as preset",
-    "delete": "Delete preset",
+    "save": "+ Save current",
+    "delete": "Delete preset {name}",
     "reset": "Reset to defaults",
     "namePrompt": "Name this preset:",
     "saved": "Saved preset \"{name}\".",
@@ -82,8 +84,8 @@
   "job": {
     "steps": {
       "uploaded": "Uploaded",
-      "resolving": "Finding beatmap",
-      "downloading": "Downloading",
+      "resolving": "Beatmap found",
+      "downloading": "Beatmap downloaded",
       "queued": "Queued",
       "rendering": "Rendering",
       "completed": "Done"
@@ -92,13 +94,37 @@
     "download": "Download MP4",
     "retry": "Try again",
     "cancel": "Cancel render",
-    "another": "Render another replay",
+    "another": "Render another",
     "untitled": "Your replay",
     "by": "played by {player}",
-    "speed": "{speed}× speed",
-    "eta": "{eta} left",
+    "speed": "speed",
     "cancelled": "This render was cancelled.",
-    "uploadFailed": "Upload failed. Check your connection and try again."
+    "uploadFailed": "Upload failed. Check your connection and try again.",
+    "ring": {
+      "uploaded": "uploading",
+      "resolving": "finding beatmap",
+      "downloading": "downloading map",
+      "queued": "queued · #{position}",
+      "rendering": "rendering",
+      "finalizing": "finishing video",
+      "completed": "done",
+      "failed": "failed",
+      "cancelled": "cancelled"
+    },
+    "stages": "Stages",
+    "left": "left",
+    "length": "length",
+    "mappedBy": "mapped by {creator}",
+    "doneIn": "Done in {duration}",
+    "activeTitle": "Getting your render ready",
+    "renderingTitle": "Rendering",
+    "activeLede": "You can close this tab — the job keeps going on the server.",
+    "doneTitle": "Your video is ready",
+    "doneLede": "Files are kept for {hours} h.",
+    "expiredLede": "This video's files were deleted.",
+    "failedTitle": "Render failed",
+    "cancelledTitle": "Render cancelled",
+    "failedLede": "Nothing was rendered. Try again or choose another replay."
   },
   "status": {
     "uploaded": "Uploaded",
@@ -139,7 +165,7 @@
     "UPDATE_FAILED": "The update couldn't be downloaded or verified. Nothing was changed. Try again later."
   },
   "settings": {
-    "title": "All render settings",
+    "title": "All settings",
     "hint": "Applied to this render only; the server's base settings never change.",
     "search": "Filter settings",
     "searchPlaceholder": "Search settings…",
@@ -150,7 +176,6 @@
     },
     "playback": {
       "legend": "Playback & volume",
-      "skipIntro": "Skip intro automatically",
       "masterVolume": "Master volume",
       "musicVolume": "Music volume",
       "sampleVolume": "Hitsound volume"
@@ -207,38 +232,36 @@
   },
   "history": {
     "title": "History",
-    "hint": "Your recent renders on this server. Videos are deleted automatically after a while.",
+    "hint": "Your last 20 renders. Files are deleted automatically after a while.",
     "refresh": "Refresh",
-    "empty": "No renders yet. Upload a replay to start.",
+    "empty": "No renders yet. Drop a replay on the Render page.",
     "emptyAction": "Render a replay",
     "failed": "Couldn't load the history.",
     "unknownMap": "Unknown beatmap",
-    "created": "Started",
-    "encoder": "Output",
-    "renderTime": "Render time",
+    "renderTime": "{duration} render",
     "deleted": "Files deleted",
     "expires": "Files kept until {time}",
     "preview": "Preview",
     "download": "Download",
     "deleteFiles": "Delete files",
-    "confirmDelete": "Delete the video, replay and log of this render? This can't be undone."
+    "confirmDelete": "Delete the video, replay and log of this render? This can't be undone.",
+    "done": "Done"
   },
   "skins": {
     "title": "Skins",
-    "hint": "Uploaded skins are saved on this server and can be picked for any render.",
-    "drop": "Drop an .osk skin here",
+    "hint": "Installed on this server. Drop an .osk anywhere on this page to add one.",
+    "drop": "or drag & drop",
     "uploading": "Uploading and installing the skin…",
     "installed": "Installed \"{name}\". It will be used for your next render.",
     "failed": "Couldn't upload the skin. Check your connection and try again.",
     "use": "Use for next render",
-    "inUse": "Selected",
-    "selected": "\"{name}\" will be used for your next render."
+    "inUse": "Used for next render",
+    "selected": "\"{name}\" will be used for your next render.",
+    "upload": "Upload .osk"
   },
   "diagnostics": {
     "title": "Diagnostics",
-    "hint": "Helps track down GPU and renderer problems",
-    "includes": "Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.",
-    "excludes": "Never includes tokens, secrets, IP addresses or player names.",
+    "hint": "Something off? A report helps the developer see what your machine did.",
     "privacy": "Nothing is sent automatically. You choose whether to share it.",
     "autoSend": "This server sends a redacted report to the developer after every finished render.",
     "download": "Download report",
@@ -257,7 +280,7 @@
     "noIssueLink": "The report doesn't include a valid GitHub issue link.",
     "sending": "Sending the report to the developer…",
     "sent": "Report sent to the developer. Thanks!",
-    "report": "Diagnostics report",
+    "report": "What the report contains",
     "renderer": {
       "title": "Renderer",
       "status": "Status",
@@ -271,10 +294,21 @@
       "queue": "Queued renders",
       "disk": "Free disk space",
       "reason": "Problem",
-      "probes": "Encoder self-tests",
-      "probesHint": "Shown after you download or copy the report, which runs the self-tests.",
-      "probeOk": "Works",
-      "probeFailed": "Failed"
-    }
+      "probes": "Encoder self-test",
+      "probesHint": "Download or copy the report to run the self-test.",
+      "probeOk": "ok",
+      "probeFailed": "fail"
+    },
+    "list": {
+      "system": "OS, CPU, GPU and driver versions",
+      "encoders": "Encoder self-test results, danser and FFmpeg info",
+      "renders": "Your recent render results, errors and logs, with home folder paths removed"
+    },
+    "neverLabel": "Never included:",
+    "never": "tokens, secrets, IP addresses or player names."
+  },
+  "render": {
+    "title": "Turn a replay into a video",
+    "lede": "Drop a .osr file. We find the beatmap, render it and hand you an MP4."
   }
 }

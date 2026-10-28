@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "osu! Render",
-    "tagline": "renderizador de replays con danser-go"
+    "title": "osu! Render"
   },
   "nav": {
     "skip": "Saltar al contenido",
@@ -19,12 +18,14 @@
   },
   "renderer": {
     "label": "Estado del renderizador:",
-    "chip": "{kind} · {encoder}",
+    "chip": "{encoder} · {kind}",
     "none": "Sin codificador de video",
     "kind": {
       "hardware": "GPU",
       "software": "CPU"
-    }
+    },
+    "readyHardware": "Codificador por hardware listo",
+    "readySoftware": "No hay codificador GPU: los renders irán más lentos"
   },
   "encoder": {
     "nvenc": "NVIDIA NVENC",
@@ -41,7 +42,7 @@
     "storage_low": "Poco espacio en disco"
   },
   "update": {
-    "available": "Ya está disponible osu-render {version} (tienes la {current}).",
+    "available": "Nueva versión {version}",
     "apply": "Actualizar ahora",
     "notes": "Novedades",
     "gitHint": "Para actualizar una instalación desde el código fuente, ejecuta git pull, npm ci y npm run build, y reinicia osu-render.",
@@ -50,27 +51,28 @@
     "restarting": "Instalando la actualización y reiniciando. Esta página se recarga sola.",
     "done": "Actualizado a osu-render {version}.",
     "notInstalled": "La actualización no se instaló, sigues en la {version}. Los detalles están en data\\update\\apply-update.log.",
-    "timeout": "osu-render no volvió a iniciarse. Revisa la ventana de osu-render y luego recarga esta página."
+    "timeout": "osu-render no volvió a iniciarse. Revisa la ventana de osu-render y luego recarga esta página.",
+    "current": "Tienes la {current}"
   },
   "upload": {
-    "drop": "Arrastra aquí un replay .osr",
-    "browse": "o haz clic para elegir un archivo",
-    "limits": "Máx. 5 MiB · solo osu!standard",
-    "token": "Token del servicio",
-    "tokenPlaceholder": "Este servidor lo requiere"
+    "drop": "Suelta tu repetición aquí o haz clic para elegir",
+    "limits": "Un archivo .osr · máx. 5 MiB · solo osu!standard",
+    "token": "Token del servicio (solo si el servidor tiene contraseña)",
+    "tokenLabel": "Token del servicio"
   },
   "quick": {
     "title": "Ajustes rápidos",
-    "hint": "Se aplican solo a tu próximo render.",
-    "manageSkins": "Gestionar",
-    "more": "Más ajustes"
+    "more": "Todos los ajustes",
+    "skipIntro": "Saltar intro",
+    "on": "Activado",
+    "off": "Desactivado",
+    "moreHint": "{n} ajustes más: audio, cursor, HUD, objetos…"
   },
   "presets": {
     "label": "Preajustes",
-    "choose": "Cargar un preajuste…",
-    "save": "Guardar como preajuste",
-    "delete": "Borrar preajuste",
-    "reset": "Restablecer",
+    "save": "+ Guardar actuales",
+    "delete": "Borrar el preajuste {name}",
+    "reset": "Restablecer valores",
     "namePrompt": "Nombre del preajuste:",
     "saved": "Preajuste \"{name}\" guardado.",
     "applied": "Preajuste \"{name}\" cargado.",
@@ -82,8 +84,8 @@
   "job": {
     "steps": {
       "uploaded": "Subido",
-      "resolving": "Buscando el mapa",
-      "downloading": "Descargando",
+      "resolving": "Beatmap encontrado",
+      "downloading": "Beatmap descargado",
       "queued": "En cola",
       "rendering": "Renderizando",
       "completed": "Listo"
@@ -92,13 +94,37 @@
     "download": "Descargar MP4",
     "retry": "Reintentar",
     "cancel": "Cancelar render",
-    "another": "Renderizar otro replay",
+    "another": "Renderizar otra",
     "untitled": "Tu replay",
     "by": "jugado por {player}",
-    "speed": "velocidad {speed}×",
-    "eta": "faltan {eta}",
+    "speed": "velocidad",
     "cancelled": "Este render fue cancelado.",
-    "uploadFailed": "No se pudo subir. Revisa tu conexión e inténtalo de nuevo."
+    "uploadFailed": "No se pudo subir. Revisa tu conexión e inténtalo de nuevo.",
+    "ring": {
+      "uploaded": "subiendo",
+      "resolving": "buscando el mapa",
+      "downloading": "descargando el mapa",
+      "queued": "en cola · #{position}",
+      "rendering": "renderizando",
+      "finalizing": "finalizando",
+      "completed": "listo",
+      "failed": "falló",
+      "cancelled": "cancelado"
+    },
+    "stages": "Etapas",
+    "left": "restante",
+    "length": "duración",
+    "mappedBy": "mapeado por {creator}",
+    "doneIn": "Listo en {duration}",
+    "activeTitle": "Preparando tu render",
+    "renderingTitle": "Renderizando",
+    "activeLede": "Puedes cerrar esta pestaña; el trabajo sigue en el servidor.",
+    "doneTitle": "Tu video está listo",
+    "doneLede": "Los archivos se guardan {hours} h.",
+    "expiredLede": "Los archivos de este video se borraron.",
+    "failedTitle": "El render falló",
+    "cancelledTitle": "Render cancelado",
+    "failedLede": "No se renderizó nada. Reinténtalo o elige otra repetición."
   },
   "status": {
     "uploaded": "Subido",
@@ -139,7 +165,7 @@
     "UPDATE_FAILED": "No se pudo descargar o verificar la actualización. No se cambió nada. Inténtalo más tarde."
   },
   "settings": {
-    "title": "Todos los ajustes de render",
+    "title": "Todos los ajustes",
     "hint": "Se aplican solo a este render; la configuración base del servidor no cambia.",
     "search": "Filtrar ajustes",
     "searchPlaceholder": "Buscar ajustes…",
@@ -150,7 +176,6 @@
     },
     "playback": {
       "legend": "Reproducción y volumen",
-      "skipIntro": "Saltar la intro automáticamente",
       "masterVolume": "Volumen general",
       "musicVolume": "Volumen de la música",
       "sampleVolume": "Volumen de hitsounds"
@@ -207,38 +232,36 @@
   },
   "history": {
     "title": "Historial",
-    "hint": "Tus renders recientes en este servidor. Los videos se borran automáticamente después de un tiempo.",
+    "hint": "Tus últimos 20 renders. Los archivos se borran automáticamente después de un tiempo.",
     "refresh": "Actualizar",
-    "empty": "Todavía no hay renders. Sube un replay para empezar.",
+    "empty": "Todavía no hay renders. Suelta una repetición en la página Renderizar.",
     "emptyAction": "Renderizar un replay",
     "failed": "No se pudo cargar el historial.",
     "unknownMap": "Mapa desconocido",
-    "created": "Inicio",
-    "encoder": "Salida",
-    "renderTime": "Tiempo de render",
+    "renderTime": "render de {duration}",
     "deleted": "Archivos borrados",
     "expires": "Archivos guardados hasta {time}",
     "preview": "Vista previa",
     "download": "Descargar",
     "deleteFiles": "Borrar archivos",
-    "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer."
+    "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer.",
+    "done": "Listo"
   },
   "skins": {
     "title": "Skins",
-    "hint": "Los skins que subas se guardan en este servidor y puedes elegirlos en cualquier render.",
-    "drop": "Arrastra aquí un skin .osk",
+    "hint": "Instalados en este servidor. Suelta un .osk en cualquier parte de esta página para añadir uno.",
+    "drop": "o arrastra y suelta",
     "uploading": "Subiendo e instalando el skin…",
     "installed": "\"{name}\" instalado. Se usará en tu próximo render.",
     "failed": "No se pudo subir el skin. Revisa tu conexión e inténtalo de nuevo.",
     "use": "Usar en el próximo render",
-    "inUse": "Seleccionado",
-    "selected": "\"{name}\" se usará en tu próximo render."
+    "inUse": "Se usará en el próximo render",
+    "selected": "\"{name}\" se usará en tu próximo render.",
+    "upload": "Subir .osk"
   },
   "diagnostics": {
     "title": "Diagnóstico",
-    "hint": "Ayuda a encontrar problemas de GPU y del renderizador",
-    "includes": "Incluye tu sistema operativo, el modelo y driver de la GPU, pruebas de los codificadores, información de danser y ffmpeg, y los resultados y logs de los renders recientes, con las rutas de tu carpeta personal ocultas.",
-    "excludes": "Nunca incluye tokens, secretos, direcciones IP ni nombres de jugadores.",
+    "hint": "¿Algo raro? Un informe ayuda al desarrollador a ver qué hizo tu equipo.",
     "privacy": "No se envía nada automáticamente. Tú decides si lo compartes.",
     "autoSend": "Este servidor envía un reporte anonimizado al desarrollador después de cada render terminado.",
     "download": "Descargar reporte",
@@ -257,7 +280,7 @@
     "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub.",
     "sending": "Enviando el reporte al desarrollador…",
     "sent": "Reporte enviado al desarrollador. ¡Gracias!",
-    "report": "Informe de diagnóstico",
+    "report": "Qué contiene el informe",
     "renderer": {
       "title": "Renderizador",
       "status": "Estado",
@@ -271,10 +294,21 @@
       "queue": "Renders en cola",
       "disk": "Espacio libre en disco",
       "reason": "Problema",
-      "probes": "Autopruebas del codificador",
-      "probesHint": "Aparecen después de descargar o copiar el informe, que ejecuta las autopruebas.",
-      "probeOk": "Funciona",
-      "probeFailed": "Falló"
-    }
+      "probes": "Autoprueba del codificador",
+      "probesHint": "Descarga o copia el informe para ejecutar la autoprueba.",
+      "probeOk": "ok",
+      "probeFailed": "falla"
+    },
+    "list": {
+      "system": "Versiones del sistema, CPU, GPU y controladores",
+      "encoders": "Resultados de las autopruebas del codificador e información de danser y FFmpeg",
+      "renders": "Tus resultados, errores y logs de render recientes, sin las rutas de tu carpeta personal"
+    },
+    "neverLabel": "Nunca se incluye:",
+    "never": "tokens, secretos, direcciones IP ni nombres de jugadores."
+  },
+  "render": {
+    "title": "Convierte una repetición en video",
+    "lede": "Suelta un archivo .osr. Buscamos el beatmap, lo renderizamos y te damos un MP4."
   }
 }
