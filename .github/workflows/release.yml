@@ -240,7 +240,8 @@ jobs:
           $envFile = Join-Path $root '.env'
           $hook = 'https://discord.com/api/webhooks/123456789/abc_DEF-123'
           $hook2 = 'https://canary.discordapp.com/api/v10/webhooks/987/xyz-987'
-          function Invoke-Setup { powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 @args; return $LASTEXITCODE }
+          # Out-Host: otherwise the child's output joins the function's return value and the exit-code checks compare an array.
+          function Invoke-Setup { powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 @args | Out-Host; return $LASTEXITCODE }
           function Get-EnvValue([string]$key) {
             $env:ENV_KEY = $key
             & $node -e "process.loadEnvFile('.env'); process.stdout.write(process.env[process.env.ENV_KEY] ?? '<unset>')"
@@ -378,7 +379,7 @@ jobs:
             return $app
           }
           function Invoke-Apply {
-            powershell -NoProfile -ExecutionPolicy Bypass -File $applyScript
+            powershell -NoProfile -ExecutionPolicy Bypass -File $applyScript | Out-Host
             return $LASTEXITCODE
           }
 
