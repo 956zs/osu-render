@@ -1,0 +1,160 @@
+{
+  "app": {
+    "title": "osu! Render",
+    "eyebrow": "servicio de render con danser-go",
+    "heading": "Convierte tus replays en video",
+    "subtitle": "Sube un replay .osr y el servicio busca el mapa, pone el render en cola y genera un MP4."
+  },
+  "header": {
+    "language": "Idioma"
+  },
+  "renderer": {
+    "label": "Estado del renderizador:",
+    "chip": "{kind} · {encoder}",
+    "none": "Sin codificador de video",
+    "kind": {
+      "hardware": "GPU",
+      "software": "CPU"
+    }
+  },
+  "encoder": {
+    "nvenc": "NVIDIA NVENC",
+    "amf": "AMD AMF",
+    "qsv": "Intel Quick Sync",
+    "x264": "x264",
+    "unknown": "desconocido"
+  },
+  "reason": {
+    "renderer_unavailable": "No se encontró el renderizador danser",
+    "display_unavailable": "No hay pantalla disponible para renderizar",
+    "hardware_encoder_unavailable": "Codificador de GPU no disponible; se usa la CPU",
+    "encoder_unavailable": "El codificador configurado no está disponible",
+    "storage_low": "Poco espacio en disco"
+  },
+  "upload": {
+    "title": "Sube un replay",
+    "hint": "Se procesa un render a la vez",
+    "token": "Token del servicio",
+    "tokenPlaceholder": "Déjalo vacío si no hay autenticación",
+    "drop": "Arrastra aquí un replay .osr",
+    "browse": "o haz clic para elegir un archivo",
+    "limits": "Máx. 5 MiB · solo osu!standard"
+  },
+  "job": {
+    "progress": "Progreso del render",
+    "download": "Descargar MP4",
+    "cancel": "Cancelar render",
+    "uploadFailed": "No se pudo subir el replay.",
+    "mapResolving": "buscando el mapa"
+  },
+  "status": {
+    "uploaded": "Subido",
+    "resolving": "Buscando el mapa",
+    "downloading": "Descargando el mapa",
+    "queued": "En cola · #{position}",
+    "rendering": "Renderizando · {progress}%",
+    "finalizing": "Finalizando el video",
+    "completed": "Listo",
+    "failed": "Falló",
+    "cancelled": "Cancelado"
+  },
+  "errors": {
+    "INVALID_REPLAY": "Este archivo no es un replay .osr válido.",
+    "UNSUPPORTED_MODE": "Solo se admiten replays de osu!standard.",
+    "REPLAY_TOO_LARGE": "El replay supera el límite de 5 MiB.",
+    "TOO_MANY_REQUESTS": "Demasiadas subidas. Espera a que terminen tus renders actuales e inténtalo de nuevo.",
+    "QUEUE_FULL": "La cola de render está llena. Inténtalo más tarde.",
+    "RENDERER_UNAVAILABLE": "El renderizador no está listo en el servidor. Inténtalo más tarde o revisa el reporte de diagnóstico.",
+    "STORAGE_LOW": "El servidor tiene poco espacio en disco. Inténtalo más tarde.",
+    "UNAUTHORIZED": "Falta el token del servicio o no es válido.",
+    "INVALID_OPTIONS": "Se rechazaron algunos ajustes de render. Recarga la página e inténtalo de nuevo.",
+    "BEATMAP_NOT_FOUND": "No se encontró el mapa de este replay.",
+    "BEATMAP_DOWNLOAD_FAILED": "No se pudo descargar el mapa. Inténtalo más tarde.",
+    "BEATMAP_INVALID_ARCHIVE": "El archivo del mapa descargado no es válido.",
+    "BEATMAP_CHECKSUM_MISMATCH": "El mapa descargado no coincide con la versión del replay.",
+    "RENDER_FAILED": "El render falló.",
+    "RENDER_TIMEOUT": "El render tardó demasiado y se detuvo.",
+    "INTERNAL_ERROR": "El servidor tuvo un error interno."
+  },
+  "settings": {
+    "title": "Ajustes de render personalizados",
+    "hint": "Se aplican solo a este render; la configuración base del servidor no cambia",
+    "badge": "Opcional · {n} opciones",
+    "footer": "El servidor fija los FPS, el codificador de video y el motion blur para evitar renders fallidos.",
+    "output": {
+      "legend": "Video de salida",
+      "resolution": "Resolución"
+    },
+    "playback": {
+      "legend": "Reproducción y volumen",
+      "skipIntro": "Saltar la intro automáticamente",
+      "masterVolume": "Volumen general",
+      "musicVolume": "Volumen de la música",
+      "sampleVolume": "Volumen de hitsounds"
+    },
+    "background": {
+      "legend": "Fondo y área de juego",
+      "dim": "Oscurecer fondo",
+      "blur": "Desenfoque del fondo",
+      "playfieldScale": "Escala del área de juego",
+      "videos": "Video de fondo",
+      "storyboards": "Storyboard",
+      "parallax": "Parallax del fondo",
+      "bloom": "Bloom"
+    },
+    "cursor": {
+      "legend": "Cursor y colores",
+      "size": "Tamaño del cursor",
+      "trailStyle": "Estilo del rastro",
+      "trailOption": "Estilo {n}",
+      "rainbow": "Cursor arcoíris",
+      "glow": "Brillo del rastro",
+      "ripples": "Ondas al hacer clic",
+      "smoke": "Humo del cursor",
+      "skinColors": "Usar colores del Skin",
+      "beatmapColors": "Usar colores del mapa"
+    },
+    "hud": {
+      "legend": "HUD",
+      "score": "Puntuación y precisión",
+      "hpBar": "Barra de HP",
+      "combo": "Combo",
+      "hitError": "Medidor de hit error",
+      "pp": "Contador de PP",
+      "hitCounter": "Contador de hits",
+      "strainGraph": "Gráfica de dificultad",
+      "keyOverlay": "Visor de teclas",
+      "scoreboard": "Tabla de puntuaciones",
+      "mods": "Mods",
+      "results": "Pantalla de resultados"
+    },
+    "objects": {
+      "legend": "Hit objects",
+      "approach": "Approach circles",
+      "comboNumbers": "Números de combo",
+      "sliderEnds": "Círculo final del Slider",
+      "followCircle": "Follow circle del Slider",
+      "ticks": "Ticks del Slider"
+    }
+  },
+  "diagnostics": {
+    "title": "Diagnóstico",
+    "hint": "Ayuda a encontrar problemas de GPU y del renderizador",
+    "includes": "Incluye tu sistema operativo, el modelo y driver de la GPU, pruebas de los codificadores, información de danser y ffmpeg, y los resultados y logs de los renders recientes, con las rutas de tu carpeta personal ocultas.",
+    "excludes": "Nunca incluye tokens, secretos, direcciones IP ni nombres de jugadores.",
+    "privacy": "No se envía nada automáticamente. Tú decides si lo compartes.",
+    "download": "Descargar reporte",
+    "copy": "Copiar resumen",
+    "issue": "Abrir issue en GitHub",
+    "summaryLabel": "Resumen del reporte",
+    "loading": "Generando el reporte… las pruebas de los codificadores pueden tardar un poco.",
+    "downloaded": "Reporte descargado.",
+    "copied": "Resumen copiado al portapapeles.",
+    "copyManual": "El navegador bloqueó el portapapeles. Selecciona el texto de abajo y cópialo.",
+    "opened": "Se abrió el issue de GitHub en una pestaña nueva.",
+    "openAgain": "El reporte está listo. Haz clic de nuevo en “Abrir issue en GitHub”.",
+    "needsToken": "Este servidor requiere un token del servicio. Ingrésalo en el paso 01 e inténtalo de nuevo.",
+    "failed": "No se pudo obtener el reporte de diagnóstico. Inténtalo de nuevo.",
+    "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub."
+  }
+}

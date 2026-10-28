@@ -1,0 +1,160 @@
+{
+  "app": {
+    "title": "osu! Render",
+    "eyebrow": "danser-go render service",
+    "heading": "Turn replays into videos",
+    "subtitle": "Upload an .osr replay and the service finds the beatmap, queues the render and outputs an MP4."
+  },
+  "header": {
+    "language": "Language"
+  },
+  "renderer": {
+    "label": "Renderer status:",
+    "chip": "{kind} · {encoder}",
+    "none": "No video encoder",
+    "kind": {
+      "hardware": "GPU",
+      "software": "CPU"
+    }
+  },
+  "encoder": {
+    "nvenc": "NVIDIA NVENC",
+    "amf": "AMD AMF",
+    "qsv": "Intel Quick Sync",
+    "x264": "x264",
+    "unknown": "unknown"
+  },
+  "reason": {
+    "renderer_unavailable": "danser renderer not found",
+    "display_unavailable": "No display available for rendering",
+    "hardware_encoder_unavailable": "GPU encoder unavailable, using CPU",
+    "encoder_unavailable": "Configured encoder unavailable",
+    "storage_low": "Low disk space"
+  },
+  "upload": {
+    "title": "Upload a replay",
+    "hint": "One render at a time",
+    "token": "Service token",
+    "tokenPlaceholder": "Leave empty if auth is disabled",
+    "drop": "Drop an .osr replay here",
+    "browse": "or click to choose a file",
+    "limits": "Max 5 MiB · osu!standard only"
+  },
+  "job": {
+    "progress": "Render progress",
+    "download": "Download MP4",
+    "cancel": "Cancel render",
+    "uploadFailed": "Upload failed.",
+    "mapResolving": "finding beatmap"
+  },
+  "status": {
+    "uploaded": "Uploaded",
+    "resolving": "Finding beatmap",
+    "downloading": "Downloading beatmap",
+    "queued": "Queued · #{position}",
+    "rendering": "Rendering · {progress}%",
+    "finalizing": "Finalizing video",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "errors": {
+    "INVALID_REPLAY": "This file isn't a valid .osr replay.",
+    "UNSUPPORTED_MODE": "Only osu!standard replays are supported.",
+    "REPLAY_TOO_LARGE": "The replay exceeds the 5 MiB limit.",
+    "TOO_MANY_REQUESTS": "Too many uploads. Wait for your current renders to finish, then try again.",
+    "QUEUE_FULL": "The render queue is full. Try again later.",
+    "RENDERER_UNAVAILABLE": "The renderer isn't ready on the server. Try again later or check the diagnostics report.",
+    "STORAGE_LOW": "The server is low on disk space. Try again later.",
+    "UNAUTHORIZED": "The service token is missing or invalid.",
+    "INVALID_OPTIONS": "Some render settings were rejected. Reload the page and try again.",
+    "BEATMAP_NOT_FOUND": "Couldn't find the beatmap for this replay.",
+    "BEATMAP_DOWNLOAD_FAILED": "Couldn't download the beatmap. Try again later.",
+    "BEATMAP_INVALID_ARCHIVE": "The downloaded beatmap archive is invalid.",
+    "BEATMAP_CHECKSUM_MISMATCH": "The downloaded beatmap doesn't match the replay's version.",
+    "RENDER_FAILED": "The render failed.",
+    "RENDER_TIMEOUT": "The render took too long and was stopped.",
+    "INTERNAL_ERROR": "The server ran into an internal error."
+  },
+  "settings": {
+    "title": "Custom render settings",
+    "hint": "Applied to this render only; the server's base settings never change",
+    "badge": "Optional · {n} options",
+    "footer": "FPS, video encoder and motion blur are fixed by the server to keep renders reliable.",
+    "output": {
+      "legend": "Output video",
+      "resolution": "Resolution"
+    },
+    "playback": {
+      "legend": "Playback & volume",
+      "skipIntro": "Skip intro automatically",
+      "masterVolume": "Master volume",
+      "musicVolume": "Music volume",
+      "sampleVolume": "Hitsound volume"
+    },
+    "background": {
+      "legend": "Background & playfield",
+      "dim": "Background dim",
+      "blur": "Background blur",
+      "playfieldScale": "Playfield scale",
+      "videos": "Background video",
+      "storyboards": "Storyboard",
+      "parallax": "Background parallax",
+      "bloom": "Bloom"
+    },
+    "cursor": {
+      "legend": "Cursor & colors",
+      "size": "Cursor size",
+      "trailStyle": "Trail style",
+      "trailOption": "Style {n}",
+      "rainbow": "Rainbow cursor",
+      "glow": "Trail glow",
+      "ripples": "Click ripples",
+      "smoke": "Cursor smoke",
+      "skinColors": "Use Skin colors",
+      "beatmapColors": "Use beatmap colors"
+    },
+    "hud": {
+      "legend": "HUD",
+      "score": "Score & accuracy",
+      "hpBar": "HP bar",
+      "combo": "Combo",
+      "hitError": "Hit error meter",
+      "pp": "PP counter",
+      "hitCounter": "Hit counter",
+      "strainGraph": "Strain graph",
+      "keyOverlay": "Key overlay",
+      "scoreboard": "Leaderboard",
+      "mods": "Mods",
+      "results": "Results screen"
+    },
+    "objects": {
+      "legend": "Hit objects",
+      "approach": "Approach circles",
+      "comboNumbers": "Combo numbers",
+      "sliderEnds": "Slider end circles",
+      "followCircle": "Slider follow circle",
+      "ticks": "Slider ticks"
+    }
+  },
+  "diagnostics": {
+    "title": "Diagnostics",
+    "hint": "Helps track down GPU and renderer problems",
+    "includes": "Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.",
+    "excludes": "Never includes tokens, secrets, IP addresses or player names.",
+    "privacy": "Nothing is sent automatically. You choose whether to share it.",
+    "download": "Download report",
+    "copy": "Copy summary",
+    "issue": "Open GitHub issue",
+    "summaryLabel": "Report summary",
+    "loading": "Collecting the report… encoder self-tests can take a while.",
+    "downloaded": "Report downloaded.",
+    "copied": "Summary copied to the clipboard.",
+    "copyManual": "The browser blocked the clipboard. Select the text below and copy it.",
+    "opened": "GitHub issue opened in a new tab.",
+    "openAgain": "Report ready. Click “Open GitHub issue” again.",
+    "needsToken": "This server requires a service token. Enter it in step 01 and try again.",
+    "failed": "Couldn't get the diagnostics report. Try again.",
+    "noIssueLink": "The report doesn't include a valid GitHub issue link."
+  }
+}

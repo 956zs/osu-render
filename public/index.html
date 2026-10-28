@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>osu! Render</title>
+  <title data-i18n="app.title">osu! Render</title>
   <style>
     :root {
       color-scheme: dark;
@@ -11,7 +11,7 @@
       --bg: #080b12; --panel: rgba(18, 23, 35, .86); --panel-strong: #151b29;
       --line: rgba(147, 164, 190, .16); --line-strong: rgba(147, 164, 190, .3);
       --text: #f5f7fb; --muted: #98a5b9; --pink: #ff66aa; --pink-soft: rgba(255, 102, 170, .14);
-      --blue: #79b8ff; --danger: #ff8c9f; --shadow: 0 24px 80px rgba(0, 0, 0, .32);
+      --blue: #79b8ff; --danger: #ff8c9f; --ok: #7ee2a8; --warn: #ffc46b; --shadow: 0 24px 80px rgba(0, 0, 0, .32);
       background: var(--bg); color: var(--text);
     }
     * { box-sizing: border-box; }
@@ -22,17 +22,27 @@
       linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 32px 32px; }
     main { position: relative; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 54px 0 72px; }
-    .hero { display: flex; align-items: center; gap: 18px; margin-bottom: 30px; }
+    .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-bottom: 30px; }
     .hero-mark { width: 56px; height: 56px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 18px;
       color: #fff; font-size: 28px; font-weight: 850; background: linear-gradient(145deg, var(--pink), #b760ff); box-shadow: 0 12px 32px rgba(255, 102, 170, .25); }
+    .hero-copy { min-width: 0; flex: 1 1 320px; }
+    .hero-tools { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
     .eyebrow { margin: 0 0 5px; color: var(--pink); font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.45rem); line-height: 1.08; letter-spacing: -.035em; }
     .subtitle { margin: 8px 0 0; color: var(--muted); font-size: .98rem; }
-    .layout { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(560px, 1.35fr); gap: 22px; align-items: start; }
+    .status-chip { max-width: 440px; margin: 0; padding: 7px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; border: 1px solid var(--line);
+      border-radius: 14px; background: var(--panel); color: var(--text); font-size: .76rem; font-weight: 800; line-height: 1.4; }
+    .status-chip::before { content: ""; width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(126, 226, 168, .14); }
+    .status-chip[data-state=degraded] { border-color: rgba(255, 196, 107, .35); }
+    .status-chip[data-state=degraded]::before { background: var(--warn); box-shadow: 0 0 0 3px rgba(255, 196, 107, .14); }
+    .chip-reason { padding-left: 8px; border-left: 1px solid var(--line-strong); color: var(--warn); font-weight: 600; }
+    .lang-select { min-width: 0; margin: 0; padding: 7px 10px; border-radius: 14px; background: var(--panel-strong); font-size: .78rem; font-weight: 700; }
+    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .layout { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(560px, 1.35fr); grid-template-rows: auto 1fr; gap: 22px; align-items: start; }
     .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
-    .upload-card { position: sticky; top: 24px; padding: 22px; }
+    .upload-card { position: sticky; top: 24px; grid-column: 1; grid-row: 1 / span 2; padding: 22px; }
     .panel-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .step { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: var(--pink); background: var(--pink-soft); font-size: .75rem; font-weight: 850; }
+    .step { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 11px; color: var(--pink); background: var(--pink-soft); font-size: .75rem; font-weight: 850; }
     .panel-heading h2 { margin: 0; font-size: 1.05rem; }
     .panel-heading p { margin: 3px 0 0; color: var(--muted); font-size: .82rem; }
     .token-field { display: grid; gap: 7px; margin-bottom: 16px; color: var(--muted); font-size: .78rem; font-weight: 700; }
@@ -45,7 +55,8 @@
     .drop-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 7px; border-radius: 17px; color: var(--pink); background: var(--pink-soft); font-size: 1.5rem; }
     .drop strong { font-size: 1rem; }
     .drop-copy { color: var(--muted); font-size: .83rem; line-height: 1.6; }
-    .settings-card { overflow: clip; }
+    .drop-copy span { display: block; }
+    .settings-card { grid-column: 2; grid-row: 1; overflow: clip; }
     summary { min-height: 88px; padding: 20px 22px; display: flex; align-items: center; gap: 14px; cursor: pointer; list-style: none; user-select: none; }
     summary::-webkit-details-marker { display: none; }
     .summary-copy { min-width: 0; flex: 1; }
@@ -66,28 +77,46 @@
     select { min-width: 92px; margin-left: auto; padding: 7px 9px; color: var(--text); background: #0c111c; border: 1px solid var(--line-strong); border-radius: 8px; outline: none; }
     .settings-foot { margin: 0 14px 14px; padding: 11px 13px; display: flex; gap: 9px; color: var(--muted); background: rgba(121, 184, 255, .06); border-radius: 11px; font-size: .76rem; line-height: 1.5; }
     .settings-foot::before { content: "i"; width: 18px; height: 18px; flex: 0 0 auto; display: grid; place-items: center; color: var(--blue); border: 1px solid rgba(121,184,255,.35); border-radius: 50%; font-size: .68rem; font-weight: 850; }
+    .diag-card { grid-column: 2; grid-row: 2; padding: 22px; }
+    .diag-list { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+    .diag-list li { display: flex; gap: 10px; }
+    .diag-list li::before { content: ""; width: 6px; height: 6px; margin-top: .58em; flex: 0 0 auto; border-radius: 50%; background: var(--pink); }
+    .diag-actions { margin-top: 8px; display: flex; flex-wrap: wrap; }
+    .diag-status { min-height: 1.4em; margin: 12px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+    .diag-status[data-tone=ok] { color: var(--ok); }
+    .diag-status[data-tone=error] { color: var(--danger); }
+    .diag-summary { width: 100%; min-height: 140px; margin-top: 10px; padding: 11px 12px; resize: vertical; color: var(--text); background: rgba(7, 10, 17, .7);
+      border: 1px solid var(--line); border-radius: 11px; font: .76rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .clipboard-scratch { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; }
     .job { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 10, 17, .66); }
-    #state { font-weight: 800; text-transform: capitalize; }
+    #state { font-weight: 800; }
     .meta { min-height: 20px; margin: 7px 0 12px; color: var(--muted); font-size: .82rem; }
     progress { width: 100%; height: 9px; overflow: hidden; border: 0; border-radius: 999px; background: #090d16; }
     progress::-webkit-progress-bar { background: #090d16; }
     progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
     progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
-    button { margin: 8px 8px 0 0; padding: 10px 13px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; color: #120914; background: var(--pink); font-weight: 800; }
+    button { margin: 8px 8px 0 0; padding: 10px 13px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; color: #120914; background: var(--pink); font: inherit; font-size: .84rem; font-weight: 800; }
+    button.secondary { color: var(--text); background: transparent; border-color: var(--line-strong); }
+    button.secondary:hover { background: rgba(255, 255, 255, .04); }
+    button[aria-disabled=true] { cursor: progress; opacity: .55; }
     #cancel { color: var(--muted); background: transparent; border-color: var(--line-strong); }
     .error { margin: 10px 0 0; color: var(--danger); font-size: .82rem; }
     [hidden] { display: none !important; }
     :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
     @media (max-width: 940px) {
       main { width: min(720px, calc(100% - 32px)); padding-top: 34px; }
-      .layout { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: 1fr; grid-template-rows: none; }
+      .upload-card, .settings-card, .diag-card { grid-column: auto; grid-row: auto; }
       .settings-card { order: -1; }
       .upload-card { position: static; }
     }
     @media (max-width: 620px) {
       main { width: min(100% - 24px, 520px); padding: 24px 0 40px; }
-      .hero { align-items: flex-start; margin-bottom: 20px; }
+      .hero { align-items: flex-start; gap: 14px 18px; margin-bottom: 20px; }
       .hero-mark { width: 46px; height: 46px; border-radius: 14px; font-size: 23px; }
+      .hero-copy { flex-basis: 0; }
+      .hero-tools { width: 100%; margin-left: 0; justify-content: space-between; }
+      .status-chip { max-width: calc(100% - 120px); }
       .subtitle { font-size: .85rem; }
       .panel { border-radius: 16px; }
       summary { min-height: 76px; padding: 16px; }
@@ -95,7 +124,7 @@
       .settings { grid-template-columns: 1fr; padding: 0 10px 10px; }
       fieldset, fieldset:nth-child(-n+3) { grid-column: 1; grid-template-columns: 1fr; padding: 14px; }
       .setting.range { grid-column: 1; grid-template-columns: 98px minmax(80px, 1fr) 38px; }
-      .upload-card { padding: 16px; }
+      .upload-card, .diag-card { padding: 16px; }
       .drop { min-height: 210px; }
       .badge { display: none; }
     }
@@ -104,101 +133,123 @@
 <body>
 <main>
   <header class="hero">
-    <div class="hero-mark">o!</div>
-    <div>
-      <p class="eyebrow">danser-go render service</p>
-      <h1>把 replay 變成影片</h1>
-      <p class="subtitle">上傳 `.osr`，系統會自動找圖、排隊並輸出 MP4。</p>
+    <div class="hero-mark" aria-hidden="true">o!</div>
+    <div class="hero-copy">
+      <p class="eyebrow" data-i18n="app.eyebrow">danser-go render service</p>
+      <h1 data-i18n="app.heading">Turn replays into videos</h1>
+      <p class="subtitle" data-i18n="app.subtitle">Upload an .osr replay and the service finds the beatmap, queues the render and outputs an MP4.</p>
+    </div>
+    <div class="hero-tools">
+      <p class="status-chip" id="rendererStatus" role="status" aria-live="polite" hidden><span class="sr-only" data-i18n="renderer.label">Renderer status:</span> <span id="rendererLabel"></span> <span class="chip-reason" id="rendererReason" hidden></span></p>
+      <label><span class="sr-only" data-i18n="header.language">Language</span><select id="language" class="lang-select"><option value="en" lang="en">English</option><option value="zh-TW" lang="zh-TW">繁體中文</option><option value="es" lang="es">Español</option></select></label>
     </div>
   </header>
   <div class="layout">
     <section class="panel upload-card">
       <div class="panel-heading">
         <span class="step">01</span>
-        <div><h2>上傳 replay</h2><p>目前一次處理一個 render</p></div>
+        <div><h2 data-i18n="upload.title">Upload a replay</h2><p data-i18n="upload.hint">One render at a time</p></div>
       </div>
-      <label class="token-field">Service token
-        <input id="token" type="password" autocomplete="current-password" placeholder="未啟用驗證可留空">
+      <label class="token-field"><span data-i18n="upload.token">Service token</span>
+        <input id="token" type="password" autocomplete="current-password" placeholder="Leave empty if auth is disabled" data-i18n-placeholder="upload.tokenPlaceholder">
       </label>
       <label class="drop" id="drop">
         <input id="file" type="file" accept=".osr">
-        <span class="drop-icon">↑</span>
-        <strong>拖入 `.osr` replay</strong>
-        <span class="drop-copy">或點擊選擇檔案<br>上限 5 MiB · 僅支援 osu!standard</span>
+        <span class="drop-icon" aria-hidden="true">↑</span>
+        <strong data-i18n="upload.drop">Drop an .osr replay here</strong>
+        <span class="drop-copy"><span data-i18n="upload.browse">or click to choose a file</span><span data-i18n="upload.limits">Max 5 MiB · osu!standard only</span></span>
       </label>
       <section class="job" id="job" hidden>
         <div id="state"></div><div class="meta" id="meta"></div>
-        <progress id="progress" value="0" max="100"></progress>
+        <progress id="progress" value="0" max="100" aria-label="Render progress" data-i18n-aria-label="job.progress"></progress>
         <p id="error" class="error"></p>
-        <button id="download" hidden>下載 MP4</button>
-        <button id="cancel" hidden>取消任務</button>
+        <button type="button" id="download" hidden data-i18n="job.download">Download MP4</button>
+        <button type="button" id="cancel" hidden data-i18n="job.cancel">Cancel render</button>
       </section>
     </section>
   <details class="panel settings-card" id="settingsPanel">
     <summary>
       <span class="step">02</span>
-      <span class="summary-copy"><strong>自訂畫面設定</strong><small>每個任務獨立套用，不會修改伺服器基礎設定</small></span>
-      <span class="badge">可選 · 33 項</span>
-      <span class="chevron">⌄</span>
+      <span class="summary-copy"><strong data-i18n="settings.title">Custom render settings</strong><small data-i18n="settings.hint">Applied to this render only; the server's base settings never change</small></span>
+      <span class="badge" id="settingsCount" data-i18n="settings.badge" data-i18n-n="36">Optional · 36 options</span>
+      <span class="chevron" aria-hidden="true">⌄</span>
     </summary>
     <div class="settings">
       <fieldset>
-        <legend>輸出影片</legend>
-        <label class="setting">解析度<select id="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
+        <legend data-i18n="settings.output.legend">Output video</legend>
+        <label class="setting"><span data-i18n="settings.output.resolution">Resolution</span><select id="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
       </fieldset>
       <fieldset>
-        <legend>播放與音量</legend>
-        <label class="setting"><input id="skipIntro" type="checkbox" checked>自動跳過前奏</label>
-        <label class="setting range">總音量<input id="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue">50%</output></label>
-        <label class="setting range">音樂音量<input id="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue">50%</output></label>
-        <label class="setting range">打擊音量<input id="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue">50%</output></label>
+        <legend data-i18n="settings.playback.legend">Playback &amp; volume</legend>
+        <label class="setting"><input id="skipIntro" type="checkbox" checked><span data-i18n="settings.playback.skipIntro">Skip intro automatically</span></label>
+        <label class="setting range"><span data-i18n="settings.playback.masterVolume">Master volume</span><input id="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue">50%</output></label>
+        <label class="setting range"><span data-i18n="settings.playback.musicVolume">Music volume</span><input id="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue">50%</output></label>
+        <label class="setting range"><span data-i18n="settings.playback.sampleVolume">Hitsound volume</span><input id="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue">50%</output></label>
       </fieldset>
       <fieldset>
-        <legend>背景與遊戲區</legend>
-        <label class="setting range">背景暗度<input id="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue">30%</output></label>
-        <label class="setting range">背景模糊<input id="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue">0%</output></label>
-        <label class="setting range">遊戲區縮放<input id="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue">100%</output></label>
-        <label class="setting"><input id="loadVideos" type="checkbox" checked>背景影片</label>
-        <label class="setting"><input id="loadStoryboards" type="checkbox" checked>Storyboard</label>
-        <label class="setting"><input id="backgroundParallax" type="checkbox" checked>背景視差</label>
-        <label class="setting"><input id="bloom" type="checkbox" checked>Bloom 光暈</label>
+        <legend data-i18n="settings.background.legend">Background &amp; playfield</legend>
+        <label class="setting range"><span data-i18n="settings.background.dim">Background dim</span><input id="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue">30%</output></label>
+        <label class="setting range"><span data-i18n="settings.background.blur">Background blur</span><input id="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue">0%</output></label>
+        <label class="setting range"><span data-i18n="settings.background.playfieldScale">Playfield scale</span><input id="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue">100%</output></label>
+        <label class="setting"><input id="loadVideos" type="checkbox" checked><span data-i18n="settings.background.videos">Background video</span></label>
+        <label class="setting"><input id="loadStoryboards" type="checkbox" checked><span data-i18n="settings.background.storyboards">Storyboard</span></label>
+        <label class="setting"><input id="backgroundParallax" type="checkbox" checked><span data-i18n="settings.background.parallax">Background parallax</span></label>
+        <label class="setting"><input id="bloom" type="checkbox" checked><span data-i18n="settings.background.bloom">Bloom</span></label>
       </fieldset>
       <fieldset>
-        <legend>游標與顏色</legend>
-        <label class="setting range">游標大小<input id="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue">12</output></label>
-        <label class="setting">軌跡樣式<select id="cursorTrailStyle"><option value="1">樣式 1</option><option value="2">樣式 2</option><option value="3">樣式 3</option><option value="4">樣式 4</option></select></label>
-        <label class="setting"><input id="cursorRainbow" type="checkbox">彩虹游標</label>
-        <label class="setting"><input id="cursorGlow" type="checkbox" checked>軌跡光暈</label>
-        <label class="setting"><input id="cursorRipples" type="checkbox">點擊波紋</label>
-        <label class="setting"><input id="cursorSmoke" type="checkbox" checked>游標煙霧</label>
-        <label class="setting"><input id="useSkinColors" type="checkbox" checked>使用 Skin 顏色</label>
-        <label class="setting"><input id="useBeatmapColors" type="checkbox" checked>使用圖譜顏色</label>
+        <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
+        <label class="setting range"><span data-i18n="settings.cursor.size">Cursor size</span><input id="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue">12</output></label>
+        <label class="setting"><span data-i18n="settings.cursor.trailStyle">Trail style</span><select id="cursorTrailStyle"><option value="1" data-i18n="settings.cursor.trailOption" data-i18n-n="1">Style 1</option><option value="2" data-i18n="settings.cursor.trailOption" data-i18n-n="2">Style 2</option><option value="3" data-i18n="settings.cursor.trailOption" data-i18n-n="3">Style 3</option><option value="4" data-i18n="settings.cursor.trailOption" data-i18n-n="4">Style 4</option></select></label>
+        <label class="setting"><input id="cursorRainbow" type="checkbox"><span data-i18n="settings.cursor.rainbow">Rainbow cursor</span></label>
+        <label class="setting"><input id="cursorGlow" type="checkbox" checked><span data-i18n="settings.cursor.glow">Trail glow</span></label>
+        <label class="setting"><input id="cursorRipples" type="checkbox"><span data-i18n="settings.cursor.ripples">Click ripples</span></label>
+        <label class="setting"><input id="cursorSmoke" type="checkbox" checked><span data-i18n="settings.cursor.smoke">Cursor smoke</span></label>
+        <label class="setting"><input id="useSkinColors" type="checkbox" checked><span data-i18n="settings.cursor.skinColors">Use Skin colors</span></label>
+        <label class="setting"><input id="useBeatmapColors" type="checkbox" checked><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span></label>
       </fieldset>
       <fieldset>
-        <legend>HUD 顯示</legend>
-        <label class="setting"><input id="showScore" type="checkbox" checked>分數與準確率</label>
-        <label class="setting"><input id="showHpBar" type="checkbox" checked>HP 條</label>
-        <label class="setting"><input id="showComboCounter" type="checkbox" checked>Combo</label>
-        <label class="setting"><input id="showHitErrorMeter" type="checkbox" checked>誤差條</label>
-        <label class="setting"><input id="showPpCounter" type="checkbox" checked>PP 計數器</label>
-        <label class="setting"><input id="showHitCounter" type="checkbox" checked>判定計數器</label>
-        <label class="setting"><input id="showStrainGraph" type="checkbox" checked>難度曲線</label>
-        <label class="setting"><input id="showKeyOverlay" type="checkbox" checked>按鍵顯示</label>
-        <label class="setting"><input id="showScoreboard" type="checkbox" checked>排行榜</label>
-        <label class="setting"><input id="showMods" type="checkbox" checked>Mods</label>
-        <label class="setting"><input id="showResultsScreen" type="checkbox" checked>結算畫面</label>
+        <legend data-i18n="settings.hud.legend">HUD</legend>
+        <label class="setting"><input id="showScore" type="checkbox" checked><span data-i18n="settings.hud.score">Score &amp; accuracy</span></label>
+        <label class="setting"><input id="showHpBar" type="checkbox" checked><span data-i18n="settings.hud.hpBar">HP bar</span></label>
+        <label class="setting"><input id="showComboCounter" type="checkbox" checked><span data-i18n="settings.hud.combo">Combo</span></label>
+        <label class="setting"><input id="showHitErrorMeter" type="checkbox" checked><span data-i18n="settings.hud.hitError">Hit error meter</span></label>
+        <label class="setting"><input id="showPpCounter" type="checkbox" checked><span data-i18n="settings.hud.pp">PP counter</span></label>
+        <label class="setting"><input id="showHitCounter" type="checkbox" checked><span data-i18n="settings.hud.hitCounter">Hit counter</span></label>
+        <label class="setting"><input id="showStrainGraph" type="checkbox" checked><span data-i18n="settings.hud.strainGraph">Strain graph</span></label>
+        <label class="setting"><input id="showKeyOverlay" type="checkbox" checked><span data-i18n="settings.hud.keyOverlay">Key overlay</span></label>
+        <label class="setting"><input id="showScoreboard" type="checkbox" checked><span data-i18n="settings.hud.scoreboard">Leaderboard</span></label>
+        <label class="setting"><input id="showMods" type="checkbox" checked><span data-i18n="settings.hud.mods">Mods</span></label>
+        <label class="setting"><input id="showResultsScreen" type="checkbox" checked><span data-i18n="settings.hud.results">Results screen</span></label>
       </fieldset>
       <fieldset>
-        <legend>Hit Object</legend>
-        <label class="setting"><input id="showApproachCircles" type="checkbox" checked>Approach Circle</label>
-        <label class="setting"><input id="showComboNumbers" type="checkbox" checked>Combo 數字</label>
-        <label class="setting"><input id="showSliderEndCircles" type="checkbox" checked>Slider 尾圈</label>
-        <label class="setting"><input id="showSliderFollowCircle" type="checkbox" checked>Slider Follow Circle</label>
-        <label class="setting"><input id="showSliderScorePoints" type="checkbox" checked>Slider Tick</label>
+        <legend data-i18n="settings.objects.legend">Hit objects</legend>
+        <label class="setting"><input id="showApproachCircles" type="checkbox" checked><span data-i18n="settings.objects.approach">Approach circles</span></label>
+        <label class="setting"><input id="showComboNumbers" type="checkbox" checked><span data-i18n="settings.objects.comboNumbers">Combo numbers</span></label>
+        <label class="setting"><input id="showSliderEndCircles" type="checkbox" checked><span data-i18n="settings.objects.sliderEnds">Slider end circles</span></label>
+        <label class="setting"><input id="showSliderFollowCircle" type="checkbox" checked><span data-i18n="settings.objects.followCircle">Slider follow circle</span></label>
+        <label class="setting"><input id="showSliderScorePoints" type="checkbox" checked><span data-i18n="settings.objects.ticks">Slider ticks</span></label>
       </fieldset>
     </div>
-    <p class="settings-foot">FPS、QSV 編碼與 motion blur 由伺服器固定，避免設定造成渲染失敗。</p>
+    <p class="settings-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
   </details>
+    <section class="panel diag-card" id="diagnostics" aria-labelledby="diagnosticsTitle">
+      <div class="panel-heading">
+        <span class="step">03</span>
+        <div><h2 id="diagnosticsTitle" data-i18n="diagnostics.title">Diagnostics</h2><p data-i18n="diagnostics.hint">Helps track down GPU and renderer problems</p></div>
+      </div>
+      <ul class="diag-list">
+        <li data-i18n="diagnostics.includes">Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.</li>
+        <li data-i18n="diagnostics.excludes">Never includes tokens, secrets, IP addresses or player names.</li>
+        <li data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
+      </ul>
+      <div class="diag-actions">
+        <button type="button" id="diagDownload" data-i18n="diagnostics.download">Download report</button>
+        <button type="button" id="diagCopy" class="secondary" data-i18n="diagnostics.copy">Copy summary</button>
+        <button type="button" id="diagIssue" class="secondary" data-i18n="diagnostics.issue">Open GitHub issue</button>
+      </div>
+      <p class="diag-status" id="diagStatus" role="status" aria-live="polite"></p>
+      <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
+    </section>
   </div>
 </main>
 <script type="module">
@@ -213,8 +264,38 @@ const download = document.querySelector('#download');
 const cancel = document.querySelector('#cancel');
 const token = document.querySelector('#token');
 const settingsPanel = document.querySelector('#settingsPanel');
+const settingsCount = document.querySelector('#settingsCount');
+const languageSelect = document.querySelector('#language');
+const rendererStatus = document.querySelector('#rendererStatus');
+const rendererLabel = document.querySelector('#rendererLabel');
+const rendererReason = document.querySelector('#rendererReason');
+const diagnosticsCard = document.querySelector('#diagnostics');
+const diagDownload = document.querySelector('#diagDownload');
+const diagCopy = document.querySelector('#diagCopy');
+const diagIssue = document.querySelector('#diagIssue');
+const diagStatus = document.querySelector('#diagStatus');
+const diagSummary = document.querySelector('#diagSummary');
+const LANGUAGES = [...languageSelect.options].map((option) => option.value);
+const FALLBACK_LANGUAGE = 'en';
+const LANGUAGE_STORAGE_KEY = 'language';
+const HEALTH_REFRESH_MS = 30_000;
+const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
+const ISSUE_URL_PREFIX = 'https://github.com/';
+const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv'], [/^libx264$/, 'x264']];
+const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
 let timer;
+let messages = null;
+let languageRequest = 0;
+let currentJob = null;
+let uploadError = null;
+let requestError = null;
+let health = null;
+let diagnosticsReport = null;
+let diagnosticsMessage = null;
+let diagnosticsBusy = false;
+
 settingsPanel.open = window.matchMedia('(min-width: 941px)').matches;
+settingsCount.dataset.i18nN = String(Object.keys(renderOptions()).length);
 token.value = sessionStorage.getItem('serviceToken') ?? '';
 token.addEventListener('change', () => sessionStorage.setItem('serviceToken', token.value));
 for (const id of ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale', 'cursorSize']) {
@@ -228,19 +309,58 @@ input.addEventListener('change', () => upload(input.files[0]));
 cancel.addEventListener('click', async () => { if (window.jobId) await api(`/api/renders/${window.jobId}`, { method: 'DELETE' }); });
 download.addEventListener('click', async () => {
   const response = await api(`/api/renders/${window.jobId}/video`);
-  if (!response.ok) return;
-  const link = document.createElement('a'); link.href = URL.createObjectURL(await response.blob());
-  link.download = `${window.jobId}.mp4`; link.click(); URL.revokeObjectURL(link.href);
+  if (!response.ok) { requestError = (await readJson(response))?.error ?? { key: 'errors.RENDER_FAILED' }; renderJob(); return; }
+  saveBlob(await response.blob(), `${window.jobId}.mp4`);
 });
+languageSelect.addEventListener('change', () => {
+  try { localStorage.setItem(LANGUAGE_STORAGE_KEY, languageSelect.value); } catch { /* storage disabled: choice lasts for this page */ }
+  setLanguage(languageSelect.value);
+});
+diagDownload.addEventListener('click', async () => {
+  const report = await fetchDiagnostics();
+  if (!report) return;
+  saveBlob(new Blob([`${JSON.stringify(report, null, 2)}\n`], { type: 'application/json' }), `osu-render-diagnostics-${fileTimestamp(new Date())}.json`);
+  showDiagnostics('diagnostics.downloaded', 'ok');
+});
+diagCopy.addEventListener('click', async () => {
+  const report = diagnosticsReport ?? await fetchDiagnostics();
+  if (!report) return;
+  const body = report.issue?.body;
+  if (typeof body !== 'string' || !body) { showDiagnostics('diagnostics.failed', 'error'); return; }
+  if (await copyText(body)) { diagSummary.hidden = true; showDiagnostics('diagnostics.copied', 'ok'); return; }
+  diagSummary.value = body; diagSummary.hidden = false; diagSummary.focus(); diagSummary.select();
+  showDiagnostics('diagnostics.copyManual', 'error');
+});
+diagIssue.addEventListener('click', async () => {
+  let report = diagnosticsReport;
+  if (!report) {
+    report = await fetchDiagnostics();
+    if (!report) return;
+    // Popup blockers drop window.open once the click's user activation has expired (slow self-tests).
+    if (navigator.userActivation && !navigator.userActivation.isActive) { showDiagnostics('diagnostics.openAgain', 'info'); return; }
+  }
+  const url = report.issue?.url;
+  if (typeof url !== 'string' || !url.startsWith(ISSUE_URL_PREFIX)) { showDiagnostics('diagnostics.noIssueLink', 'error'); return; }
+  window.open(url, '_blank', 'noopener');
+  showDiagnostics('diagnostics.opened', 'ok');
+});
+
+languageSelect.value = detectLanguage();
+setLanguage(languageSelect.value);
+loadHealth();
+setInterval(loadHealth, HEALTH_REFRESH_MS);
+
 async function upload(file) {
   if (!file) return;
   const form = new FormData();
   form.append('options', JSON.stringify(renderOptions()));
   form.append('replay', file);
-  const response = await api('/api/renders', { method: 'POST', body: form });
-  const data = await response.json();
   job.hidden = false;
-  if (!response.ok) { error.textContent = data.error?.message ?? '上傳失敗'; return; }
+  let response;
+  try { response = await api('/api/renders', { method: 'POST', body: form }); } catch { response = null; }
+  const data = response ? await readJson(response) : null;
+  if (!response?.ok || typeof data?.id !== 'string') { uploadError = data?.error ?? { key: 'job.uploadFailed' }; renderJob(); return; }
+  uploadError = null; requestError = null; currentJob = null;
   window.jobId = data.id; clearInterval(timer); poll(); timer = setInterval(poll, 1500);
 }
 function renderOptions() {
@@ -270,16 +390,166 @@ function renderOptions() {
   };
 }
 async function poll() {
-  const response = await api(`/api/renders/${window.jobId}`); const data = await response.json();
-  state.textContent = data.status; progress.value = data.progress ?? 0;
-  meta.textContent = data.player ? `${data.player} · ${data.beatmap?.id ?? 'map resolving'}` : '';
-  error.textContent = data.error?.message ?? '';
-  download.hidden = data.status !== 'completed'; cancel.hidden = ['completed', 'failed', 'cancelled'].includes(data.status);
-  if (download.hidden === false || ['failed', 'cancelled'].includes(data.status)) clearInterval(timer);
+  const jobId = window.jobId;
+  let response;
+  try { response = await api(`/api/renders/${jobId}`); } catch { return; }
+  const data = await readJson(response);
+  if (jobId !== window.jobId) return;
+  if (!response.ok || typeof data?.status !== 'string') {
+    requestError = data?.error ?? { key: 'errors.INTERNAL_ERROR' }; renderJob();
+    if (response.status === 404) clearInterval(timer);
+    return;
+  }
+  currentJob = data; requestError = null; renderJob();
+  if (TERMINAL_STATUSES.includes(data.status)) { clearInterval(timer); loadHealth(); }
+}
+function renderJob() {
+  if (currentJob) {
+    const data = currentJob;
+    state.textContent = t(`status.${data.status}`, { position: data.queuePosition ?? '?', progress: Math.round(Number(data.progress) || 0) }, data.status);
+    progress.value = data.progress ?? 0;
+    meta.textContent = data.player ? `${data.player} · ${data.beatmap?.id ?? t('job.mapResolving')}` : '';
+    download.hidden = data.status !== 'completed'; cancel.hidden = TERMINAL_STATUSES.includes(data.status);
+  }
+  error.textContent = errorText(currentJob?.error) || errorText(uploadError) || errorText(requestError);
+}
+function errorText(problem) {
+  if (!problem) return '';
+  if (problem.key) return t(problem.key);
+  return t(`errors.${problem.code}`, {}, problem.message ?? String(problem.code ?? ''));
+}
+async function readJson(response) {
+  try { return await response.json(); } catch { return null; }
 }
 function api(url, options = {}) {
   const headers = new Headers(options.headers); if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
   return fetch(url, { ...options, headers });
+}
+function saveBlob(blob, filename) {
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+  link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function detectLanguage() {
+  let stored = null;
+  try { stored = localStorage.getItem(LANGUAGE_STORAGE_KEY); } catch { /* storage disabled */ }
+  if (LANGUAGES.includes(stored)) return stored;
+  for (const tag of navigator.languages?.length ? navigator.languages : [navigator.language ?? '']) {
+    const lower = tag.toLowerCase();
+    if (lower.startsWith('zh')) return 'zh-TW';
+    if (lower.startsWith('es')) return 'es';
+    if (lower.startsWith('en')) return 'en';
+  }
+  return FALLBACK_LANGUAGE;
+}
+async function setLanguage(language) {
+  const request = ++languageRequest;
+  let loaded = await loadMessages(language);
+  if (!loaded && language !== FALLBACK_LANGUAGE) loaded = await loadMessages(FALLBACK_LANGUAGE);
+  if (request !== languageRequest || !loaded) return; // superseded, or nothing loaded: keep the text already on screen
+  messages = loaded.messages;
+  document.documentElement.lang = loaded.language;
+  applyTranslations(); renderHealth(); renderJob(); renderDiagnosticsStatus();
+}
+async function loadMessages(language) {
+  try {
+    const response = await fetch(`/i18n/${encodeURIComponent(language)}.json`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data && typeof data === 'object' && !Array.isArray(data) ? { language, messages: data } : null;
+  } catch { return null; }
+}
+function lookup(key) {
+  let node = messages;
+  for (const part of key.split('.')) {
+    if (node === null || typeof node !== 'object' || !Object.hasOwn(node, part)) return undefined;
+    node = node[part];
+  }
+  return typeof node === 'string' ? node : undefined;
+}
+function format(text, vars) {
+  return text.replace(/\{(\w+)\}/g, (match, name) => (vars[name] === undefined ? match : String(vars[name])));
+}
+function t(key, vars = {}, fallback = key) {
+  const text = lookup(key);
+  return text === undefined ? fallback : format(text, vars);
+}
+function applyTranslations() {
+  for (const element of document.querySelectorAll('[data-i18n]')) {
+    const text = lookup(element.dataset.i18n);
+    if (text !== undefined) element.textContent = format(text, { n: element.dataset.i18nN });
+  }
+  for (const attribute of I18N_ATTRIBUTES) {
+    for (const element of document.querySelectorAll(`[data-i18n-${attribute}]`)) {
+      const text = lookup(element.getAttribute(`data-i18n-${attribute}`));
+      if (text !== undefined) element.setAttribute(attribute, text);
+    }
+  }
+}
+
+async function loadHealth() {
+  try {
+    const response = await fetch('/health', { cache: 'no-store' });
+    const data = await response.json();
+    if (data?.status !== 'ok' && data?.status !== 'degraded') return;
+    health = data; renderHealth();
+  } catch { /* informational only: keep the last known state */ }
+}
+function encoderLabel(encoder) {
+  if (typeof encoder !== 'string' || encoder === 'unknown') return t('encoder.unknown');
+  const family = ENCODER_FAMILIES.find(([pattern]) => pattern.test(encoder))?.[1];
+  return family ? t(`encoder.${family}`, {}, encoder) : encoder;
+}
+function renderHealth() {
+  if (!health) return;
+  const kind = health.encoderKind ?? (health.encoder === 'libx264' ? 'software' : health.encoder === 'unknown' ? 'none' : 'hardware');
+  rendererLabel.textContent = kind === 'hardware' || kind === 'software'
+    ? t('renderer.chip', { kind: t(`renderer.kind.${kind}`), encoder: encoderLabel(health.encoder) })
+    : t('renderer.none');
+  const reason = health.status === 'degraded' && typeof health.reason === 'string' ? t(`reason.${health.reason}`, {}, health.reason) : '';
+  rendererReason.textContent = reason; rendererReason.hidden = !reason;
+  rendererStatus.dataset.state = health.status;
+  rendererStatus.hidden = false;
+}
+
+async function fetchDiagnostics() {
+  if (diagnosticsBusy) return null;
+  setDiagnosticsBusy(true); showDiagnostics('diagnostics.loading', 'info');
+  try {
+    const response = await api('/api/diagnostics', { cache: 'no-store' });
+    const report = await readJson(response);
+    if (response.status === 401 || report?.error?.code === 'UNAUTHORIZED') { showDiagnostics('diagnostics.needsToken', 'error'); return null; }
+    if (!response.ok) { showDiagnostics('diagnostics.failed', 'error'); return null; }
+    if (!report || typeof report !== 'object' || Array.isArray(report)) { showDiagnostics('diagnostics.failed', 'error'); return null; }
+    diagnosticsReport = report; showDiagnostics(null);
+    return report;
+  } catch {
+    showDiagnostics('diagnostics.failed', 'error'); return null;
+  } finally { setDiagnosticsBusy(false); }
+}
+function setDiagnosticsBusy(busy) {
+  diagnosticsBusy = busy;
+  diagnosticsCard.setAttribute('aria-busy', String(busy));
+  for (const button of [diagDownload, diagCopy, diagIssue]) button.setAttribute('aria-disabled', String(busy));
+}
+function showDiagnostics(key, tone) {
+  diagnosticsMessage = key ? { key, tone } : null; renderDiagnosticsStatus();
+}
+function renderDiagnosticsStatus() {
+  diagStatus.textContent = diagnosticsMessage ? t(diagnosticsMessage.key) : '';
+  diagStatus.dataset.tone = diagnosticsMessage?.tone ?? '';
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* insecure context or denied: try the legacy path */ }
+  const scratch = document.createElement('textarea');
+  scratch.value = text; scratch.readOnly = true; scratch.className = 'clipboard-scratch';
+  document.body.append(scratch); scratch.select();
+  try { return document.execCommand('copy'); } catch { return false; } finally { scratch.remove(); }
+}
+function fileTimestamp(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
 }
 </script>
 </body>

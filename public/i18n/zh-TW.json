@@ -1,0 +1,160 @@
+{
+  "app": {
+    "title": "osu! Render",
+    "eyebrow": "danser-go render service",
+    "heading": "把 replay 變成影片",
+    "subtitle": "上傳 .osr，系統會自動找圖、排隊並輸出 MP4。"
+  },
+  "header": {
+    "language": "語言"
+  },
+  "renderer": {
+    "label": "渲染器狀態：",
+    "chip": "{kind} · {encoder}",
+    "none": "沒有可用的影片編碼器",
+    "kind": {
+      "hardware": "GPU",
+      "software": "CPU"
+    }
+  },
+  "encoder": {
+    "nvenc": "NVIDIA NVENC",
+    "amf": "AMD AMF",
+    "qsv": "Intel Quick Sync",
+    "x264": "x264",
+    "unknown": "未知"
+  },
+  "reason": {
+    "renderer_unavailable": "找不到 danser 渲染器",
+    "display_unavailable": "沒有可用的顯示環境",
+    "hardware_encoder_unavailable": "GPU 編碼器無法使用，改用 CPU",
+    "encoder_unavailable": "設定的編碼器無法使用",
+    "storage_low": "磁碟空間不足"
+  },
+  "upload": {
+    "title": "上傳 replay",
+    "hint": "目前一次處理一個 render",
+    "token": "Service token",
+    "tokenPlaceholder": "未啟用驗證可留空",
+    "drop": "拖入 .osr replay",
+    "browse": "或點擊選擇檔案",
+    "limits": "上限 5 MiB · 僅支援 osu!standard"
+  },
+  "job": {
+    "progress": "渲染進度",
+    "download": "下載 MP4",
+    "cancel": "取消任務",
+    "uploadFailed": "上傳失敗。",
+    "mapResolving": "尋找圖譜中"
+  },
+  "status": {
+    "uploaded": "已上傳",
+    "resolving": "尋找圖譜中",
+    "downloading": "下載圖譜中",
+    "queued": "排隊中 · 第 {position} 位",
+    "rendering": "渲染中 · {progress}%",
+    "finalizing": "影片收尾中",
+    "completed": "已完成",
+    "failed": "失敗",
+    "cancelled": "已取消"
+  },
+  "errors": {
+    "INVALID_REPLAY": "這不是有效的 .osr replay 檔案。",
+    "UNSUPPORTED_MODE": "僅支援 osu!standard 的 replay。",
+    "REPLAY_TOO_LARGE": "replay 超過 5 MiB 上限。",
+    "TOO_MANY_REQUESTS": "上傳次數過多，請等目前的 render 完成後再試。",
+    "QUEUE_FULL": "渲染佇列已滿，請稍後再試。",
+    "RENDERER_UNAVAILABLE": "伺服器的渲染器尚未就緒，請稍後再試或查看診斷報告。",
+    "STORAGE_LOW": "伺服器磁碟空間不足，請稍後再試。",
+    "UNAUTHORIZED": "Service token 未填寫或不正確。",
+    "INVALID_OPTIONS": "部分畫面設定無效，請重新整理頁面後再試。",
+    "BEATMAP_NOT_FOUND": "找不到這個 replay 對應的圖譜。",
+    "BEATMAP_DOWNLOAD_FAILED": "圖譜下載失敗，請稍後再試。",
+    "BEATMAP_INVALID_ARCHIVE": "下載的圖譜壓縮檔無效。",
+    "BEATMAP_CHECKSUM_MISMATCH": "下載的圖譜版本與 replay 不符。",
+    "RENDER_FAILED": "渲染失敗。",
+    "RENDER_TIMEOUT": "渲染時間過長，已中止。",
+    "INTERNAL_ERROR": "伺服器發生內部錯誤。"
+  },
+  "settings": {
+    "title": "自訂畫面設定",
+    "hint": "每個任務獨立套用，不會修改伺服器基礎設定",
+    "badge": "可選 · {n} 項",
+    "footer": "FPS、影片編碼器與 motion blur 由伺服器固定，避免設定造成渲染失敗。",
+    "output": {
+      "legend": "輸出影片",
+      "resolution": "解析度"
+    },
+    "playback": {
+      "legend": "播放與音量",
+      "skipIntro": "自動跳過前奏",
+      "masterVolume": "總音量",
+      "musicVolume": "音樂音量",
+      "sampleVolume": "打擊音量"
+    },
+    "background": {
+      "legend": "背景與遊戲區",
+      "dim": "背景暗度",
+      "blur": "背景模糊",
+      "playfieldScale": "遊戲區縮放",
+      "videos": "背景影片",
+      "storyboards": "Storyboard",
+      "parallax": "背景視差",
+      "bloom": "Bloom 光暈"
+    },
+    "cursor": {
+      "legend": "游標與顏色",
+      "size": "游標大小",
+      "trailStyle": "軌跡樣式",
+      "trailOption": "樣式 {n}",
+      "rainbow": "彩虹游標",
+      "glow": "軌跡光暈",
+      "ripples": "點擊波紋",
+      "smoke": "游標煙霧",
+      "skinColors": "使用 Skin 顏色",
+      "beatmapColors": "使用圖譜顏色"
+    },
+    "hud": {
+      "legend": "HUD 顯示",
+      "score": "分數與準確率",
+      "hpBar": "HP 條",
+      "combo": "Combo",
+      "hitError": "誤差條",
+      "pp": "PP 計數器",
+      "hitCounter": "判定計數器",
+      "strainGraph": "難度曲線",
+      "keyOverlay": "按鍵顯示",
+      "scoreboard": "排行榜",
+      "mods": "Mods",
+      "results": "結算畫面"
+    },
+    "objects": {
+      "legend": "Hit Object",
+      "approach": "Approach Circle",
+      "comboNumbers": "Combo 數字",
+      "sliderEnds": "Slider 尾圈",
+      "followCircle": "Slider Follow Circle",
+      "ticks": "Slider Tick"
+    }
+  },
+  "diagnostics": {
+    "title": "診斷報告",
+    "hint": "協助排查 GPU 與渲染器問題",
+    "includes": "內容包含作業系統、GPU 型號與驅動版本、編碼器自我測試、danser 與 ffmpeg 資訊，以及最近的渲染結果與日誌；家目錄路徑會被遮蔽。",
+    "excludes": "不包含 token、密鑰、IP 位址或玩家名稱。",
+    "privacy": "不會自動上傳任何資料，是否分享由你決定。",
+    "download": "下載報告",
+    "copy": "複製摘要",
+    "issue": "開啟 GitHub issue",
+    "summaryLabel": "報告摘要",
+    "loading": "正在產生報告…編碼器自我測試可能需要一點時間。",
+    "downloaded": "已下載報告。",
+    "copied": "已複製摘要到剪貼簿。",
+    "copyManual": "瀏覽器封鎖了剪貼簿，請手動選取下方文字並複製。",
+    "opened": "已在新分頁開啟 GitHub issue。",
+    "openAgain": "報告已就緒，請再按一次「開啟 GitHub issue」。",
+    "needsToken": "此伺服器需要 service token，請在 01 填入後再試。",
+    "failed": "無法取得診斷報告，請再試一次。",
+    "noIssueLink": "報告中沒有有效的 GitHub issue 連結。"
+  }
+}
