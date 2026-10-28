@@ -7,20 +7,29 @@ Drop a replay into the web page: the service looks the beatmap up through the os
 mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video encoding runs on your GPU
 (NVIDIA NVENC, AMD AMF or Intel Quick Sync) when it can and falls back to the CPU (x264) when it cannot.
 
-> **Windows and NVIDIA/AMD support is new and needs testers.** If you have one of those setups, running
-> `npm run doctor` and sending the report helps a lot. See [Diagnostics & reporting](#diagnostics--reporting).
+<p>
+  <img src="docs/screenshot-en.png" alt="osu-render web UI on desktop: replay upload, custom render settings and the diagnostics card" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="osu-render web UI on a phone, in Spanish" width="190">
+</p>
+
+> **Windows and NVIDIA/AMD support is new and needs testers.** If you have one of those setups, the
+> [Windows portable zip](#windows-quick-start-portable-zip-recommended) is the easiest way to try it, and
+> [sending a report](#reporting-results-for-testers) helps a lot.
 
 ## Contents
 
 - [Features](#features)
 - [Platform & GPU support](#platform--gpu-support)
-- [Requirements](#requirements)
-- [osu! OAuth application](#osu-oauth-application)
-- [Quick start: Windows](#quick-start-windows)
-- [Quick start: Linux](#quick-start-linux)
+- [Windows quick start: portable zip (recommended)](#windows-quick-start-portable-zip-recommended)
+- [Reporting results (for testers)](#reporting-results-for-testers)
+- [FAQ](#faq)
+- [Install from source](#install-from-source)
+  - [Requirements](#requirements)
+  - [osu! OAuth application](#osu-oauth-application)
+  - [Windows from source](#windows-from-source)
+  - [Linux](#linux)
 - [Configuration](#configuration)
 - [How encoder selection works](#how-encoder-selection-works)
-- [Diagnostics & reporting](#diagnostics--reporting)
 - [HTTP API](#http-api)
 - [Security notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
@@ -29,7 +38,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 
 ## Features
 
-- Drag-and-drop web UI in English, 繁體中文 and Español.
+- Drag-and-drop web UI in English, 繁體中文 and Español (desktop and mobile layouts).
 - Upload only the replay. The beatmap is found by its checksum through the osu! API, downloaded from
   configurable mirrors (with fallback) and checked against the replay's MD5 before rendering.
 - 720p or 1080p at 60 FPS, H.264 video with AAC audio.
@@ -40,7 +49,8 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 - Disk guard: renders are refused when free space is low; old videos and replays expire after 24 hours and
   cached beatmaps are evicted least-recently-used first.
 - Small HTTP API with Range downloads and an optional bearer token.
-- Built-in diagnostics report (`npm run doctor` or the web UI) for bug reports.
+- Built-in diagnostics report (`doctor.bat`, `npm run doctor` or the web UI) for bug reports.
+- Windows portable zip: Node.js and danser-go included, nothing to install.
 
 ## Platform & GPU support
 
@@ -57,7 +67,140 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 
 HEVC variants (`hevc_nvenc`, `hevc_amf`, `hevc_qsv`) can be forced with `RENDER_ENCODER`.
 
-## Requirements
+## Windows quick start: portable zip (recommended)
+
+The portable zip contains everything: the app, a Node.js runtime and danser-go with its FFmpeg. You do not
+need to install Node.js, Git or danser. Windows 10 or 11, 64-bit.
+
+1. **Download** `osu-render-<version>-win-x64.zip` from the
+   [latest release](https://github.com/956zs/osu-render/releases/latest).
+2. **Unzip it anywhere you can write to**, for example `C:\osu-render` or a folder in `Documents`. Not inside
+   `C:\Program Files` (the service writes its data next to itself) and not inside a cloud-synced folder.
+   Optional: before unzipping, right-click the zip → **Properties** → tick **Unblock**, so Windows asks fewer
+   questions later.
+3. **Create an osu! OAuth application** (one-time, takes a minute):
+   1. Open <https://osu.ppy.sh/home/account/edit>, scroll to **OAuth** and click **New OAuth Application**.
+   2. Pick any name. For **Application Callback URL** use `http://127.0.0.1:3030/` (it is never called, the
+      field may also stay empty).
+   3. Keep the page open: you need the **Client ID** (a number) and the **Client Secret**.
+4. **Double-click `start.bat`.** On the first run it asks for the client ID and the client secret (typing is hidden;
+   paste it and press Enter) and saves them to `.env` in the same folder. The secret stays on your PC; do not share it.
+5. **Your browser opens <http://127.0.0.1:3030/>** as soon as the service is ready. Drop a `.osr` replay on the page.
+   The chip at the top right shows which encoder is in use (for example *GPU · NVIDIA NVENC*).
+
+**Keep the console window open.** It is the service: closing it stops the service and any render in progress.
+Run `start.bat` again to start it next time (the setup questions are only asked once).
+
+> [!IMPORTANT]
+> danser needs OpenGL 3.3 from your GPU driver, which only exists in your **logged-in desktop session**. Run
+> `start.bat` from your desktop as your normal user. It does not work as a Windows Service, from a scheduled
+> task set to "Run whether user is logged on or not", or over SSH/remote shells.
+
+**SmartScreen and Defender.** The batch files and danser's executables are not code-signed. If SmartScreen
+shows "Windows protected your PC", click **More info → Run anyway**. Defender may scan `danser-cli.exe` and
+FFmpeg the first time, which can make the first start or render slow; if it quarantines a file, restore it and
+add an exclusion for the `danser` folder. Only download the zip from this repository's
+[Releases](https://github.com/956zs/osu-render/releases) page.
+
+**Changing settings.** Edit `.env` in the unzipped folder with Notepad (see [Configuration](#configuration)), then
+close the console window and run `start.bat` again. To redo the first-run questions, delete `.env`.
+
+**Updating to a new version.**
+
+1. Close the console window.
+2. Unzip the new version into a **new** folder.
+3. Copy `.env` and the whole `data` folder from the old folder into the new one. If you created or edited
+   `danser\settings\default.json`, copy it too.
+4. Run `start.bat` from the new folder. Delete the old folder once everything works.
+
+**What is inside the zip** (top folder `osu-render\`):
+
+| Path | What it is |
+| --- | --- |
+| `start.bat` | Starts the service (asks for the osu! credentials on the first run) and opens the browser. |
+| `doctor.bat` | Runs the diagnostics check and opens the folder with the report, see [Reporting results](#reporting-results-for-testers). |
+| `runtime\node.exe` | Node.js 24 LTS (official Windows x64 build, checksum-verified when the zip is built). |
+| `danser\` | danser-go 0.12.1 for Windows, unmodified, including its FFmpeg build. |
+| `dist\`, `public\`, `config\`, `node_modules\`, `package.json` | The app itself (compiled, production dependencies only). |
+| `scripts\windows\setup.ps1` | The first-run setup used by `start.bat`. |
+| `.env.example` | Template for `.env`, with every setting explained. |
+| `README*.md`, `LICENSE`, `THIRD_PARTY_NOTICES.txt` | Documentation, this project's license and the licenses of the bundled software. |
+
+`data\` (database, replays, videos, beatmap cache, logs and reports) and `.env` are created next to these files
+on the first run.
+
+The bundled third-party software keeps its own license: Node.js (MIT and others), danser-go (GPL-3.0) and the
+FFmpeg build shipped inside danser, plus the npm packages in `node_modules`. `THIRD_PARTY_NOTICES.txt` in the zip
+lists them.
+
+## Reporting results (for testers)
+
+Whether it works or not, a report tells us which GPU, driver and encoder you have and how each encoder
+self-test went. Any of these produces the same report:
+
+- **Windows zip:** double-click **`doctor.bat`**. It prints a summary, saves
+  `data\diagnostics\doctor-<timestamp>.json` and opens that folder in Explorer. You can run it while the
+  service is running or stopped.
+- **Web UI:** the **Diagnostics** card has **Download report** (the JSON file), **Copy summary** (short text for
+  chat) and **Open GitHub issue** (opens a pre-filled issue form in a new tab). Collecting the report can take
+  a few seconds because it self-tests every encoder.
+- **From source:** `npm run doctor` (summary) or `npm run doctor -- --json` (prints the JSON). Both also write
+  the file to `data/diagnostics/`. `GET /api/diagnostics` returns the JSON too.
+
+The doctor self-tests **every** supported encoder, not just the first that works, so one report shows the whole
+NVENC / AMF / QSV / x264 picture. Then either open an issue with the
+[GPU / platform report](https://github.com/956zs/osu-render/issues/new?template=gpu-report.yml) template
+(attach or paste the JSON), or send the file to the maintainer directly. If a render failed, mention roughly
+when, and what the page showed.
+
+### Privacy
+
+- **Included:** OS name/version/architecture, CPU model, core count, RAM size, GPU names, vendors and driver
+  versions, danser and FFmpeg versions and FFmpeg's encoder list, encoder self-test results (with the end of
+  FFmpeg's error output), the startup check result, a config summary (host, port, encoder setting, mirror
+  host names, and only *whether* OAuth credentials and `AUTH_TOKEN` are set), free disk space, metadata of
+  the last 20 renders (status, encoder, resolution, timings, error code and a short tail of danser's log, which
+  can mention beatmap titles), and a summary of danser's `danser.log` (versions, GPU used for OpenGL).
+- **Excluded:** the OAuth client ID and secret, `AUTH_TOKEN`, IP addresses, player names, replay and beatmap
+  files. Your home folder is replaced with `~` and your user name with `<user>`.
+- **Nothing is sent automatically.** The service never uploads anything. You choose whether to share the
+  file. The **Open GitHub issue** button only opens a pre-filled page in your browser (that text travels to
+  github.com in the page address); nothing is published until you press **Submit**. GitHub issues are public,
+  so read the report before posting it.
+
+## FAQ
+
+**Does it upload anything?**
+No telemetry. The service only talks to the osu! API (to get a token and look up the beatmap by its checksum)
+and to the beatmap mirrors in `BEATMAP_MIRRORS` (to download the `.osz`). Replays and videos stay on your
+machine and are deleted after 24 hours. Diagnostics reports are only shared if you share them, see
+[Privacy](#privacy).
+
+**Can I run it as a Windows service?**
+No. danser needs the OpenGL driver of a logged-in desktop session; Windows services run in session 0, where
+only a basic OpenGL 1.1 driver exists, and every render fails. To start it automatically, use a Task Scheduler
+task that runs **at log on, only when the user is logged on**, see [Windows from source](#windows-from-source)
+(for the zip, point the task at `start.bat`).
+
+**Which GPU is used?**
+For video encoding, the first encoder that passes the startup self-test, in the order NVIDIA → AMD → Intel on
+Windows (NVIDIA → Intel → AMD on Linux), else the CPU. The chip at the top right of the page shows the result,
+and `RENDER_ENCODER` forces a specific one, see [How encoder selection works](#how-encoder-selection-works).
+danser's OpenGL drawing is chosen by Windows/the driver and can be a different GPU on laptops, see
+[Troubleshooting](#troubleshooting) (dual-GPU laptops and `danser.log`).
+
+**Can friends on my LAN use it?**
+Yes. In `.env` set `HOST=0.0.0.0` and a long random `AUTH_TOKEN`, then restart. Allow Node.js through the
+Windows Firewall on **private** networks when Windows asks (or add an inbound rule for TCP port 3030). Friends
+open `http://<your-PC's-LAN-IP>:3030/` and enter the token in the **Service token** field. Renders run one at a
+time and each client can have at most 3 unfinished jobs. Do not expose it to the internet without HTTPS, see
+[Security notes](#security-notes).
+
+## Install from source
+
+Use this on Linux, or on Windows if you want to run from a Git checkout instead of the zip.
+
+### Requirements
 
 - **Node.js 22.12 or newer** (the current LTS is recommended). On Windows use the 64-bit build.
 - **danser-go 0.11 or newer, 0.12.1 recommended.** Download the zip for your OS from the
@@ -75,7 +218,7 @@ HEVC variants (`hevc_nvenc`, `hevc_amf`, `hevc_qsv`) can be forced with `RENDER_
     `libmfx-gen1` / `onevpl-intel-gpu` on some distributions).
 - **Disk space:** keep at least 15 GiB free. New renders are refused below 8 GiB.
 
-## osu! OAuth application
+### osu! OAuth application
 
 The service uses the osu! API v2 **client credentials** grant: it only reads public beatmap data and never
 logs anyone in.
@@ -83,10 +226,11 @@ logs anyone in.
 1. Open <https://osu.ppy.sh/home/account/edit>, scroll to **OAuth** and click **New OAuth Application**.
 2. Pick any name. The **Application Callback URL** can stay empty. If the form insists on one, use
    `http://127.0.0.1:3030/` (it is never called).
-3. Copy the **Client ID** and **Client Secret** into `.env` as `OSU_CLIENT_ID` and `OSU_CLIENT_SECRET`.
-   The secret stays on the server and is never sent to the browser. Do not share it.
+3. Copy the **Client ID** and **Client Secret** into `.env` as `OSU_CLIENT_ID` and `OSU_CLIENT_SECRET`
+   (the portable zip's `start.bat` does this for you). The secret stays on the server and is never sent to the
+   browser. Do not share it.
 
-## Quick start: Windows
+### Windows from source
 
 > [!IMPORTANT]
 > Run the service **inside your logged-in Windows desktop session** (a normal terminal window, or a Task
@@ -137,7 +281,7 @@ logs anyone in.
    ```
 
    `npm run doctor` prints what it found (danser, FFmpeg, GPUs, which encoders pass the self-test) and saves a
-   report, see [Diagnostics & reporting](#diagnostics--reporting).
+   report, see [Reporting results](#reporting-results-for-testers).
 
 5. Open <http://127.0.0.1:3030/> and drop a replay. Keep the terminal open while the service runs.
 
@@ -153,8 +297,10 @@ Register-ScheduledTask -TaskName "osu-render" -Action $action -Trigger $trigger 
 
 This registers a task that runs only while you are logged on, which is what danser needs. Do not switch it to
 "Run whether user is logged on or not". Remove it with `Unregister-ScheduledTask -TaskName osu-render`.
+For the portable zip, run the same commands from the unzipped folder with `-Argument "/c start.bat"` (after
+the first run, so `.env` already exists).
 
-## Quick start: Linux
+### Linux
 
 ```sh
 # 1. danser (the zip has no execute bits, so set them)
@@ -196,8 +342,9 @@ To keep it running after you log out, enable lingering: `loginctl enable-linger 
 
 ## Configuration
 
-Settings are read from `.env` in the repository root. Variables already set in the real environment win over
-`.env`. Paths may be absolute or relative to the repository root.
+Settings are read from `.env` in the service folder (the repository root, or the unzipped folder for the
+portable zip). Variables already set in the real environment win over `.env`. Paths may be absolute or
+relative to that folder. Empty values count as unset. Restart the service after editing.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -248,33 +395,6 @@ If it ends up on `libx264`, renders still work but `/health` reports `"status": 
 failed). While degraded, the check is repeated from time to time (on `/health` requests and new renders), so a
 GPU that becomes available later is picked up without a restart.
 
-## Diagnostics & reporting
-
-If something does not work, or you simply want to help with testing, send a diagnostics report:
-
-1. **`npm run doctor`** prints a summary and writes `data/diagnostics/doctor-<timestamp>.json`.
-   `npm run doctor -- --json` prints the JSON itself instead of the summary. The doctor self-tests **every** supported
-   encoder, not just the first that works, so one report shows the whole NVENC / AMF / QSV / x264 picture.
-2. **In the web UI**, the **Diagnostics** card has **Download report** (the same JSON), **Copy summary** (short
-   text for chat) and **Open GitHub issue** (a pre-filled issue form). `GET /api/diagnostics` returns the JSON too.
-3. **Open an issue** with the [GPU / platform report](https://github.com/956zs/osu-render/issues/new?template=gpu-report.yml)
-   template and paste the JSON. Sending the file to the maintainer directly works just as well.
-
-### Privacy
-
-- **Included:** OS name/version/architecture, CPU model, core count, RAM size, GPU names, vendors and driver
-  versions, danser and FFmpeg versions and FFmpeg's encoder list, encoder self-test results (with the end of
-  FFmpeg's error output), the startup check result, a config summary (host, port, encoder setting, mirror
-  host names, and only *whether* OAuth credentials and `AUTH_TOKEN` are set), free disk space, and metadata of
-  the last 20 renders (status, encoder, resolution, timings, error code and a short tail of danser's log, which
-  can mention beatmap titles), and a summary of danser's `danser.log` (versions, GPU used for OpenGL).
-- **Excluded:** the OAuth client ID and secret, `AUTH_TOKEN`, IP addresses, player names, replay and beatmap
-  files. Your home folder is replaced with `~` and your user name with `<user>`.
-- **Nothing is sent automatically.** The service never uploads anything. You choose whether to share the
-  file. The **Open GitHub issue** button only opens a pre-filled page in your browser (that text travels to
-  github.com in the page address); nothing is published until you press **Submit**. GitHub issues are public,
-  so read the report before posting it.
-
 ## HTTP API
 
 If `AUTH_TOKEN` is set, add `-H "Authorization: Bearer $AUTH_TOKEN"` to every `/api/*` call.
@@ -314,17 +434,18 @@ per render, 5 uploads per minute and 3 unfinished jobs per client.
 
 ## Troubleshooting
 
-**`/health` is degraded.** The `reason` field says why:
+**`/health` is degraded.** The `reason` field (also shown in the status chip on the page) says why:
 
 | Reason | Meaning / what to do |
 | --- | --- |
-| `renderer_unavailable` | danser-cli was not found. Check `DANSER_DIR` / `DANSER_BIN`; on Linux run `chmod +x`. |
+| `renderer_unavailable` | danser-cli was not found. Check `DANSER_DIR` / `DANSER_BIN`; on Linux run `chmod +x`. With the zip, check that `danser\danser-cli.exe` exists (Defender may have quarantined it). |
 | `display_unavailable` | Linux with danser 0.11 and no `DISPLAY` / `WAYLAND_DISPLAY`. Start it from your desktop session or use danser 0.12+. |
 | `hardware_encoder_unavailable` | No GPU encoder passed the self-test; rendering on the CPU (slower). See below. |
 | `encoder_unavailable` | The encoder set in `RENDER_ENCODER` failed (x264 is used if it works), or no encoder works at all. |
 | `storage_low` | Less than 8 GiB free in `DATA_DIR`. |
 
-**A GPU encoder fails the self-test.** Run `npm run doctor` and look at `encoderProbes[].error`:
+**A GPU encoder fails the self-test.** Run `doctor.bat` / `npm run doctor` and look at `encoderProbes[].error`
+in the report:
 
 - NVIDIA: `Driver does not support the required nvenc API version` or `No capable devices found` means the
   driver is too old or the NVIDIA GPU is not active (laptops: plug in power and check the GPU is not disabled).
@@ -334,20 +455,31 @@ per render, 5 uploads per minute and 3 unfinished jobs per client.
   On Linux install `intel-media-driver` and `vpl-gpu-rt`.
 
 **Laptop with two GPUs (NVIDIA Optimus / AMD switchable graphics).** danser's OpenGL may run on the integrated
-GPU. Open Windows **Settings → System → Display → Graphics**, add `danser-cli.exe`, choose **Options → High
-performance** and save. The per-program setting in the NVIDIA Control Panel works too.
+GPU. Open Windows **Settings → System → Display → Graphics**, add `danser-cli.exe` (in the zip: the `danser`
+folder), choose **Options → High performance** and save. The per-program setting in the NVIDIA Control Panel
+works too.
 
 **Check what danser actually used.** danser writes `danser.log` in its own folder on every run. It contains the
 `danser-go version`, the OpenGL vendor/renderer/version that was really used (so you can see which GPU drew the
-frames), and the FFmpeg path and arguments.
+frames), and the FFmpeg path and arguments. Per-render logs are kept in `data/logs/`.
 
 **`RENDER_TIMEOUT`.** A render took longer than 30 minutes and was stopped. This mostly happens with the CPU
 fallback on a slow machine; try 720p, fix the GPU encoder, or check the render log in `data/logs/`.
 
+**`start.bat` or `doctor.bat` says "osu-render files are missing".** The zip was opened in Explorer's zip view or
+only partly extracted. Right-click the zip → **Extract All**, then run the `.bat` from the extracted folder.
+
+**`start.bat` says the port is already in use.** osu-render is probably already running in another window, so it
+opens the page and stops. If the page shows something else, set another `PORT` in `.env`.
+
+**`start.bat` says "osu-render stopped with an error".** Read the text above that line, then run `doctor.bat`
+and send the report. Do not unzip into `C:\Program Files` (the folder must be writable).
+
 **Windows SmartScreen / Defender blocks danser.** danser's executables are not signed. Download danser only
-from its [GitHub releases](https://github.com/Wieku/danser-go/releases). Before extracting, you can right-click
-the zip → **Properties** → tick **Unblock**. If SmartScreen still appears, choose **More info → Run anyway**.
-If Defender quarantines a file, restore it and add an exclusion for the danser folder.
+from its [GitHub releases](https://github.com/Wieku/danser-go/releases) (or use the zip from this project's
+releases). Before extracting, you can right-click the zip → **Properties** → tick **Unblock**. If SmartScreen
+still appears, choose **More info → Run anyway**. If Defender quarantines a file, restore it and add an
+exclusion for the danser folder.
 
 **PowerShell says "running scripts is disabled on this system" for `npm`.** Run `npm.cmd` instead of `npm`, or
 allow local scripts once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
@@ -355,11 +487,12 @@ allow local scripts once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 **`npm ci` tries to compile `better-sqlite3`.** Use a 64-bit Node.js 22 or 24 (prebuilt binaries exist for
 those); other versions need Visual Studio Build Tools.
 
-**Port already in use (`EADDRINUSE`).** Another program uses port 3030. Set another `PORT` in `.env`, or find the
-process: `Get-NetTCPConnection -LocalPort 3030` (Windows) / `ss -ltnp 'sport = :3030'` (Linux).
+**Port already in use (`EADDRINUSE`).** Another program (or a second copy of the service) uses port 3030. Set
+another `PORT` in `.env`, or find the process: `Get-NetTCPConnection -LocalPort 3030` (Windows) /
+`ss -ltnp 'sport = :3030'` (Linux).
 
 **Renders fail on Windows only when started in the background.** The service must run in your desktop session,
-see the [Windows quick start](#quick-start-windows).
+see [Can I run it as a Windows service?](#faq).
 
 ## Development
 
@@ -374,9 +507,15 @@ Node 22 on Ubuntu) and a smoke job that downloads danser 0.12.1 on both and chec
 danser and FFmpeg and that the x264 self-test passes. CI runners have no GPU, so hardware encoders are only
 tested by people running the doctor on real machines.
 
+The Windows portable zip is built by `.github/workflows/release.yml` from the files in `packaging/`: on every
+`v*` tag it assembles the zip on a Windows runner, smoke-tests the extracted copy and attaches the zip and its
+SHA-256 checksum to the GitHub Release.
+
 ## License & credits
 
 [MIT](LICENSE) © 2026 956zs.
 
-- Rendering by [danser-go](https://github.com/Wieku/danser-go) by Wieku (not bundled; download it separately).
+- Rendering by [danser-go](https://github.com/Wieku/danser-go) by Wieku (GPL-3.0). Not part of this repository;
+  the Windows portable zip bundles an unmodified copy.
+- The portable zip also bundles [Node.js](https://nodejs.org/). See `THIRD_PARTY_NOTICES.txt` in the zip.
 - osu! is a trademark of ppy Pty Ltd. This project is not affiliated with or endorsed by ppy.
