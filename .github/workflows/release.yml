@@ -46,13 +46,15 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             $version = $env:GITHUB_REF_NAME -replace '^v', ''
             if ($version -ne $pkg) { throw "Tag $env:GITHUB_REF_NAME does not match package.json version $pkg" }
           } else {
-            $version = "$pkg-$($env:GITHUB_SHA.Substring(0, 7))"
+            $version = "$pkg-$($env:COMMIT_SHA.Substring(0, 7))"
           }
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Package version: $version"
