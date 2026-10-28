@@ -56,6 +56,9 @@ test('invalid values name the offending key', async () => {
     [{ i18n: { languages: [] } }, /i18n\.languages must be a non-empty array/],
     [{ diagnostics: { issueUrl: 'http://example.com' } }, /diagnostics\.issueUrl must be an https URL/],
     [{ encoders: { autoOrder: { linux: 'libx264' } } }, /encoders\.autoOrder\.linux must be a non-empty array/],
+    [{ reportWebhook: { timeoutMs: 0 } }, /reportWebhook\.timeoutMs must be an integer >= 1/],
+    [{ reportWebhook: { autoLogTailBytes: { failed: -1 } } }, /reportWebhook\.autoLogTailBytes\.failed must be an integer >= 0/],
+    [{ reportWebhook: { url: 'https://discord.com/api/webhooks/1/a' } }, /reportWebhook\.url is not a known setting/],
     [{ extra: true }, /extra is not a known setting/],
   ];
   for (const [local, pattern] of cases) {

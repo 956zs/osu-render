@@ -73,6 +73,19 @@ test('diagnostics card offers download, copy and GitHub issue actions', async ()
   assert.equal((script.match(/window\.open\(/g) ?? []).length, 1);
 });
 
+test('send to developer button and auto-send note appear only when the webhook is enabled', async () => {
+  const { markup, script } = await page();
+  const card = /<section class="panel diag-card" id="diagnostics"[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
+  assert.match(startTag(card, 'diagSend'), /^<button type="button" id="diagSend" hidden data-i18n="diagnostics\.send">/);
+  assert.match(startTag(card, 'diagAutoSend'), /\shidden\s/);
+  assert.doesNotMatch(startTag(card, 'diagPrivacy'), /\shidden/);
+  assert.match(script, /const reporting = health\.reportWebhook === true;/);
+  assert.match(script, /diagSend\.hidden = !reporting; diagAutoSend\.hidden = !reporting; diagPrivacy\.hidden = reporting;/);
+  assert.match(script, /api\('\/api\/diagnostics\/send', \{ method: 'POST' \}\)/);
+  assert.match(script, /showDiagnostics\('diagnostics\.sent', 'ok'\)/);
+  assert.match(script, /\[diagSend, diagDownload, diagCopy, diagIssue\]/);
+});
+
 test('page stays self-contained and never renders text as HTML', async () => {
   const { html, markup, script } = await page();
   assert.doesNotMatch(html, /\son[a-z]+\s*=\s*["']/i, 'no inline event handler attributes');

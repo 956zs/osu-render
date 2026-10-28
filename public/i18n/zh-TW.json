@@ -74,7 +74,9 @@
     "BEATMAP_CHECKSUM_MISMATCH": "下載的圖譜版本與 replay 不符。",
     "RENDER_FAILED": "渲染失敗。",
     "RENDER_TIMEOUT": "渲染時間過長，已中止。",
-    "INTERNAL_ERROR": "伺服器發生內部錯誤。"
+    "INTERNAL_ERROR": "伺服器發生內部錯誤。",
+    "REPORT_WEBHOOK_DISABLED": "此伺服器沒有設定傳送報告給開發者的功能。",
+    "REPORT_SEND_FAILED": "無法把報告傳送給開發者，請稍後再試，或改為下載報告後傳送檔案。"
   },
   "settings": {
     "title": "自訂畫面設定",
@@ -143,9 +145,11 @@
     "includes": "內容包含作業系統、GPU 型號與驅動版本、編碼器自我測試、danser 與 ffmpeg 資訊，以及最近的渲染結果與日誌；家目錄路徑會被遮蔽。",
     "excludes": "不包含 token、密鑰、IP 位址或玩家名稱。",
     "privacy": "不會自動上傳任何資料，是否分享由你決定。",
+    "autoSend": "此伺服器會在每次渲染結束後，自動把遮蔽過個人資訊的報告傳送給開發者。",
     "download": "下載報告",
     "copy": "複製摘要",
     "issue": "開啟 GitHub issue",
+    "send": "傳送給開發者",
     "summaryLabel": "報告摘要",
     "loading": "正在產生報告…編碼器自我測試可能需要一點時間。",
     "downloaded": "已下載報告。",
@@ -155,6 +159,8 @@
     "openAgain": "報告已就緒，請再按一次「開啟 GitHub issue」。",
     "needsToken": "此伺服器需要 service token，請在 01 填入後再試。",
     "failed": "無法取得診斷報告，請再試一次。",
-    "noIssueLink": "報告中沒有有效的 GitHub issue 連結。"
+    "noIssueLink": "報告中沒有有效的 GitHub issue 連結。",
+    "sending": "正在把報告傳送給開發者…",
+    "sent": "已把報告傳送給開發者，感謝！"
   }
 }

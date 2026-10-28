@@ -15,5 +15,12 @@
     "issueUrl": "https://github.com/956zs/osu-render/issues/new",
     "issueTemplate": "gpu-report.yml"
   },
+  "reportWebhook": {
+    "username": "osu-render",
+    "timeoutMs": 15000,
+    "retryAfterCapMs": 5000,
+    "minIntervalMs": 1000,
+    "autoLogTailBytes": { "failed": 4096, "completed": 1024 }
+  },
   "i18n": { "languages": ["en", "zh-TW", "es"], "fallback": "en" }
 }

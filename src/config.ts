@@ -53,6 +53,8 @@ export const settings = Object.freeze({
   mirrors: (process.env.BEATMAP_MIRRORS ?? 'https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}')
     .split(',').map((value) => value.trim()).filter(Boolean),
   authToken: process.env.AUTH_TOKEN ?? '',
+  /** Secret: never log it. Validate with parseWebhookUrl (webhook-url.ts); invalid values disable reporting. */
+  reportWebhookUrl: env('REPORT_WEBHOOK_URL') ?? '',
 });
 
 export function getPaths(): Paths {

@@ -12,6 +12,7 @@ const READY: PreflightResult = { renderer: true, display: true, encoder: 'libx26
 async function withServer(
   run: (app: Awaited<ReturnType<typeof createHttpServer>>, counters: { probeAll: number }) => Promise<void>,
   rendering = false,
+  reporter?: HttpDependencies['reporter'],
 ): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-http-'));
   const counters = { probeAll: 0 };
@@ -37,6 +38,7 @@ async function withServer(
     },
     preflightState: { current: () => READY, refreshIfNeeded: async () => READY },
     paths: { replays: directory, videos: directory, data: directory, logs: directory },
+    reporter,
   } as unknown as HttpDependencies;
   const app = await createHttpServer(dependencies);
   try { await run(app, counters); } finally {
@@ -88,4 +90,55 @@ test('diagnostics endpoint skips encoder probes while a render is active', async
     assert.equal(response.json().probesSkipped, 'render_active');
     assert.deepEqual(response.json().encoderProbes, []);
   }, true);
+});
+
+test('health reports whether webhook reporting is enabled', async () => {
+  await withServer(async (app) => {
+    assert.deepEqual((await app.inject({ method: 'GET', url: '/health' })).json(), { status: 'ok', reportWebhook: false });
+  });
+  await withServer(async (app) => {
+    assert.equal((await app.inject({ method: 'GET', url: '/health' })).json().reportWebhook, true);
+  }, false, { send: async () => undefined });
+});
+
+test('send to developer is rejected when no webhook is configured', async () => {
+  await withServer(async (app, counters) => {
+    const response = await app.inject({ method: 'POST', url: '/api/diagnostics/send', headers: auth });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json().error.code, 'REPORT_WEBHOOK_DISABLED');
+    assert.equal(counters.probeAll, 0);
+  });
+});
+
+test('send to developer posts the shared report once per click burst', async () => {
+  const sent: Array<{ trigger: string; schema: number }> = [];
+  const reporter: HttpDependencies['reporter'] = {
+    send: async (report, trigger) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      sent.push({ trigger, schema: report.schema });
+    },
+  };
+  await withServer(async (app, counters) => {
+    const [first, second] = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/diagnostics/send', headers: auth }),
+      app.inject({ method: 'POST', url: '/api/diagnostics/send', headers: auth }),
+    ]);
+    assert.deepEqual(first.json(), { sent: true });
+    assert.deepEqual(second.json(), { sent: true });
+    assert.deepEqual(sent, [{ trigger: 'manual', schema: 1 }]);
+    assert.equal(counters.probeAll, 1);
+    const cached = await app.inject({ method: 'GET', url: '/api/diagnostics', headers: auth });
+    assert.equal(cached.statusCode, 200);
+    assert.equal(counters.probeAll, 1);
+  }, false, reporter);
+});
+
+test('send to developer surfaces REPORT_SEND_FAILED without internals', async () => {
+  const { ReportSendError } = await import('../src/report-webhook.js');
+  const reporter: HttpDependencies['reporter'] = { send: async () => { throw new ReportSendError('HTTP 404: Unknown Webhook'); } };
+  await withServer(async (app) => {
+    const response = await app.inject({ method: 'POST', url: '/api/diagnostics/send', headers: auth });
+    assert.equal(response.statusCode, 502);
+    assert.deepEqual(response.json(), { error: { code: 'REPORT_SEND_FAILED', message: 'The report could not be sent to the developer.' } });
+  }, false, reporter);
 });

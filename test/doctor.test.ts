@@ -18,6 +18,7 @@ test('doctor --json prints only the JSON report and exits 1 without an encoder',
   Object.assign(env, {
     PATH: emptyPath, DATA_DIR: path.join(directory, 'data'), DANSER_DIR: path.join(directory, 'no-danser'),
     OSU_CLIENT_SECRET: 'doctor-secret-value', AUTH_TOKEN: 'doctor-token-value',
+    REPORT_WEBHOOK_URL: 'https://discord.com/api/webhooks/1234567890/doctor-webhook-token',
   });
   try {
     const child = spawn(process.execPath, [DOCTOR, '--json'], { cwd: directory, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -34,7 +35,10 @@ test('doctor --json prints only the JSON report and exits 1 without an encoder',
     assert.deepEqual(report.danser.files, { danserCli: false, ffmpeg: false, ffprobe: false });
     assert.equal(report.config.oauthConfigured, false);
     assert.equal(report.config.authTokenSet, true);
-    assert.ok(!stdout.includes('doctor-secret-value') && !stdout.includes('doctor-token-value'));
+    assert.equal(report.config.reportWebhook, true);
+    for (const secret of ['doctor-secret-value', 'doctor-token-value', 'doctor-webhook-token']) {
+      assert.ok(!stdout.includes(secret) && !stderr.includes(secret), secret);
+    }
     assert.match(stderr, /Report written to/);
     const files = await readdir(path.join(directory, 'data', 'diagnostics'));
     assert.equal(files.length, 1);

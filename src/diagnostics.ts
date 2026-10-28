@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { APP_ROOT, appConfig } from './app-config.js';
 import { SUPPORTED_ENCODERS, encoderKind } from './encoders.js';
 import { libraryEnvironment, redactText, type DanserTools } from './platform.js';
+import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 import type { EncoderProbe, Paths, PreflightResult, RenderRow } from './types.js';
 
 const execFileAsync = promisify(execFile);
@@ -51,6 +52,8 @@ export interface DiagnosticsSettings {
   osuClientSecret: string;
   authToken: string;
   mirrors: readonly string[];
+  /** Raw REPORT_WEBHOOK_URL value; only used to scrub it and to report whether reporting is on. */
+  reportWebhookUrl?: string;
 }
 
 export interface DiagnosticsOptions {
@@ -59,7 +62,7 @@ export interface DiagnosticsOptions {
   paths: Pick<Paths, 'data' | 'logs'>;
   /** Current service preflight result; when omitted preflight.run() is called. */
   preflightResult?: PreflightResult;
-  database?: { recentRenders(limit: number): RenderRow[] };
+  database?: { recentRenders(limit: number): RenderRow[]; getRender?(id: string): RenderRow | undefined };
   storage?: { freeBytes(): Promise<number> };
   runCommand?: DiagnosticsCommandRunner;
   platform?: NodeJS.Platform;
@@ -67,8 +70,12 @@ export interface DiagnosticsOptions {
   sysDrmDir?: string;
   now?: Date;
   /** Skip the encoder self-tests (e.g. while a render is using the GPU) and report the preflight probes instead. */
-  skipProbes?: 'render_active';
+  skipProbes?: ProbesSkipped;
+  /** Render the report is about (auto reports): included even if older than the recent list, with its own log tail size. */
+  focusRender?: { id: string; logTailBytes: number };
 }
+
+export type ProbesSkipped = 'render_active' | 'auto_report';
 
 export interface GpuInfo {
   name: string;
@@ -121,8 +128,13 @@ export interface DiagnosticsReport {
   };
   preflight: PreflightResult;
   encoderProbes: EncoderProbe[];
-  probesSkipped?: 'render_active';
-  config: { host: HostScope; port: number; renderEncoder: string; oauthConfigured: boolean; authTokenSet: boolean; mirrors: string[] };
+  probesSkipped?: ProbesSkipped;
+  /** Index (in `renders`) of the render this report is about. */
+  focusRender?: number;
+  config: {
+    host: HostScope; port: number; renderEncoder: string; oauthConfigured: boolean; authTokenSet: boolean;
+    reportWebhook: boolean; mirrors: string[];
+  };
   storage: { freeBytes: number | null };
   renders: RenderDiagnostics[];
   errors: Array<{ source: string; error: string }>;
@@ -151,18 +163,24 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
   const encoderProbes = options.skipProbes ? preflight.probes
     : await attempt<EncoderProbe[]>('encoderProbes', [], () => options.preflight.probeAll());
   const toolEnv = tools ? libraryEnvironment(tools.libraryDirs, env, platform) : env;
-  const rows = await attempt<RenderRow[]>('renders', [],
-    async () => options.database?.recentRenders(appConfig.diagnostics.recentRenders) ?? []);
+  const rows = await attempt<RenderRow[]>('renders', [], async () => {
+    const recent = options.database?.recentRenders(appConfig.diagnostics.recentRenders) ?? [];
+    const focusId = options.focusRender?.id;
+    if (!focusId || recent.some((row) => row.id === focusId)) return recent;
+    const focused = options.database?.getRender?.(focusId);
+    return focused ? [...recent, focused] : recent;
+  });
   const [gpus, danser, freeBytes, renders, version] = await Promise.all([
     collectGpus({ platform, env, runCommand, errors, sysDrmDir: options.sysDrmDir ?? '/sys/class/drm' }),
     collectDanser(options.settings.danserDir, tools, toolEnv, runCommand, errors),
     attempt<number | null>('storage', null, () => options.storage?.freeBytes() ?? freeBytesOf(options.paths.data)),
-    collectRenders(rows, options.paths.logs, errors),
+    collectRenders(rows, options.paths.logs, errors, options.focusRender),
     appVersion(),
   ]);
   const playerNames = rows.map((row) => row.player_name ?? '').filter(Boolean);
 
   const settings = options.settings;
+  const focusIndex = rows.findIndex((row) => row.id === options.focusRender?.id) + 1;
   const unsanitized: Omit<DiagnosticsReport, 'issue'> = {
     schema: 1,
     generatedAt: (options.now ?? new Date()).toISOString(),
@@ -176,10 +194,12 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     preflight,
     encoderProbes,
     ...(options.skipProbes ? { probesSkipped: options.skipProbes } : {}),
+    ...(focusIndex > 0 ? { focusRender: focusIndex } : {}),
     config: {
       host: classifyHost(settings.host), port: settings.port, renderEncoder: settings.renderEncoder,
       oauthConfigured: Boolean(settings.osuClientId && settings.osuClientSecret),
       authTokenSet: Boolean(settings.authToken),
+      reportWebhook: parseWebhookUrl(settings.reportWebhookUrl) !== undefined,
       mirrors: settings.mirrors.map(mirrorHost),
     },
     storage: { freeBytes },
@@ -187,7 +207,7 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     errors,
   };
   const scrub = createScrubber({
-    secrets: [settings.authToken, settings.osuClientSecret], renderIds: rows.map((row) => row.id),
+    secrets: [settings.authToken, settings.osuClientSecret, ...webhookSecrets(settings.reportWebhookUrl)], renderIds: rows.map((row) => row.id),
     dataDir: options.paths.data,
   });
   const report = sanitizeValue(unsanitized, scrub, (text) => scrubPlayerNames(text, playerNames));
@@ -495,7 +515,9 @@ export async function readLogTail(file: string, bytes: number): Promise<string |
 
 // ---------------------------------------------------------------- renders
 
-async function collectRenders(rows: readonly RenderRow[], logsDir: string, errors: Errors): Promise<RenderDiagnostics[]> {
+async function collectRenders(
+  rows: readonly RenderRow[], logsDir: string, errors: Errors, focus?: DiagnosticsOptions['focusRender'],
+): Promise<RenderDiagnostics[]> {
   const renders: RenderDiagnostics[] = [];
   for (const [position, row] of rows.entries()) {
     const render: RenderDiagnostics = {
@@ -504,9 +526,11 @@ async function collectRenders(rows: readonly RenderRow[], logsDir: string, error
       renderMs: row.started_at !== null && row.completed_at !== null ? Math.max(0, row.completed_at - row.started_at) : null,
       errorCode: row.error_code,
     };
-    if (row.status === 'failed' && RENDER_ID_PATTERN.test(row.id)) {
+    const tailBytes = row.id === focus?.id ? focus.logTailBytes
+      : row.status === 'failed' ? appConfig.diagnostics.reportLogTailBytes : 0;
+    if (tailBytes > 0 && RENDER_ID_PATTERN.test(row.id)) {
       try {
-        const tail = await readLogTail(path.join(logsDir, `${row.id}.log`), appConfig.diagnostics.reportLogTailBytes);
+        const tail = await readLogTail(path.join(logsDir, `${row.id}.log`), tailBytes);
         if (tail !== undefined) render.logTail = scrubPlayerNames(tail, row.player_name ? [row.player_name] : []);
       } catch (error) {
         errors.push({ source: `renders.${position + 1}.log`, error: errorText(error) });
@@ -650,7 +674,7 @@ function driverSummary(report: IssueInput): string {
   return truncate(parts.join('; '), 300);
 }
 
-function renderSummary(render: RenderDiagnostics): string {
+export function renderSummary(render: RenderDiagnostics): string {
   const seconds = render.renderMs === null ? '' : `, ${(render.renderMs / 1000).toFixed(1)} s`;
   return `${render.status} (${render.encoder}, ${render.width}x${render.height}${seconds}${render.errorCode ? `, ${render.errorCode}` : ''})`;
 }

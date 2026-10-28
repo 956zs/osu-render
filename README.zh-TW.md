@@ -128,7 +128,26 @@ danser。適用 Windows 10 / 11 64 位元。
 
 ## 回報測試結果（給測試者）
 
-不論成功或失敗，一份報告就能告訴我們你的 GPU、驅動、編碼器，以及每個編碼器自我測試的結果。以下方式產生的是同一份報告：
+不論成功或失敗，一份報告就能告訴我們你的 GPU、驅動、編碼器，以及每個編碼器自我測試的結果。
+
+### 最簡單：自動把報告傳給開發者
+
+如果維護者私下（例如私訊）給了你一個**回報用 webhook 網址**：
+
+1. 在 osu-render 資料夾中，對 `.env` 檔按右鍵 →「**開啟方式**」→「**記事本**」（第一次執行 `start.bat` 時會建立這個檔案）。
+2. 找到靠近最後的 `REPORT_WEBHOOK_URL=` 這一行，把網址貼在 `=` 後面，不要加引號或空格：
+   `REPORT_WEBHOOK_URL=https://discord.com/api/webhooks/...`（舊版建立的 `.env` 沒有這一行，請自己加在最後）。
+3. 存檔，關掉 `start.bat` 的視窗，再重新執行 `start.bat`。
+
+之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷報告**」
+卡片也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
+不會重新測試，所以不會干擾渲染。網址錯誤時，服務會在啟動時記錄 `report_webhook_invalid`，並在不回報的狀態下繼續執行。
+
+請不要把網址給別人：任何拿到網址的人都能在那個頻道發訊息。
+
+### 其他回報方式
+
+以下方式產生的是同一份報告：
 
 - **Windows zip：** 雙擊 **`doctor.bat`**。它會印出摘要、儲存 `data\diagnostics\doctor-<timestamp>.json`，並在
   檔案總管開啟該資料夾。服務執行中或已停止時都可以執行。
@@ -145,12 +164,14 @@ doctor 會對**所有**支援的編碼器做自我測試，而不只是第一個
 
 - **包含：** 作業系統名稱／版本／架構、CPU 型號、核心數、記憶體大小、GPU 名稱、廠商與驅動版本、danser 與 FFmpeg
   版本及 FFmpeg 編碼器清單、編碼器自我測試結果（含 FFmpeg 錯誤輸出的結尾）、啟動檢查結果、設定摘要（host、port、
-  編碼器設定、mirror 主機名稱，以及 OAuth 憑證與 `AUTH_TOKEN` *是否*有設定）、剩餘磁碟空間、最近 20 個任務的
+  編碼器設定、mirror 主機名稱，以及 OAuth 憑證、`AUTH_TOKEN` 與 `REPORT_WEBHOOK_URL` *是否*有設定）、剩餘磁碟空間、最近 20 個任務的
   中繼資料（狀態、編碼器、解析度、耗時、錯誤代碼，以及一小段 danser 日誌結尾，其中可能出現圖譜名稱），以及 danser
   `danser.log` 的摘要（版本、OpenGL 使用的 GPU）。
-- **不包含：** OAuth client ID 與 secret、`AUTH_TOKEN`、IP 位址、玩家名稱、replay 與圖譜檔案。
+- **不包含：** OAuth client ID 與 secret、`AUTH_TOKEN`、webhook 網址、IP 位址、玩家名稱、replay 與圖譜檔案。
   家目錄會被替換成 `~`，使用者名稱替換成 `<user>`。
-- **不會自動傳送任何東西。** 服務從不上傳資料，要不要分享由你決定。「**開啟 GitHub issue**」按鈕只是在瀏覽器開啟
+- **沒有設定 `REPORT_WEBHOOK_URL` 時，不會自動傳送任何東西。** 此時服務不會上傳資料，要不要分享由你決定。設定之後，
+  上述報告（加上一段簡短摘要訊息）會在每次渲染結束時，以及你按下「**傳送給開發者**」時，送到該網址所屬的 Discord
+  頻道。webhook 網址本身不會被寫進日誌或報告。「**開啟 GitHub issue**」按鈕只是在瀏覽器開啟
   預先填好的頁面（內容會放在網址中送到 github.com），在你按下 **Submit** 之前不會發佈。GitHub issue 是公開的，
   貼出前請先看過報告內容。
 
@@ -158,7 +179,8 @@ doctor 會對**所有**支援的編碼器做自我測試，而不只是第一個
 
 **它會上傳任何東西嗎？**
 沒有任何遙測。服務只會連到 osu! API（取得 token、用 checksum 查圖譜），以及 `BEATMAP_MIRRORS` 裡的圖譜 mirror
-（下載 `.osz`）。replay 與影片都留在你的電腦上，24 小時後刪除。診斷報告只有在你自己分享時才會離開電腦，見[隱私](#隱私)。
+（下載 `.osz`）。replay 與影片都留在你的電腦上，24 小時後刪除。診斷報告只有在你自己分享，或設定了 `REPORT_WEBHOOK_URL`（每次渲染後會把遮蔽過的報告送到該 Discord webhook）時
+才會離開電腦，見[隱私](#隱私)。
 
 **可以把它設成 Windows 服務嗎？**
 不行。danser 需要已登入桌面工作階段裡的 OpenGL 驅動；Windows 服務跑在 session 0，那裡只有基本的 OpenGL 1.1，
@@ -335,6 +357,7 @@ journalctl --user -u osu-render.service -f
 | `BEATMAP_MIRRORS` | `https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}` | 以逗號分隔的 `.osz` 下載網址，依序嘗試。`{id}` 是 beatmapset ID。 |
 | `AUTH_TOKEN` | 空 | 有設定時，每個 `/api/*` 請求都需要 `Authorization: Bearer <token>`。 |
 | `MAX_QUEUE` | `20` | 未完成任務的上限。 |
+| `REPORT_WEBHOOK_URL` | 空 | Discord webhook（`https://discord.com/api/webhooks/<id>/<token>`，也接受 `discordapp.com`、`ptb.` 與 `canary.`），每次渲染結束與按下「**傳送給開發者**」時會收到遮蔽過的診斷報告。其他網址會在啟動時警告並停用。屬於機密：不會寫進日誌或報告。見[回報測試結果](#回報測試結果給測試者)。 |
 
 **danser 基礎設定。** 服務會複製 `DANSER_BASE_SETTINGS`，覆寫必要的項目（資料夾、60 FPS、編碼器、輸出），再寫到
 `<DANSER_DIR>/settings/<DANSER_SETTINGS_NAME>.json`。基礎檔不存在時使用 danser 內建預設值。想要一份可以調整
@@ -342,7 +365,7 @@ journalctl --user -u osu-render.service -f
 印出 `No beatmap specified, closing...` 後結束。
 
 不屬於機密的可調參數放在 [`config/defaults.json`](config/defaults.json)：各平台的編碼器自動順序、自我測試的尺寸與
-逾時、診斷報告大小與 issue 連結。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
+逾時、診斷報告大小、issue 連結，以及回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
 忽略。範例：
 
 ```json
@@ -375,7 +398,8 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | `GET /api/renders/:id/video` | 完成的 MP4，支援 HTTP `Range`。 |
 | `DELETE /api/renders/:id` | 取消任務。 |
 | `GET /api/diagnostics` | 診斷報告（與 `npm run doctor` 相同的 JSON）。 |
-| `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`。 |
+| `POST /api/diagnostics/send` | 把診斷報告送到 `REPORT_WEBHOOK_URL`。回傳 `{ "sent": true }`，或錯誤 `REPORT_WEBHOOK_DISABLED`（409，未設定）／`REPORT_SEND_FAILED`（502）。 |
+| `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`、`reportWebhook`。 |
 
 ```sh
 curl -F replay=@my-play.osr -F 'options={"resolution":"720p","skipIntro":true}' http://127.0.0.1:3030/api/renders
@@ -395,7 +419,8 @@ curl -o my-play.mp4 http://127.0.0.1:3030/api/renders/<id>/video
 - 瀏覽器無法傳入任意的 danser 或 FFmpeg 參數或檔案路徑。渲染選項會經過白名單檢查，轉換成固定的 danser 參數與設定修改。
 - 下載的 `.osz` 會以防禦性方式解壓縮：限制項目數與總大小，不允許絕對路徑、`..`、符號連結或其他特殊檔案、Windows
   保留名稱（`CON`、`NUL`、`COM1`…）或只差大小寫的重複名稱，而且 `.osu` 檔必須符合 replay 的圖譜 MD5。
-- OAuth secret 與 `AUTH_TOKEN` 留在 `.env`（git 會忽略），不會送到瀏覽器，也不會出現在診斷報告中。
+- OAuth secret、`AUTH_TOKEN` 與 `REPORT_WEBHOOK_URL` 留在 `.env`（git 會忽略），不會送到瀏覽器，也不會出現在診斷報告
+  或日誌中。只有設定 `REPORT_WEBHOOK_URL` 時報告才會送到 Discord，而且只會送到 `discord.com`／`discordapp.com`。
 
 ## 疑難排解
 
