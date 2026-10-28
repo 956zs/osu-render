@@ -282,7 +282,7 @@ jobs:
           Move-Item "$envFile.bak" $envFile
           # The server checks below run without a webhook.
           if ((Invoke-Setup -ClientId 1 -ClientSecret dummy-secret -Force) -ne 0) { throw 'setup.ps1 failed' }
-          if ((Get-EnvValue 'REPORT_WEBHOOK_URL') -ne '') { throw 'REPORT_WEBHOOK_URL should be empty' }
+          if ([string](Get-EnvValue 'REPORT_WEBHOOK_URL') -ne '') { throw 'REPORT_WEBHOOK_URL should be empty' } # no output = `$null
           Write-Host '::endgroup::'
 
           function Wait-Health([int]$seconds) {
