@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import multipart from '@fastify/multipart';
 import { limits, settings } from './config.js';
-import { AppError, publicError } from './errors.js';
+import { AppError, StorageLowError, publicError } from './errors.js';
 import { parseReplayFile } from './replay.js';
 import type { RenderDatabase } from './database.js';
 import type { RenderQueue } from './queue.js';
@@ -17,6 +17,10 @@ import { parseRenderOptions, type RenderOptions } from './render-options.js';
 import { appConfig } from './app-config.js';
 import { collectDiagnostics, type DiagnosticsReport } from './diagnostics.js';
 import type { ReportTrigger } from './report-webhook.js';
+import type { Updater } from './updater.js';
+import type { LocalSongsStatus } from './local-songs.js';
+import { removeRenderFiles } from './storage.js';
+import { DEFAULT_SKIN, installSkin, listSkins, skinInvalid, skinNameFromFilename, skinTooLarge, skinUploadPath, syncSkins } from './skins.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
@@ -32,6 +36,12 @@ export interface HttpDependencies {
   paths: Pick<Paths, 'replays' | 'videos' | 'data' | 'logs'>;
   /** Present only when REPORT_WEBHOOK_URL is valid. */
   reporter?: { send(report: DiagnosticsReport, trigger: ReportTrigger): Promise<void> };
+  /** Defaults to settings.danserSkinsDir. */
+  skinsDir?: string;
+  /** In-app updates; the /api/update routes exist only when present. */
+  updater?: Pick<Updater, 'applying' | 'checkLatest' | 'apply' | 'restartIfPending'>;
+  /** Local osu!stable Songs index; its status goes into diagnostics. */
+  localSongs?: { status(): LocalSongsStatus };
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -50,6 +60,7 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
       diagnosticsInFlight ??= collectDiagnostics({
         preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
         settings, paths: dependencies.paths, database: dependencies.database, storage: dependencies.storage,
+        localSongs: dependencies.localSongs,
         ...(renderActive(dependencies.database) ? { skipProbes: 'render_active' as const } : {}),
       }).then((report) => {
         diagnosticsCache = { at: Date.now(), report };
@@ -94,16 +105,29 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     return { sent: true };
   });
 
+  app.get('/api/skins', async (_request, reply) => reply.header('Cache-Control', 'no-store')
+    .send({ skins: (await syncSkins(skinsDirOf(dependencies), appConfig.skins)).map((name) => ({ name })) }));
+  app.post('/api/skins', async (request) => uploadSkin(request, dependencies));
+  const updater = dependencies.updater;
+  if (updater) {
+    app.get('/api/update', async (_request, reply) => reply.header('Cache-Control', 'no-store').send(await updater.checkLatest()));
+    // The restart runs from onResponse so the browser gets the answer before the server goes away.
+    app.post('/api/update/apply', { onResponse: async () => { updater.restartIfPending(); } }, async () => updater.apply());
+  }
   app.post('/api/renders', async (request) => createRender(request, dependencies));
+  app.get('/api/renders', async (request, reply) => reply.header('Cache-Control', 'no-store')
+    .send(listHistory(request, dependencies)));
   app.get('/api/renders/:id', async (request, reply) => getRender(request, reply, dependencies));
   app.get('/api/renders/:id/video', async (request, reply) => getVideo(request, reply, dependencies));
   app.delete('/api/renders/:id', async (request, reply) => cancelRender(request, reply, dependencies));
+  app.delete('/api/renders/:id/files', async (request) => deleteRenderFiles(request, dependencies));
   return app;
 }
 
 async function createRender(request: FastifyRequest, dependencies: HttpDependencies): Promise<object> {
   const clientKey = clientKeyFor(request);
   enforceUploadRate(clientKey);
+  if (dependencies.updater?.applying) throw new AppError('RENDERER_UNAVAILABLE', 'The service is installing an update.', 503);
   if (dependencies.database.activeCountForClient(clientKey) >= limits.maxOutstandingPerClient) {
     throw new AppError('TOO_MANY_REQUESTS', 'This client already has too many outstanding jobs.', 429);
   }
@@ -125,6 +149,10 @@ async function createRender(request: FastifyRequest, dependencies: HttpDependenc
     const { createWriteStream } = await import('node:fs');
     await pipeline(upload.file, createWriteStream(replayPath, { flags: 'wx', mode: 0o600 }));
     const options = renderOptionsFrom(upload.fields);
+    if (options.skin !== DEFAULT_SKIN
+      && !(await listSkins(skinsDirOf(dependencies), appConfig.skins.maxNameLength)).includes(options.skin)) {
+      throw new AppError('INVALID_OPTIONS', 'The selected skin is not installed on this server.', 400);
+    }
     const metadata = await parseReplayFile(replayPath);
     if (metadata.playMode !== 0) throw new AppError('UNSUPPORTED_MODE', 'Only osu!standard replays are supported.', 400);
     dependencies.database.createRender({
@@ -138,6 +166,38 @@ async function createRender(request: FastifyRequest, dependencies: HttpDependenc
   }
 }
 
+async function uploadSkin(request: FastifyRequest, dependencies: HttpDependencies): Promise<object> {
+  enforceUploadRate(clientKeyFor(request));
+  if (await dependencies.storage.freeBytes() < limits.hardMinFreeBytes) throw new StorageLowError();
+  const upload = await request.file({ limits: { fileSize: appConfig.skins.maxOskBytes } });
+  if (!upload || upload.fieldname !== 'skin') throw skinInvalid('Upload a file field named skin.');
+  if (!upload.filename.toLowerCase().endsWith('.osk')) throw skinInvalid('Only .osk skin files are accepted.');
+  skinNameFromFilename(upload.filename, appConfig.skins.maxNameLength);
+  const skinsDir = skinsDirOf(dependencies);
+  const archive = await skinUploadPath(skinsDir);
+  try {
+    const { createWriteStream } = await import('node:fs');
+    try {
+      await pipeline(upload.file, createWriteStream(archive, { flags: 'wx', mode: 0o600 }));
+    } catch (error) {
+      if ((error as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') throw skinTooLarge(skinSizeMessage());
+      throw error;
+    }
+    if (upload.file.truncated) throw skinTooLarge(skinSizeMessage());
+    return { name: await installSkin(archive, upload.filename, skinsDir, appConfig.skins) };
+  } finally {
+    await rm(archive, { force: true });
+  }
+}
+
+function skinsDirOf(dependencies: HttpDependencies): string {
+  return dependencies.skinsDir ?? settings.danserSkinsDir;
+}
+
+function skinSizeMessage(): string {
+  return `Skin files are limited to ${Math.floor(appConfig.skins.maxOskBytes / 1024 ** 2)} MiB.`;
+}
+
 async function getRender(request: FastifyRequest, _reply: FastifyReply, dependencies: HttpDependencies): Promise<object> {
   const id = routeId(request);
   const row = requireRender(dependencies.database.getRender(id));
@@ -146,6 +206,7 @@ async function getRender(request: FastifyRequest, _reply: FastifyReply, dependen
 
 async function getVideo(request: FastifyRequest, reply: FastifyReply, dependencies: HttpDependencies): Promise<FastifyReply> {
   const row = requireRender(dependencies.database.getRender(routeId(request)));
+  if (row.files_deleted_at) throw new AppError('RENDER_EXPIRED', 'The video was deleted.', 410);
   if (row.status !== 'completed' || !row.video_path) throw new AppError('RENDER_FAILED', 'Video is not ready.', 409);
   const size = (await stat(row.video_path)).size;
   const range = request.headers.range;
@@ -164,6 +225,30 @@ async function cancelRender(request: FastifyRequest, _reply: FastifyReply, depen
   requireRender(dependencies.database.getRender(id));
   await dependencies.queue.cancel(id);
   return { id, status: 'cancelled' };
+}
+
+function listHistory(request: FastifyRequest, dependencies: HttpDependencies): object {
+  const { defaultLimit, maxLimit } = appConfig.history;
+  const raw = (request.query as { limit?: unknown }).limit;
+  const requested = typeof raw === 'string' && /^\d{1,6}$/.test(raw) ? Number(raw) : defaultLimit;
+  const limit = Math.min(maxLimit, Math.max(1, requested));
+  return { renders: dependencies.database.rendersForClient(clientKeyFor(request), limit).map(serializeHistory) };
+}
+
+/** Frees disk space now instead of waiting for retention; the history row stays, marked as deleted. */
+async function deleteRenderFiles(request: FastifyRequest, dependencies: HttpDependencies): Promise<object> {
+  const id = routeId(request);
+  const found = dependencies.database.getRender(id);
+  // Other clients' renders look the same as missing ones.
+  const render = requireRender(found?.client_key === clientKeyFor(request) ? found : undefined);
+  if (!['completed', 'failed', 'cancelled'].includes(render.status)) {
+    throw new AppError('RENDER_ACTIVE', 'Cancel the render before deleting its files.', 409);
+  }
+  if (!render.files_deleted_at) {
+    await removeRenderFiles(render, dependencies.paths);
+    dependencies.database.markFilesDeleted(id);
+  }
+  return serializeHistory(requireRender(dependencies.database.getRender(id)));
 }
 
 /** Encoder self-tests would compete with an active render for the GPU encoder, so diagnostics skip them then. */
@@ -238,6 +323,26 @@ function parseRange(value: string, size: number): { start: number; end: number }
     throw new AppError('RENDER_FAILED', 'Requested range is outside the video.', 416);
   }
   return { start, end };
+}
+
+function serializeHistory(row: RenderRow): object {
+  const now = Date.now();
+  const deleted = Boolean(row.files_deleted_at) || (row.expires_at !== null && row.expires_at <= now);
+  return {
+    id: row.id, status: row.status, progress: row.progress,
+    createdAt: row.created_at, completedAt: row.completed_at, expiresAt: row.expires_at,
+    beatmap: row.beatmap_checksum || row.beatmap_title ? {
+      id: row.beatmap_id, beatmapsetId: row.beatmapset_id,
+      title: row.beatmap_title ?? null, artist: row.beatmap_artist ?? null, version: row.beatmap_version ?? null,
+    } : null,
+    player: row.player_name, mods: row.mods,
+    resolution: `${row.height}p`, encoder: row.encoder,
+    renderMs: row.started_at !== null && row.completed_at !== null && row.status === 'completed'
+      ? row.completed_at - row.started_at : null,
+    videoAvailable: row.status === 'completed' && Boolean(row.video_path) && !deleted,
+    filesDeleted: deleted,
+    error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
+  };
 }
 
 function serializeRender(row: RenderRow, queuePosition: number | null): object {

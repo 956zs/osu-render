@@ -22,6 +22,10 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - [Funciones](#funciones)
 - [Plataformas y GPU](#plataformas-y-gpu)
 - [Inicio rápido en Windows: zip portable (recomendado)](#inicio-rápido-en-windows-zip-portable-recomendado)
+- [Skins personalizados](#skins-personalizados)
+- [Historial de renders y tiempo de conservación](#historial-de-renders-y-tiempo-de-conservación)
+- [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu)
+- [Actualizar](#actualizar)
 - [Reportar resultados (para testers)](#reportar-resultados-para-testers)
 - [Preguntas frecuentes](#preguntas-frecuentes)
 - [Instalar desde el código fuente](#instalar-desde-el-código-fuente)
@@ -46,10 +50,14 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - Opciones visuales por render: saltar la intro, volúmenes, atenuación/desenfoque/paralaje del fondo, bloom,
   escala del área de juego, tamaño/estela/efectos del cursor, colores de la skin o del mapa, elementos del HUD y
   detalles de los objetos.
+- Skins personalizados: sube un `.osk` desde la interfaz web (o cópialo a `data/skins`) y elígelo en cada render.
 - Detección automática del codificador por GPU con una prueba real de un fotograma; si falla, usa x264.
 - Cola FIFO persistente (SQLite), un render a la vez, recuperación tras un cierre inesperado o reinicio.
-- Protección de disco: rechaza renders si queda poco espacio; videos y replays caducan a las 24 horas y los mapas
+- Protección de disco: rechaza renders si queda poco espacio; videos y replays caducan a las 24 horas
+  (`VIDEO_RETENTION_HOURS`) y los mapas
   en caché se borran empezando por los menos usados.
+- Historial de renders por cliente, con botones para descargar y borrar archivos.
+- Usa los mapas de una carpeta `Songs` local de osu!stable antes de descargar, así que también funcionan mapas sin publicar.
 - API HTTP sencilla con descargas por rangos (`Range`) y token bearer opcional.
 - Reporte de diagnóstico integrado (`doctor.bat`, `npm run doctor` o la interfaz web) para reportar problemas.
 - Zip portable para Windows: incluye Node.js y danser-go, no hay que instalar nada.
@@ -111,24 +119,22 @@ página de [Releases](https://github.com/956zs/osu-render/releases) de este repo
 [Configuración](#configuración)), cierra la ventana de consola y vuelve a ejecutar `start.bat`. Para repetir las
 preguntas iniciales, borra `.env`.
 
-**Actualizar a una versión nueva.**
-
-1. Cierra la ventana de consola.
-2. Descomprime la versión nueva en una carpeta **nueva**.
-3. Copia `.env` y toda la carpeta `data` de la carpeta vieja a la nueva. Si creaste o editaste
-   `danser\settings\default.json`, cópialo también.
-4. Ejecuta `start.bat` desde la carpeta nueva. Cuando todo funcione, borra la carpeta vieja.
+**Actualizar a una versión nueva.** Desde la 0.4.0, haz clic en **Actualizar ahora** en el aviso de arriba de
+la página; mira [Actualizar](#actualizar).
 
 **Qué trae el zip** (carpeta principal `osu-render\`):
 
 | Ruta | Qué es |
 | --- | --- |
 | `start.bat` | Inicia el servicio (la primera vez pide las credenciales de osu!) y abre el navegador. |
+| `set-webhook.bat` | Configura en `.env` el webhook de reportes al desarrollador, mira [Reportar resultados](#reportar-resultados-para-testers). |
 | `doctor.bat` | Ejecuta el diagnóstico y abre la carpeta del reporte, ver [Reportar resultados](#reportar-resultados-para-testers). |
 | `runtime\node.exe` | Node.js 24 LTS (build oficial para Windows x64, con checksum verificado al armar el zip). |
 | `danser\` | danser-go 0.12.1 para Windows, sin modificar, con su FFmpeg. |
 | `dist\`, `public\`, `config\`, `node_modules\`, `package.json` | La aplicación (compilada, solo dependencias de producción). |
 | `scripts\windows\setup.ps1` | La configuración inicial que usa `start.bat`. |
+| `scripts\windows\apply-update.ps1` | Instala una actualización descargada cuando `start.bat` reinicia el servicio, mira [Actualizar](#actualizar). |
+| `VERSION.json` | Las versiones de osu-render, Node.js y danser de este zip (las lee el actualizador). |
 | `.env.example` | Plantilla de `.env`, con cada opción explicada. |
 | `README*.md`, `LICENSE`, `THIRD_PARTY_NOTICES.txt` | Documentación, la licencia de este proyecto y las licencias del software incluido. |
 
@@ -139,6 +145,90 @@ El software de terceros incluido conserva su propia licencia: Node.js (MIT y otr
 FFmpeg que viene dentro de danser, además de los paquetes npm de `node_modules`. `THIRD_PARTY_NOTICES.txt`, dentro
 del zip, los enumera.
 
+## Skins personalizados
+
+En la interfaz web abre **Ajustes de render personalizados → Skin**, haz clic en **Subir .osk** y elige el
+archivo del skin. El skin se instala en el servidor y queda seleccionado de inmediato; después lo encuentras en
+la lista **Skin** para tus próximos renders. Marca **Usar el cursor del skin** para usar el cursor del skin en
+lugar del de danser. Si subes un skin con el mismo nombre, reemplaza al anterior.
+
+También puedes agregar skins a mano: copia la carpeta del skin (la que tiene `skin.ini`) o un archivo `.osk` a
+la carpeta de skins: `data\skins` en el zip portable, `data/skins` en otras instalaciones (se cambia con
+`DANSER_SKINS_DIR`). Los `.osk` sueltos se descomprimen la próxima vez que la página cargue la lista de skins.
+`default` es el skin integrado de danser. Los límites (200 MiB por `.osk`, tamaño ya descomprimido, cantidad de
+archivos) están en `config/defaults.json`, en la sección `skins`.
+
+## Historial de renders y tiempo de conservación
+
+La tarjeta **Historial** muestra tus renders recientes en este servidor (los más nuevos primero, hasta 20): mapa,
+jugador, mods, resolución, codificador, cuánto tardó el render y cuándo se borrarán sus archivos. Los videos
+terminados tienen un botón **Descargar**. **Borrar archivos** elimina en ese momento el video, el replay y el log;
+la entrada queda en la lista marcada como borrada. La lista solo muestra los renders subidos desde tu propia
+dirección (con el zip portable, eso es solo tu PC) y se actualiza cuando termina un render.
+
+Los videos, replays y logs de los renders terminados, fallidos y cancelados se guardan durante
+`VIDEO_RETENTION_HOURS` horas (24 por defecto, de 1 a 720) y luego se borran solos. Cámbialo en `.env` y reinicia.
+
+## Carpeta Songs local de osu!
+
+Si osu!stable está instalado en la misma PC, los mapas que ya tienes se copian de su carpeta `Songs` en lugar de
+buscarlos y descargarlos. Así también se pueden renderizar mapas sin publicar o que solo tienes tú, y no se
+descarga nada.
+
+- Windows: `%LOCALAPPDATA%\osu!\Songs` se detecta solo. Para desactivarlo, pon
+  `"localSongs": { "autoDetect": false }` en `config/local.json`.
+- Otras carpetas: define `OSU_SONGS_DIRS` en `.env`, varias carpetas separadas con `;` en Windows o `:` en Linux.
+- Al iniciar, la carpeta se indexa en segundo plano (después solo se vuelven a leer los `.osu` nuevos o
+  modificados), así que la primera vez puede tardar un minuto con una carpeta Songs grande. Mientras tanto puedes
+  renderizar igual; los mapas que aún no estén indexados usan la API y los mirrors. El progreso aparece en el log
+  y el estado del índice en el reporte de diagnóstico.
+- El set se copia a `data/songs`; tu carpeta de osu! nunca se modifica. Las carpetas enlazadas se omiten.
+- Si la copia local falla por cualquier motivo, se usa la API de osu! y los mirrors como siempre.
+- osu!lazer no es compatible (guarda los archivos por hash, no en una carpeta Songs).
+
+## Actualizar
+
+**Zip portable, 0.4.0 o posterior: actualiza desde la página.** Cuando osu-render arranca, y cuando abres la página
+(como mucho cada 6 horas), le pregunta a GitHub por la versión más nueva. Si hay una, aparece arriba un aviso que
+dice *Ya está disponible osu-render X*. Haz clic en **Actualizar ahora** y confirma:
+
+1. El servicio descarga el zip nuevo desde las [Releases](https://github.com/956zs/osu-render/releases) de este
+   repositorio, comprueba su checksum SHA-256 y lo descomprime en `data\update\staging\`. Si algo de esto falla,
+   no se cambia nada y la página lo indica.
+2. osu-render se detiene, `start.bat` instala los archivos nuevos en la misma ventana y lo vuelve a iniciar. La
+   página se recarga sola y dice *Actualizado a osu-render X*.
+
+Se conservan tal cual: `.env`, la carpeta `data` (videos, skins subidos, caché de beatmaps, logs),
+`config\local.json`, y de danser la carpeta `settings`, `danser.db` y la carpeta `skins`. danser solo se reemplaza
+cuando la versión nueva trae otra versión de danser. Los archivos anteriores de la app se mueven a
+`data\update\backup-<versión anterior>` (solo se guarda la copia más reciente). Si la instalación falla, se
+restauran automáticamente y vuelve a arrancar la versión anterior; los detalles quedan en
+`data\update\apply-update.log`.
+
+La actualización se rechaza mientras haya un render en cola o en curso: espera a que termine. Solo funciona si el
+servicio se inició con `start.bat`. Para desactivar la búsqueda de actualizaciones, crea `config\local.json` con
+`{ "update": { "enabled": false } }`.
+
+**Zip portable, a mano** (hace falta una vez para versiones anteriores a 0.4.0, que no tienen el botón):
+
+1. Cierra la ventana de consola.
+2. Descomprime la versión nueva en una carpeta **nueva**.
+3. Copia `.env` y toda la carpeta `data` de la carpeta vieja a la nueva. Si creaste o editaste
+   `danser\settings\default.json`, cópialo también.
+4. Ejecuta `start.bat` desde la carpeta nueva. Cuando todo funcione, borra la carpeta vieja.
+
+**Instalaciones desde el código fuente** (`git clone`): el aviso solo muestra una indicación, porque el servicio
+no puede reemplazar su propia copia de git. Actualiza con:
+
+```sh
+git pull
+npm ci
+npm run build
+```
+
+y luego reinicia el servicio (`sudo systemctl restart osu-render` con la unidad de systemd, o detenlo y vuelve a
+ejecutar `npm start`).
+
 ## Reportar resultados (para testers)
 
 Funcione o no, un reporte nos dice qué GPU, driver y codificador tienes y cómo salió la prueba de cada
@@ -148,19 +238,27 @@ codificador.
 
 Si el mantenedor te dio una **URL de webhook para reportes** (en privado, por ejemplo por mensaje directo):
 
-1. En la carpeta de osu-render, haz clic derecho en el archivo `.env` → **Abrir con** → **Bloc de notas** (el
-   archivo se crea la primera vez que ejecutas `start.bat`).
-2. Busca la línea `REPORT_WEBHOOK_URL=` cerca del final y pega tu URL justo después del `=`, sin comillas ni
-   espacios: `REPORT_WEBHOOK_URL=https://discord.com/api/webhooks/...` (un `.env` de una versión anterior no tiene
-   esa línea: agrégala al final).
-3. Guarda, cierra la ventana de `start.bat` y vuelve a ejecutar `start.bat`.
+1. Si todavía no lo hiciste, ejecuta `start.bat` una vez (la primera vez crea `.env` y también pregunta por esta
+   URL; si la pegas ahí, puedes saltarte el paso siguiente).
+2. Haz doble clic en **`set-webhook.bat`** en la carpeta de osu-render, pega la URL y presiona Enter. Lo que
+   escribes no se muestra; si la URL no es válida, se rechaza y se vuelve a pedir. El resto de tu configuración en
+   `.env` se conserva.
+3. Cierra la ventana de `start.bat` y vuelve a ejecutar `start.bat`. Si la URL de `.env` no es válida, la ventana
+   negra muestra una advertencia.
+
+Alternativa, a mano: clic derecho en `.env` → **Abrir con** → **Bloc de notas**, busca la línea
+`REPORT_WEBHOOK_URL=` cerca del final y pega la URL justo después del `=`, sin comillas ni espacios (un `.env` de
+una versión anterior no tiene esa línea: agrégala al final). Guarda y reinicia. Windows oculta las extensiones de
+archivo por defecto, así que asegúrate de que el archivo se llame de verdad `.env` y no `.env.txt`: el Bloc de notas
+a veces agrega `.txt` al guardar, y osu-render no lee `.env.txt` (`start.bat` avisa si encuentra uno). En el
+Explorador de archivos, **Vista → Mostrar → Extensiones de nombre de archivo** muestra el nombre real.
 
 Desde entonces, cada render terminado (correcto, fallido o que excedió el tiempo; no los cancelados) envía un
 reporte anonimizado al canal de Discord del mantenedor, y la tarjeta **Diagnóstico** muestra el botón **Enviar al
 desarrollador** para enviar uno a mano (por ejemplo, si hay un problema al arrancar). Los reportes automáticos
 reutilizan la prueba de codificadores del arranque en lugar de hacer una nueva, así que nunca interrumpen un
-render. Si la URL no es válida, el servicio registra `report_webhook_invalid` al arrancar y sigue funcionando sin
-reportar.
+render. Si la URL no es válida, el servicio muestra una advertencia al arrancar (y registra `report_webhook_invalid`) y
+sigue funcionando sin reportar; con una URL válida registra `report_webhook_enabled`.
 
 No compartas la URL: cualquiera que la tenga puede publicar mensajes en ese canal.
 
@@ -208,7 +306,7 @@ mostraba la página.
 **¿Sube algo a internet?**
 No hay telemetría. El servicio solo se conecta a la API de osu! (para obtener un token y buscar el mapa por su
 checksum) y a los mirrors de `BEATMAP_MIRRORS` (para descargar el `.osz`). Los replays y videos se quedan en tu
-equipo y se borran a las 24 horas. Los reportes de diagnóstico solo salen de tu equipo si tú los compartes, o si
+equipo y se borran a las 24 horas (`VIDEO_RETENTION_HOURS`). Los reportes de diagnóstico solo salen de tu equipo si tú los compartes, o si
 defines `REPORT_WEBHOOK_URL` (entonces se envía un reporte anonimizado a ese webhook de Discord después de cada
 render), ver [Privacidad](#privacidad).
 
@@ -397,6 +495,8 @@ editar.
 | `DANSER_BIN` | `<DANSER_DIR>/danser-cli` (`.exe` en Windows) | Ejecutable CLI de danser, si está en otro lugar. |
 | `DANSER_BASE_SETTINGS` | `<DANSER_DIR>/settings/default.json` | Configuración de danser que se usa como base para los renders (ver abajo). |
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | Carpeta de skins que se pasa a danser. |
+| `OSU_SONGS_DIRS` | Windows: `%LOCALAPPDATA%\osu!\Songs` si existe | Carpetas `Songs` de osu!stable que se usan antes de descargar, separadas con `;` (Windows) o `:` (Linux). Ver [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu). |
+| `VIDEO_RETENTION_HOURS` | `24` | Horas que se guardan los videos, replays y logs de los renders terminados, de 1 a 720. |
 | `DANSER_SETTINGS_NAME` | `service` | Nombre del archivo de configuración que escribe el servicio: `<DANSER_DIR>/settings/<name>.json`. Solo letras, dígitos, `-` y `_`. |
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` o `libx264`. Cualquier otro valor detiene el arranque con un error. |
 | `OSU_CLIENT_ID` | vacío | Client ID de OAuth de osu!. Obligatorio. |
@@ -415,7 +515,9 @@ archivo base no existe, se usan los valores por defecto de danser. Si quieres un
 Los parámetros ajustables que no son secretos están en [`config/defaults.json`](config/defaults.json): el orden
 automático de codificadores por plataforma, el tamaño y el tiempo límite de la prueba, los tamaños del
 diagnóstico, el enlace para issues, y del webhook de reportes el tiempo límite, el máximo de espera tras un 429, la
-separación entre mensajes y el tamaño del final del log (`reportWebhook`). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
+separación entre mensajes y el tamaño del final del log (`reportWebhook`), y la búsqueda de actualizaciones
+(`update`: activarla o no, repositorio de GitHub, intervalo, límites de tamaño de descarga y hosts de descarga
+permitidos). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
 sobrescribir; se combina sobre los valores por defecto y git lo ignora. Ejemplo:
 
 ```json
@@ -449,7 +551,13 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | `GET /api/renders/:id` | Estado del trabajo, progreso, posición en la cola, mapa, formato de salida y error. |
 | `GET /api/renders/:id/video` | El MP4 terminado. Soporta HTTP `Range`. |
 | `DELETE /api/renders/:id` | Cancela un trabajo. |
+| `GET /api/renders?limit=N` | Tus renders recientes (solo de la misma dirección de cliente, 20 por defecto, máximo 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error" }] }`. |
+| `DELETE /api/renders/:id/files` | Borra ya el video, el replay y el log de tu propio render terminado; la entrada del historial se queda. Error `RENDER_ACTIVE` (409) si todavía está en curso. Un video borrado devuelve `RENDER_EXPIRED` (410). |
+| `GET /api/skins` | Skins instalados: `{ "skins": [{ "name" }] }`, con el `default` integrado primero. |
+| `POST /api/skins` | Subida multipart: `skin` (un `.osk`). Lo instala y devuelve `{ "name" }`, o el error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
 | `GET /api/diagnostics` | Reporte de diagnóstico (el mismo JSON que `npm run doctor`). |
+| `GET /api/update` | Estado de actualización: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`, más `error` si falló la última consulta a GitHub. Consulta GitHub como mucho cada `update.checkIntervalMs`. |
+| `POST /api/update/apply` | Solo el zip portable iniciado con `start.bat`: descarga, verifica y prepara la versión más nueva, responde `{ "applying": true, "version" }` y luego reinicia con `start.bat` para instalarla. Errores: `UPDATE_NOT_PORTABLE` (409), `UPDATE_BUSY` (409, hay un render sin terminar o ya se está actualizando), `UPDATE_FAILED` (502, no se cambió nada). |
 | `POST /api/diagnostics/send` | Envía el reporte de diagnóstico a `REPORT_WEBHOOK_URL`. Devuelve `{ "sent": true }`, o el error `REPORT_WEBHOOK_DISABLED` (409, no configurado) / `REPORT_SEND_FAILED` (502). |
 | `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`. |
 
@@ -558,9 +666,14 @@ y Node 22 en Ubuntu) y un job de humo que descarga danser 0.12.1 en ambos sistem
 `npm run doctor` encuentre danser y FFmpeg y que la prueba de x264 pase. Los runners de CI no tienen GPU, así que
 los codificadores por hardware solo se prueban cuando alguien ejecuta el doctor en un equipo real.
 
-El zip portable para Windows lo arma `.github/workflows/release.yml` a partir de los archivos de `packaging/`: con
-cada tag `v*` arma el zip en un runner de Windows, hace una prueba de humo con la copia descomprimida y adjunta el
-zip y su checksum SHA-256 a la release de GitHub.
+Las releases son automáticas: **sube la versión en `package.json`, haz push a main y la release se publica
+sola.** (`npm version 0.5.0 --no-git-tag-version` actualiza `package.json` y `package-lock.json` a la vez.) En cada
+push a main, `.github/workflows/release.yml` comprueba si existe el tag `v<versión>`. Si no existe, arma el zip
+portable para Windows a partir de los archivos de `packaging/` en un runner de Windows, hace una prueba de humo con la
+copia descomprimida (incluida una actualización desde la app conservando y reemplazando danser, una restauración tras
+un fallo y el reinicio de `start.bat` con el código de salida 75), y luego crea el tag y la release de GitHub con el
+zip y su checksum SHA-256. Los push que no cambian la versión no publican nada. Hacer push de un tag `v*` a mano
+también funciona; la release se crea una sola vez.
 
 ## Licencia y créditos
 

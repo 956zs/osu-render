@@ -76,7 +76,14 @@
     "RENDER_TIMEOUT": "The render took too long and was stopped.",
     "INTERNAL_ERROR": "The server ran into an internal error.",
     "REPORT_WEBHOOK_DISABLED": "Sending reports to the developer isn't set up on this server.",
-    "REPORT_SEND_FAILED": "Couldn't send the report to the developer. Try again later, or download it and send the file instead."
+    "REPORT_SEND_FAILED": "Couldn't send the report to the developer. Try again later, or download it and send the file instead.",
+    "SKIN_INVALID": "That file isn't a usable osu! skin. Upload an .osk exported from osu! or a skin download.",
+    "SKIN_TOO_LARGE": "That skin is larger than this server allows.",
+    "RENDER_EXPIRED": "This video was deleted, either because it expired or because its files were removed.",
+    "RENDER_ACTIVE": "This render is still running. Cancel it before deleting its files.",
+    "UPDATE_NOT_PORTABLE": "In-app updates only work in the Windows portable zip started with start.bat. Update a source install with git pull.",
+    "UPDATE_BUSY": "A render is still running or an update is already in progress. Try again once it finishes.",
+    "UPDATE_FAILED": "The update couldn't be downloaded or verified. Nothing was changed. Try again later."
   },
   "settings": {
     "title": "Custom render settings",
@@ -115,6 +122,17 @@
       "smoke": "Cursor smoke",
       "skinColors": "Use Skin colors",
       "beatmapColors": "Use beatmap colors"
+    },
+    "skin": {
+      "legend": "Skin",
+      "select": "Skin",
+      "default": "Default (danser)",
+      "cursor": "Use the skin's cursor",
+      "upload": "Upload .osk",
+      "uploading": "Uploading and installing the skin…",
+      "installed": "Installed \"{name}\" and selected it.",
+      "failed": "Couldn't upload the skin. Check your connection and try again.",
+      "hint": "Uploaded skins are saved on this server and can be picked for any render."
     },
     "hud": {
       "legend": "HUD",
@@ -162,5 +180,31 @@
     "noIssueLink": "The report doesn't include a valid GitHub issue link.",
     "sending": "Sending the report to the developer…",
     "sent": "Report sent to the developer. Thanks!"
+  },
+  "update": {
+    "available": "osu-render {version} is available (you have {current}).",
+    "apply": "Update now",
+    "notes": "What's new",
+    "gitHint": "To update a source install, run git pull, npm ci and npm run build, then restart osu-render.",
+    "confirm": "Download osu-render {version} and restart? Your settings and files are kept, and this page reloads by itself.",
+    "downloading": "Downloading and checking the update. This can take a few minutes…",
+    "restarting": "Installing the update and restarting. This page reloads by itself.",
+    "done": "Updated to osu-render {version}.",
+    "notInstalled": "The update wasn't installed, so you're still on {version}. Details are in data\\update\\apply-update.log.",
+    "timeout": "osu-render didn't come back. Check the osu-render window, then reload this page."
+  },
+  "history": {
+    "title": "History",
+    "hint": "Your recent renders on this server. Videos are deleted automatically after a while.",
+    "refresh": "Refresh",
+    "empty": "No renders yet. Upload a replay to start.",
+    "failed": "Couldn't load the history.",
+    "unknownMap": "Unknown beatmap",
+    "took": "rendered in {duration}",
+    "deleted": "Files deleted",
+    "expires": "Files kept until {time}",
+    "download": "Download",
+    "deleteFiles": "Delete files",
+    "confirmDelete": "Delete the video, replay and log of this render? This can't be undone."
   }
 }

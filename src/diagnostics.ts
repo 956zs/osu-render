@@ -9,6 +9,7 @@ import { SUPPORTED_ENCODERS, encoderKind } from './encoders.js';
 import { libraryEnvironment, redactText, type DanserTools } from './platform.js';
 import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 import type { EncoderProbe, Paths, PreflightResult, RenderRow } from './types.js';
+import type { LocalSongsStatus } from './local-songs.js';
 
 const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -73,6 +74,8 @@ export interface DiagnosticsOptions {
   skipProbes?: ProbesSkipped;
   /** Render the report is about (auto reports): included even if older than the recent list, with its own log tail size. */
   focusRender?: { id: string; logTailBytes: number };
+  /** Local osu!stable Songs index (counts only, no paths). */
+  localSongs?: { status(): LocalSongsStatus };
 }
 
 export type ProbesSkipped = 'render_active' | 'auto_report';
@@ -136,6 +139,7 @@ export interface DiagnosticsReport {
     reportWebhook: boolean; mirrors: string[];
   };
   storage: { freeBytes: number | null };
+  localSongs?: LocalSongsStatus;
   renders: RenderDiagnostics[];
   errors: Array<{ source: string; error: string }>;
   issue: { url: string; title: string; body: string };
@@ -203,6 +207,7 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
       mirrors: settings.mirrors.map(mirrorHost),
     },
     storage: { freeBytes },
+    ...(options.localSongs ? { localSongs: options.localSongs.status() } : {}),
     renders,
     errors,
   };

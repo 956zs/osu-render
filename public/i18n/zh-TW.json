@@ -76,7 +76,14 @@
     "RENDER_TIMEOUT": "渲染時間過長，已中止。",
     "INTERNAL_ERROR": "伺服器發生內部錯誤。",
     "REPORT_WEBHOOK_DISABLED": "此伺服器沒有設定傳送報告給開發者的功能。",
-    "REPORT_SEND_FAILED": "無法把報告傳送給開發者，請稍後再試，或改為下載報告後傳送檔案。"
+    "REPORT_SEND_FAILED": "無法把報告傳送給開發者，請稍後再試，或改為下載報告後傳送檔案。",
+    "SKIN_INVALID": "這個檔案不是可用的 osu! 皮膚，請上傳從 osu! 匯出或下載的 .osk 檔。",
+    "SKIN_TOO_LARGE": "這個皮膚超過伺服器允許的大小。",
+    "RENDER_EXPIRED": "這部影片已被刪除（已過保存期限，或檔案已被移除）。",
+    "RENDER_ACTIVE": "這個渲染還在進行中，請先取消再刪除檔案。",
+    "UPDATE_NOT_PORTABLE": "只有用 start.bat 啟動的 Windows 可攜版 zip 才能在程式內更新。從原始碼安裝的請用 git pull 更新。",
+    "UPDATE_BUSY": "還有影片正在算圖，或已經在更新中。等它完成後再試一次。",
+    "UPDATE_FAILED": "無法下載或驗證更新，沒有任何檔案被變更。請稍後再試。"
   },
   "settings": {
     "title": "自訂畫面設定",
@@ -115,6 +122,17 @@
       "smoke": "游標煙霧",
       "skinColors": "使用 Skin 顏色",
       "beatmapColors": "使用圖譜顏色"
+    },
+    "skin": {
+      "legend": "皮膚",
+      "select": "皮膚",
+      "default": "預設（danser）",
+      "cursor": "使用皮膚的游標",
+      "upload": "上傳 .osk",
+      "uploading": "正在上傳並安裝皮膚…",
+      "installed": "已安裝「{name}」並選用。",
+      "failed": "皮膚上傳失敗，請檢查網路連線後再試一次。",
+      "hint": "上傳的皮膚會保存在這台伺服器上，之後每次渲染都能選用。"
     },
     "hud": {
       "legend": "HUD 顯示",
@@ -162,5 +180,31 @@
     "noIssueLink": "報告中沒有有效的 GitHub issue 連結。",
     "sending": "正在把報告傳送給開發者…",
     "sent": "已把報告傳送給開發者，感謝！"
+  },
+  "update": {
+    "available": "osu-render {version} 已推出（目前版本 {current}）。",
+    "apply": "立即更新",
+    "notes": "更新內容",
+    "gitHint": "從原始碼安裝的請執行 git pull、npm ci 和 npm run build，然後重新啟動 osu-render。",
+    "confirm": "要下載 osu-render {version} 並重新啟動嗎？設定和檔案都會保留，頁面會自動重新整理。",
+    "downloading": "正在下載並檢查更新，可能需要幾分鐘…",
+    "restarting": "正在安裝更新並重新啟動，頁面會自動重新整理。",
+    "done": "已更新到 osu-render {version}。",
+    "notInstalled": "更新沒有安裝成功，目前仍是 {version}。詳細資訊在 data\\update\\apply-update.log。",
+    "timeout": "osu-render 沒有重新啟動。請查看 osu-render 視窗，然後重新整理這個頁面。"
+  },
+  "history": {
+    "title": "歷史紀錄",
+    "hint": "你最近在這台伺服器上的渲染。影片過一段時間後會自動刪除。",
+    "refresh": "重新整理",
+    "empty": "還沒有渲染紀錄。上傳一個 replay 開始吧。",
+    "failed": "無法載入歷史紀錄。",
+    "unknownMap": "未知圖譜",
+    "took": "渲染耗時 {duration}",
+    "deleted": "檔案已刪除",
+    "expires": "檔案保留到 {time}",
+    "download": "下載",
+    "deleteFiles": "刪除檔案",
+    "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。"
   }
 }
