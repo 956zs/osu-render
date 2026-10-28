@@ -19,7 +19,7 @@ function startTag(markup: string, id: string): string {
 }
 
 function section(markup: string, id: string): string {
-  const body = new RegExp(`<section\\b[^>]*\\sid="${id}"[^>]*>([\\s\\S]*?)\\n  </section>`).exec(markup)?.[1];
+  const body = new RegExp(`<section\\b[^>]*\\sid="${id}"[^>]*>([\\s\\S]*?)\\n    </section>`).exec(markup)?.[1];
   assert.ok(body, `section #${id} is missing`);
   return body;
 }
@@ -28,12 +28,20 @@ test('render option controls map one-to-one to the allowlisted options and their
   const { markup } = await page();
   const controls = [...markup.matchAll(/<(input|select)\b([^>]*)\sdata-option="(\w+)"([^>]*)>/g)];
   const keys = controls.map((match) => match[3]);
-  assert.deepEqual([...keys].sort(), Object.keys(DEFAULT_RENDER_OPTIONS).sort());
-  assert.equal(new Set(keys).size, keys.length, 'each option has exactly one control');
+  assert.deepEqual([...new Set(keys)].sort(), Object.keys(DEFAULT_RENDER_OPTIONS).sort());
   for (const [tag, tagName, before, key, after] of controls) {
-    assert.match(tag, new RegExp(`\\sid="${key}"`), `control for ${key} must have id="${key}"`);
     const expected = DEFAULT_RENDER_OPTIONS[key as keyof typeof DEFAULT_RENDER_OPTIONS];
     const attributes = `${before} ${after}`;
+    if (/type="radio"/.test(attributes)) {
+      // A radio group: one control per value, id "<key>-<value>", the default value checked.
+      const value = /value="([^"]+)"/.exec(attributes)?.[1];
+      assert.match(tag, new RegExp(`\\sid="${key}-${value}"`), `radio for ${key}=${value}`);
+      assert.match(attributes, new RegExp(`name="${key}"`));
+      assert.equal(/\schecked\b/.test(attributes), value === expected, `${key} default`);
+      continue;
+    }
+    assert.equal(keys.filter((other) => other === key).length, 1, `${key} has exactly one control`);
+    assert.match(tag, new RegExp(`\\sid="${key}"`), `control for ${key} must have id="${key}"`);
     if (typeof expected === 'boolean') {
       assert.match(attributes, /type="checkbox"/, key);
       assert.equal(/\schecked\b/.test(attributes), expected, `${key} default`);
@@ -54,47 +62,53 @@ test('render options are collected from the data-option controls only', async ()
   const body = /function renderOptions\(\) \{([\s\S]*?)\n\}/.exec(script)?.[1] ?? '';
   assert.match(body, /for \(const control of optionControls\)/);
   assert.match(body, /options\[key\] = control\.checked/);
+  assert.match(body, /if \(control\.checked\) options\[key\] = control\.value/);
   assert.match(script, /form\.append\('options', JSON\.stringify\(renderOptions\(\)\)\)/);
   assert.match(script, /form\.append\('replay', file\)/);
 });
 
-test('top bar has the four tabs with icons and hash routes', async () => {
+test('rail and phone tab bar both link the four sections with icons and hash routes', async () => {
   const { markup, script, css } = await page();
-  const nav = /<nav class="tabs" id="tabs"[^>]*>([\s\S]*?)<\/nav>/.exec(markup)?.[1] ?? '';
-  const links = [...nav.matchAll(/<a class="tab" href="#\/(\w+)" data-route="(\w+)">\s*<svg class="tab-icon"[^>]*aria-hidden="true"/g)];
-  assert.deepEqual(links.map((match) => match[1]), ROUTES);
-  for (const match of links) assert.equal(match[1], match[2]);
+  for (const id of ['tabs', 'tabbar']) {
+    const nav = new RegExp(`<nav class="[a-z]+" id="${id}"[^>]*>([\\s\\S]*?)</nav>`).exec(markup)?.[1] ?? '';
+    const links = [...nav.matchAll(/<a href="#\/(\w+)" data-route="(\w+)"><svg class="nav-icon" aria-hidden="true">/g)];
+    assert.deepEqual(links.map((match) => match[1]), ROUTES, id);
+    for (const match of links) assert.equal(match[1], match[2]);
+  }
   for (const route of ROUTES) assert.match(startTag(markup, `view-${route}`), new RegExp(`data-view="${route}"`));
   assert.match(script, /const ROUTES = \['render', 'history', 'skins', 'diagnostics'\];/);
   assert.match(script, /window\.addEventListener\('hashchange'/);
   assert.match(script, /tab\.setAttribute\('aria-current', 'page'\)/);
-  const mobile = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
-  assert.match(mobile, /\.tabs \{[^}]*position: fixed;[^}]*bottom: 0;/);
-  assert.match(mobile, /\.tab-icon \{ display: block; \}/);
+  assert.match(css, /\.tabbar \{ display: none; \}/);
+  const phone = /@media \(max-width: 760px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+  assert.match(phone, /\.rail \.nav \{ display: none; \}/);
+  assert.match(phone, /\.tabbar \{[^}]*position: fixed;[^}]*bottom:/);
 });
 
-test('header shows a language switcher and a live renderer status chip', async () => {
+test('rail footer holds the update card, a live renderer status and the language switch', async () => {
   const { markup } = await page();
-  const header = /<header class="topbar">([\s\S]*?)<\/header>/.exec(markup)?.[1] ?? '';
-  assert.match(header, /<select id="language"/);
-  const chip = startTag(header, 'rendererStatus');
-  assert.match(chip, /aria-live="polite"/);
-  assert.match(chip, /role="status"/);
-  startTag(header, 'rendererLabel');
-  startTag(header, 'rendererReason');
-  startTag(header, 'updateBanner');
+  const foot = /<div class="rail-foot">([\s\S]*?)\n    <\/div>\n  <\/aside>/.exec(markup)?.[1] ?? '';
+  assert.match(startTag(foot, 'updateBanner'), /role="status"/);
+  const status = startTag(foot, 'rendererStatus');
+  assert.match(status, /aria-live="polite"/);
+  assert.match(status, /role="status"/);
+  startTag(foot, 'rendererLabel');
+  startTag(foot, 'rendererReason');
+  assert.match(startTag(foot, 'language'), /role="group"/);
 });
 
 test('render tab has the drop zone, quick settings, drawer and presets', async () => {
   const { markup, script } = await page();
   const render = section(markup, 'view-render');
   assert.match(startTag(render, 'file'), /type="file" accept="\.osr"/);
-  for (const id of ['skin', 'resolution', 'backgroundDim', 'skipIntro', 'token']) {
-    assert.ok(/<aside class="quick card"[\s\S]*<\/aside>/.exec(render)?.[0].includes(`id="${id}"`), `${id} is in quick settings`);
+  const quick = /<section class="card quick"[\s\S]*?\n          <\/section>/.exec(render)?.[0] ?? '';
+  for (const id of ['skin', 'resolution-1080p', 'backgroundDim', 'skipIntro', 'token', 'moreSettings']) {
+    assert.ok(quick.includes(`id="${id}"`), `${id} is in quick settings`);
   }
   assert.match(startTag(render, 'settingsDrawer'), /^<dialog /);
   assert.match(startTag(render, 'settingsSearch'), /type="search"/);
-  for (const id of ['moreSettings', 'presetSave', 'presetDelete', 'presetReset', 'drawerClose']) assert.match(startTag(render, id), /^<button type="button"/);
+  for (const id of ['moreSettings', 'presetSave', 'presetReset', 'drawerClose']) assert.match(startTag(render, id), /^<button type="button"/);
+  startTag(render, 'presetList');
   assert.match(script, /const PRESETS_STORAGE_KEY = 'renderPresets';/);
   assert.match(script, /applyOptions\(DEFAULT_OPTIONS\)/);
   assert.match(script, /drawer\.showModal\(\)/);
@@ -107,9 +121,11 @@ test('job card shows a stepper, live status, progress with speed and ETA, and an
   assert.match(startTag(job, 'jobStatus'), /aria-live="polite"/);
   assert.match(startTag(job, 'progress'), /role="progressbar"/);
   assert.match(startTag(job, 'jobVideo'), /^<video /);
-  for (const id of ['download', 'retry', 'cancel', 'another']) assert.match(startTag(job, id), /^<button type="button"/);
+  for (const id of ['download', 'retry', 'cancel', 'another', 'doneAnother']) assert.match(startTag(job, id), /^<button type="button"/);
+  for (const id of ['progressSpeed', 'progressEta', 'progressLength']) assert.match(startTag(job, id), /^<dd /);
   assert.match(script, /data\.speed\.toFixed\(2\)/);
-  assert.match(script, /t\('job\.eta', \{ eta: data\.eta \}\)/);
+  assert.match(script, /progressEta\.textContent = typeof data\?\.eta === 'string'/);
+  assert.match(script, /progressFill\.style\.strokeDashoffset/);
   assert.match(script, /typeof data\?\.previewUrl === 'string'/);
   assert.match(script, /storageSet\(sessionStorage, ACTIVE_JOB_STORAGE_KEY, jobId\)/);
   assert.match(script, /api\(`\/api\/renders\/\$\{jobId\}`, \{ method: 'DELETE' \}\)/);
@@ -125,7 +141,7 @@ test('history tab lists renders with preview, download and delete actions', asyn
   assert.match(script, /api\(`\/api\/renders\?limit=\$\{HISTORY_LIMIT\}`/);
   assert.match(script, /api\(`\/api\/renders\/\$\{id\}\/files`, \{ method: 'DELETE' \}\)/);
   assert.match(script, /window\.confirm\(t\('history\.confirmDelete'\)\)/);
-  assert.match(script, /button\(t\('history\.preview'\)/);
+  assert.match(script, /iconButton\('i-eye', t\('history\.preview'\)/);
   assert.match(startTag(markup, 'previewDialog'), /^<dialog /);
 });
 
@@ -135,6 +151,7 @@ test('skins tab lists skins and uploads .osk files', async () => {
   assert.match(startTag(skins, 'skinFile'), /type="file" accept="\.osk"/);
   assert.match(startTag(skins, 'skinStatus'), /aria-live="polite"/);
   assert.match(startTag(skins, 'skinList'), /^<ul /);
+  assert.match(startTag(skins, 'skinDrop'), /^<label /);
   assert.match(markup, /<option value="default" selected data-i18n="settings\.skin\.default">/);
   assert.match(script, /api\('\/api\/skins', \{ cache: 'no-store' \}\)/);
   assert.match(script, /form\.append\('skin', file\)/);
@@ -145,8 +162,9 @@ test('skins tab lists skins and uploads .osk files', async () => {
 test('diagnostics tab offers report actions and renderer details', async () => {
   const { markup, script } = await page();
   const card = /<section class="card diag-card" id="diagnostics"[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
+  assert.ok(card, 'diagnostics card is missing');
   for (const id of ['diagDownload', 'diagCopy', 'diagIssue']) assert.match(startTag(card, id), /^<button type="button"/);
-  assert.match(startTag(card, 'diagSend'), /^<button type="button" id="diagSend" class="btn btn-primary" hidden data-i18n="diagnostics\.send">/);
+  assert.match(startTag(card, 'diagSend'), /^<button type="button" id="diagSend" class="btn ghost" hidden data-i18n="diagnostics\.send">/);
   assert.match(startTag(card, 'diagAutoSend'), /\shidden\s/);
   assert.match(startTag(card, 'diagStatus'), /aria-live="polite"/);
   assert.match(startTag(card, 'diagSummary'), /^<textarea\b[^>]*\sreadonly\b/);
@@ -174,7 +192,8 @@ test('page is split into same-origin files and never renders text as HTML', asyn
   assert.doesNotMatch(script, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/);
   assert.doesNotMatch(markup, /\s(?:src|href)="(?:https?:)?\/\//, 'no external resources');
   assert.doesNotMatch(css, /@import|@font-face|url\(\s*["']?(?:https?:)?\/\//);
-  assert.deepEqual(script.match(/https?:\/\/[^'"\s)]*/g), ['https://github.com/']);
+  // The SVG namespace is an identifier, not a resource; GitHub is only the issue/notes link prefix.
+  assert.deepEqual(script.match(/https?:\/\/[^'"\s)]*/g), ['http://www.w3.org/2000/svg', 'https://github.com/']);
   for (const button of markup.match(/<button\b[^>]*>/g) ?? []) assert.match(button, /^<button type="button"/);
   assert.doesNotMatch(markup, /`/);
 });
@@ -182,16 +201,16 @@ test('page is split into same-origin files and never renders text as HTML', asyn
 test('motion respects prefers-reduced-motion and focus stays visible', async () => {
   const { css } = await page();
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*animation: none !important; transition: none !important;/);
-  assert.match(css, /:focus-visible \{ outline: 2px solid/);
+  assert.match(css, /:focus-visible \{ outline: \d+px solid/);
   assert.doesNotMatch(css, /:focus-visible \{ outline: none/);
 });
 
-test('theme values live in :root custom properties and the stylesheet avoids decorative effects', async () => {
+test('theme values live in :root custom properties', async () => {
   const { css } = await page();
   const root = /^:root \{[\s\S]*?\n\}/m.exec(css);
   assert.ok(root, ':root token block is missing');
   const rules = css.replace(root[0], '').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.deepEqual(rules.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/gi) ?? [], [], 'colours outside :root must use var(--color-*)');
-  assert.doesNotMatch(css, /gradient\(|backdrop-filter|filter:\s*blur|text-shadow|background-clip:\s*text|999px/);
-  assert.doesNotMatch(css, /url\(/, 'no decorative background images');
+  assert.deepEqual(rules.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|gradient\(|url\(/gi) ?? [], [],
+    'colours, gradients and images outside :root must come from tokens');
+  assert.doesNotMatch(css, /backdrop-filter|text-shadow|background-clip:\s*text/);
 });

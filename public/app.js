@@ -1,5 +1,6 @@
 // osu-render web UI. Plain ES module, no build step: every dynamic text goes through textContent or DOM APIs.
 const $ = (selector) => document.querySelector(selector);
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const ROUTES = ['render', 'history', 'skins', 'diagnostics'];
 const DEFAULT_ROUTE = 'render';
@@ -25,10 +26,12 @@ const FILE_ERRORS = ['INVALID_REPLAY', 'UNSUPPORTED_MODE', 'REPLAY_TOO_LARGE', '
 const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv'], [/^libx264$/, 'x264']];
 const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
 const PERCENT_RANGES = ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale'];
+const SKIN_SWATCHES = 4;
+const RING_CIRCUMFERENCE = 2 * Math.PI * 88;
 
-const languageSelect = $('#language');
-const LANGUAGES = [...languageSelect.options].map((option) => option.value);
-const tabs = [...document.querySelectorAll('#tabs [data-route]')];
+const languageButtons = [...document.querySelectorAll('#language [data-lang]')];
+const LANGUAGES = languageButtons.map((button) => button.dataset.lang);
+const tabs = [...document.querySelectorAll('[data-route]')];
 const views = Object.fromEntries(ROUTES.map((route) => [route, $(`#view-${route}`)]));
 const rendererStatus = $('#rendererStatus');
 const rendererLabel = $('#rendererLabel');
@@ -38,38 +41,51 @@ const updateTitle = $('#updateTitle');
 const updateDetail = $('#updateDetail');
 const updateApply = $('#updateApply');
 const updateNotes = $('#updateNotes');
+const renderIdle = $('#renderIdle');
 const drop = $('#drop');
 const fileInput = $('#file');
 const tokenField = $('#tokenField');
 const token = $('#token');
-const jobCard = $('#job');
+const jobView = $('#job');
+const jobHeading = $('#jobHeading');
+const jobLede = $('#jobLede');
+const jobCard = $('#jobCard');
 const jobTitle = $('#jobTitle');
 const jobSub = $('#jobSub');
+const jobTags = $('#jobTags');
 const steps = [...document.querySelectorAll('#steps [data-step]')];
 const jobStatus = $('#jobStatus');
-const progressBox = $('#progressBox');
 const progressBar = $('#progress');
 const progressFill = $('#progressFill');
 const progressPercent = $('#progressPercent');
+const progressState = $('#progressState');
 const progressSpeed = $('#progressSpeed');
 const progressEta = $('#progressEta');
+const progressLength = $('#progressLength');
 const jobError = $('#jobError');
 const jobErrorText = $('#jobErrorText');
 const jobResult = $('#jobResult');
 const jobVideo = $('#jobVideo');
+const doneBadge = $('#doneBadge');
+const doneTitle = $('#doneTitle');
+const doneSub = $('#doneSub');
+const doneTags = $('#doneTags');
 const downloadButton = $('#download');
 const retryButton = $('#retry');
 const cancelButton = $('#cancel');
 const anotherButton = $('#another');
+const doneAnother = $('#doneAnother');
 const skinSelect = $('#skin');
+const skipIntro = $('#skipIntro');
+const skipIntroState = $('#skipIntroState');
+const moreCount = $('#moreCount');
 const moreSettings = $('#moreSettings');
 const drawer = $('#settingsDrawer');
 const drawerClose = $('#drawerClose');
 const settingsSearch = $('#settingsSearch');
 const settingsNoMatch = $('#settingsNoMatch');
-const presetSelect = $('#presetSelect');
+const presetList = $('#presetList');
 const presetSave = $('#presetSave');
-const presetDelete = $('#presetDelete');
 const presetReset = $('#presetReset');
 const presetStatus = $('#presetStatus');
 const historyList = $('#historyList');
@@ -101,6 +117,7 @@ const DEFAULT_OPTIONS = renderOptions();
 
 let messages = null;
 let languageRequest = 0;
+let currentLanguage = FALLBACK_LANGUAGE;
 let route = null;
 let health = null;
 let jobId = null;
@@ -116,6 +133,7 @@ let historyTimer = null;
 let skinNames = ['default'];
 let skinMessage = null;
 let skinBusy = false;
+let activePreset = null;
 let presetMessage = null;
 let diagnosticsReport = null;
 let diagnosticsMessage = null;
@@ -137,15 +155,15 @@ function storageJson(storage, key) {
 
 // ---- wiring ----
 token.value = storageGet(sessionStorage, TOKEN_STORAGE_KEY) ?? '';
-tokenField.hidden = !token.value;
 token.addEventListener('change', () => {
   storageSet(sessionStorage, TOKEN_STORAGE_KEY, token.value || null);
   loadSkins(); loadHistory(); loadUpdate();
 });
 for (const control of optionControls) {
-  control.addEventListener('input', () => { syncOutput(control); rememberOptions(); });
-  control.addEventListener('change', rememberOptions);
+  control.addEventListener('input', () => { syncOutput(control); optionsChanged(); });
+  control.addEventListener('change', () => { syncOutput(control); optionsChanged(); });
 }
+moreCount.dataset.i18nN = String(new Set(optionControls.filter((control) => drawer.contains(control)).map((control) => control.dataset.option)).size);
 drop.addEventListener('dragover', (event) => { event.preventDefault(); drop.classList.add('drag'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
 drop.addEventListener('drop', (event) => { event.preventDefault(); drop.classList.remove('drag'); upload(event.dataTransfer.files[0]); });
@@ -153,43 +171,48 @@ fileInput.addEventListener('change', () => { const file = fileInput.files[0]; fi
 cancelButton.addEventListener('click', cancelJob);
 retryButton.addEventListener('click', () => { if (lastFile) upload(lastFile); else resetJob(); });
 anotherButton.addEventListener('click', resetJob);
+doneAnother.addEventListener('click', resetJob);
 downloadButton.addEventListener('click', () => downloadVideo(jobId));
 jobVideo.addEventListener('error', () => refreshVideoSource(jobVideo));
 moreSettings.addEventListener('click', () => { drawer.showModal(); settingsSearch.focus(); });
 drawerClose.addEventListener('click', () => drawer.close());
 drawer.addEventListener('click', (event) => { if (event.target === drawer) drawer.close(); });
 settingsSearch.addEventListener('input', filterSettings);
-presetSelect.addEventListener('change', loadPreset);
 presetSave.addEventListener('click', savePreset);
-presetDelete.addEventListener('click', deletePreset);
-presetReset.addEventListener('click', () => { applyOptions(DEFAULT_OPTIONS); presetSelect.value = ''; showPreset('presets.resetDone', {}); });
+presetReset.addEventListener('click', () => { applyOptions(DEFAULT_OPTIONS); activePreset = null; renderPresets(); showPreset('presets.resetDone', {}); });
 historyRefresh.addEventListener('click', () => loadHistory());
-skinDrop.addEventListener('dragover', (event) => { event.preventDefault(); skinDrop.classList.add('drag'); });
-skinDrop.addEventListener('dragleave', () => skinDrop.classList.remove('drag'));
-skinDrop.addEventListener('drop', (event) => { event.preventDefault(); skinDrop.classList.remove('drag'); uploadSkin(event.dataTransfer.files[0]); });
 skinFile.addEventListener('change', () => { const file = skinFile.files[0]; skinFile.value = ''; uploadSkin(file); });
 previewClose.addEventListener('click', () => previewDialog.close());
 previewDialog.addEventListener('click', (event) => { if (event.target === previewDialog) previewDialog.close(); });
 previewDialog.addEventListener('close', () => { previewVideo.pause(); previewVideo.removeAttribute('src'); previewVideo.load(); });
 previewVideo.addEventListener('error', () => refreshVideoSource(previewVideo));
-languageSelect.addEventListener('change', () => {
-  storageSet(localStorage, LANGUAGE_STORAGE_KEY, languageSelect.value);
-  setLanguage(languageSelect.value);
-});
+for (const button of languageButtons) {
+  button.addEventListener('click', () => {
+    storageSet(localStorage, LANGUAGE_STORAGE_KEY, button.dataset.lang);
+    setLanguage(button.dataset.lang);
+  });
+}
 diagDownload.addEventListener('click', downloadDiagnostics);
 diagCopy.addEventListener('click', copyDiagnostics);
 diagIssue.addEventListener('click', openIssue);
 diagSend.addEventListener('click', sendDiagnostics);
 updateApply.addEventListener('click', applyUpdate);
 window.addEventListener('hashchange', () => showRoute(true));
-// Dropping a file anywhere else would make the browser navigate away from the page.
-window.addEventListener('dragover', (event) => event.preventDefault());
-window.addEventListener('drop', (event) => event.preventDefault());
+// Dropping a file anywhere else must not navigate away; on the Skins page an .osk dropped anywhere is installed.
+window.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  if (route === 'skins') skinDrop.classList.add('drag');
+});
+window.addEventListener('dragleave', (event) => { if (!event.relatedTarget) skinDrop.classList.remove('drag'); });
+window.addEventListener('drop', (event) => {
+  event.preventDefault();
+  skinDrop.classList.remove('drag');
+  if (route === 'skins') uploadSkin(event.dataTransfer?.files[0]);
+});
 
 restoreOptions();
 renderPresets();
-languageSelect.value = detectLanguage();
-setLanguage(languageSelect.value);
+setLanguage(detectLanguage());
 showRoute(false);
 loadHealth();
 setInterval(loadHealth, HEALTH_REFRESH_MS);
@@ -213,7 +236,7 @@ function showRoute(moveFocus) {
   }
   if (route === 'history') loadHistory();
   if (route === 'skins') loadSkins();
-  if (moveFocus) views[route].querySelector('h1')?.focus({ preventScroll: true });
+  if (moveFocus) [...views[route].querySelectorAll('h1')].find((heading) => heading.offsetParent !== null)?.focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
 }
 
@@ -223,6 +246,7 @@ function renderOptions() {
   for (const control of optionControls) {
     const key = control.dataset.option;
     if (control.type === 'checkbox') options[key] = control.checked;
+    else if (control.type === 'radio') { if (control.checked) options[key] = control.value; }
     else if (control.type === 'range' || control.dataset.type === 'number') options[key] = Number(control.value);
     else options[key] = control.value;
   }
@@ -231,22 +255,37 @@ function renderOptions() {
 function applyOptions(options) {
   if (!options || typeof options !== 'object') return;
   for (const control of optionControls) {
-    const value = options[control.dataset.option];
+    const key = control.dataset.option;
+    const value = options[key];
     if (value === undefined) continue;
     if (control.type === 'checkbox') control.checked = value === true;
+    else if (control.type === 'radio') control.checked = control.value === value;
     else if (control === skinSelect) skinSelect.value = skinNames.includes(value) ? value : 'default';
     else {
       control.value = String(value);
       // An unknown <select> value leaves nothing selected: fall back to the default.
-      if (control.tagName === 'SELECT' && control.selectedIndex < 0) control.value = String(DEFAULT_OPTIONS[control.dataset.option]);
+      if (control.tagName === 'SELECT' && control.selectedIndex < 0) control.value = String(DEFAULT_OPTIONS[key]);
     }
     syncOutput(control);
+  }
+  // A radio group with an unknown value would send no resolution at all.
+  for (const [key, value] of Object.entries(DEFAULT_OPTIONS)) {
+    const radios = optionControls.filter((control) => control.type === 'radio' && control.dataset.option === key);
+    if (radios.length && !radios.some((radio) => radio.checked)) radios.forEach((radio) => { radio.checked = radio.value === value; });
   }
   rememberOptions();
 }
 function syncOutput(control) {
+  if (control === skipIntro) { renderSwitchState(); return; }
   const output = document.querySelector(`#${control.id}Value`);
   if (output) output.value = `${control.value}${PERCENT_RANGES.includes(control.id) ? '%' : ''}`;
+}
+function renderSwitchState() {
+  skipIntroState.textContent = skipIntro.checked ? t('quick.on', {}, 'On') : t('quick.off', {}, 'Off');
+}
+function optionsChanged() {
+  rememberOptions();
+  if (activePreset && JSON.stringify(presets()[activePreset]) !== JSON.stringify(renderOptions())) { activePreset = null; renderPresets(); }
 }
 function rememberOptions() {
   storageSet(localStorage, LAST_OPTIONS_STORAGE_KEY, JSON.stringify(renderOptions()));
@@ -262,36 +301,35 @@ function presets() {
   return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
 }
 function renderPresets() {
-  const selected = presetSelect.value;
   const names = Object.keys(presets()).sort((a, b) => a.localeCompare(b));
-  const placeholder = presetSelect.options[0];
-  presetSelect.replaceChildren(placeholder, ...names.map((name) => {
-    const option = document.createElement('option');
-    option.value = name; option.textContent = name;
-    return option;
-  }));
-  presetSelect.value = names.includes(selected) ? selected : '';
-  presetDelete.disabled = !presetSelect.value;
+  if (!names.includes(activePreset)) activePreset = null;
+  presetList.replaceChildren(...names.map((name) => {
+    const group = element('span', 'chip-group');
+    const chip = button(name, name === activePreset ? 'chip on' : 'chip', () => loadPreset(name));
+    chip.setAttribute('aria-pressed', String(name === activePreset));
+    const remove = iconButton('i-x', t('presets.delete', { name }), 'chip-x', () => deletePreset(name));
+    group.append(chip, remove);
+    return group;
+  }), presetSave);
 }
-function loadPreset() {
-  presetDelete.disabled = !presetSelect.value;
-  const options = presets()[presetSelect.value];
+function loadPreset(name) {
+  const options = presets()[name];
   if (!options) return;
   applyOptions(options);
-  showPreset('presets.applied', { name: presetSelect.value });
+  activePreset = name; renderPresets();
+  showPreset('presets.applied', { name });
 }
 function savePreset() {
-  const name = window.prompt(t('presets.namePrompt'), presetSelect.value)?.trim().slice(0, 40);
+  const name = window.prompt(t('presets.namePrompt'), activePreset ?? '')?.trim().slice(0, 40);
   if (!name) return;
   const all = presets();
   all[name] = renderOptions();
   if (!storageSet(localStorage, PRESETS_STORAGE_KEY, JSON.stringify(all))) { showPreset('presets.storageFailed', {}, 'error'); return; }
-  renderPresets(); presetSelect.value = name; presetDelete.disabled = false;
+  activePreset = name; renderPresets();
   showPreset('presets.saved', { name });
 }
-function deletePreset() {
-  const name = presetSelect.value;
-  if (!name || !window.confirm(t('presets.confirmDelete', { name }))) return;
+function deletePreset(name) {
+  if (!window.confirm(t('presets.confirmDelete', { name }))) return;
   const all = presets();
   delete all[name];
   storageSet(localStorage, PRESETS_STORAGE_KEY, JSON.stringify(all));
@@ -330,7 +368,7 @@ async function upload(file) {
   stopJobPolling();
   jobId = null; currentJob = null; jobProblem = null; uploading = true;
   storageSet(sessionStorage, ACTIVE_JOB_STORAGE_KEY, null);
-  showJobCard(file.name);
+  showJobView(file.name);
   renderJob();
   const form = new FormData();
   form.append('options', JSON.stringify(renderOptions()));
@@ -355,20 +393,20 @@ function resumeJob() {
   const stored = storageGet(sessionStorage, ACTIVE_JOB_STORAGE_KEY);
   if (!stored || !/^[a-f0-9-]{36}$/i.test(stored)) return;
   jobId = stored;
-  showJobCard('');
+  showJobView('');
   startJobPolling();
 }
-function showJobCard(fileName) {
+function showJobView(fileName) {
   jobTitle.dataset.fileName = fileName;
-  drop.hidden = true; jobCard.hidden = false;
+  renderIdle.hidden = true; jobView.hidden = false;
 }
 function resetJob() {
   stopJobPolling();
   jobId = null; currentJob = null; jobProblem = null; lastFile = null;
   storageSet(sessionStorage, ACTIVE_JOB_STORAGE_KEY, null);
   setJobVideo(null);
-  jobCard.hidden = true; drop.hidden = false;
-  drop.focus();
+  jobView.hidden = true; renderIdle.hidden = false;
+  fileInput.focus();
 }
 function startJobPolling() {
   stopJobPolling();
@@ -413,17 +451,43 @@ async function cancelJob() {
   await pollJob();
 }
 function renderJob() {
-  if (jobCard.hidden) return;
+  if (jobView.hidden) return;
   const data = currentJob;
   const status = uploading ? 'uploaded' : data?.status ?? null;
-  jobTitle.textContent = data?.beatmap?.title ? mapTitle(data.beatmap) : jobTitle.dataset.fileName || t('job.untitled');
-  jobSub.textContent = [
-    data?.beatmap?.version ? `[${data.beatmap.version}]` : null,
-    data?.player ? t('job.by', { player: data.player }) : null,
-    data?.mods || null,
-    data?.output ? `${data.output.height}p` : null,
-  ].filter(Boolean).join(' · ');
-  const failed = status === 'failed' || status === 'cancelled' || (!data && Boolean(jobProblem));
+  const problem = data?.error ?? jobProblem;
+  const completed = status === 'completed' && typeof data?.previewUrl === 'string';
+  const failed = status === 'failed' || status === 'cancelled' || (!data && Boolean(problem));
+  const title = data?.beatmap?.title ? fullMapTitle(data.beatmap) : jobTitle.dataset.fileName || t('job.untitled');
+  const sub = jobSubline(data);
+
+  const hours = retentionHours(data);
+  let heading = t('job.activeTitle');
+  let lede = t('job.activeLede');
+  if (completed) { heading = t('job.doneTitle'); lede = t('job.doneLede', { hours }); }
+  else if (status === 'completed') { heading = t('job.doneTitle'); lede = t('job.expiredLede'); }
+  else if (status === 'cancelled') { heading = t('job.cancelledTitle'); lede = t('job.failedLede'); }
+  else if (failed) { heading = t('job.failedTitle'); lede = t('job.failedLede'); }
+  else if (status === 'rendering' || status === 'finalizing') heading = t('job.renderingTitle');
+  jobHeading.textContent = heading;
+  jobLede.textContent = lede;
+
+  jobCard.hidden = completed;
+  jobResult.hidden = !completed;
+  jobTitle.textContent = title; jobSub.textContent = sub;
+  jobTags.replaceChildren(...jobTagElements(data, false));
+
+  const value = status === 'completed' ? 100 : percent(data?.progress);
+  progressFill.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - value / 100));
+  progressBar.dataset.state = failed ? 'error' : status ?? 'uploaded';
+  progressBar.setAttribute('aria-valuenow', String(value));
+  progressPercent.textContent = `${value}%`;
+  progressState.textContent = status
+    ? t(`job.ring.${status}`, { position: data?.queuePosition ?? '?' }, status)
+    : failed ? t('job.ring.failed') : '';
+  progressSpeed.textContent = typeof data?.speed === 'number' ? `${data.speed.toFixed(2)}x` : '–';
+  progressEta.textContent = typeof data?.eta === 'string' && data.eta ? data.eta : '–';
+  progressLength.textContent = typeof data?.beatmap?.length === 'number' ? formatDuration(data.beatmap.length * 1000) : '–';
+
   const current = status === null ? 0 : STEP_OF_STATUS[status] ?? stepBeforeFailure(data);
   steps.forEach((step, index) => {
     let state = 'todo';
@@ -433,30 +497,43 @@ function renderJob() {
     const label = step.querySelector('.step-label');
     const detail = STEPS[index] === 'queued' && status === 'queued' && data?.queuePosition ? ` #${data.queuePosition}` : '';
     label.textContent = t(`job.steps.${STEPS[index]}`) + detail;
-    if (index === current && !failed && status !== 'completed') step.setAttribute('aria-current', 'step'); else step.removeAttribute('aria-current');
+    if (state === 'active') step.setAttribute('aria-current', 'step'); else step.removeAttribute('aria-current');
   });
   jobStatus.textContent = status
     ? t(`status.${status}`, { position: data?.queuePosition ?? '?', progress: percent(data?.progress) }, status)
     : '';
-  const rendering = status === 'rendering' || status === 'finalizing';
-  progressBox.hidden = !rendering;
-  const value = percent(data?.progress);
-  progressFill.style.width = `${value}%`;
-  progressBar.setAttribute('aria-valuenow', String(value));
-  progressPercent.textContent = `${value}%`;
-  progressSpeed.textContent = typeof data?.speed === 'number' ? t('job.speed', { speed: data.speed.toFixed(2) }) : '';
-  progressEta.textContent = typeof data?.eta === 'string' && data.eta ? t('job.eta', { eta: data.eta }) : '';
-  const problem = data?.error ?? jobProblem;
+
   jobError.hidden = !problem && status !== 'cancelled';
   jobErrorText.textContent = problem ? errorText(problem) : status === 'cancelled' ? t('job.cancelled') : '';
-  const completed = status === 'completed' && typeof data?.previewUrl === 'string';
-  jobResult.hidden = !completed;
-  setJobVideo(completed ? data.previewUrl : null);
-  downloadButton.hidden = !completed;
   cancelButton.hidden = !data || uploading || TERMINAL_STATUSES.includes(status);
-  const retryable = Boolean(problem || status === 'cancelled') && lastFile && !FILE_ERRORS.includes(problem?.code);
-  retryButton.hidden = !retryable;
+  retryButton.hidden = !(Boolean(problem || status === 'cancelled') && lastFile && !FILE_ERRORS.includes(problem?.code));
   anotherButton.hidden = !(TERMINAL_STATUSES.includes(status) || (problem && !jobTimer));
+
+  setJobVideo(completed ? data.previewUrl : null);
+  if (completed) {
+    doneBadge.textContent = data.renderMs ? t('job.doneIn', { duration: formatDuration(data.renderMs) }) : t('status.completed');
+    doneTitle.textContent = title; doneSub.textContent = sub;
+    doneTags.replaceChildren(...jobTagElements(data, true));
+  }
+}
+function jobSubline(data) {
+  return [
+    data?.beatmap?.creator ? t('job.mappedBy', { creator: data.beatmap.creator }) : null,
+    data?.player ? t('job.by', { player: data.player }) : null,
+  ].filter(Boolean).join(' · ');
+}
+function jobTagElements(data, withSize) {
+  if (!data) return [];
+  const mods = (data.mods ?? '').match(/[A-Z0-9]{2}/g) ?? [];
+  const tags = mods.map((mod) => element('span', 'tag mod', mod));
+  if (data.output?.height) tags.push(element('span', 'tag', `${data.output.height}p`));
+  if (data.output?.encoder) tags.push(element('span', 'tag', encoderLabel(data.output.encoder)));
+  if (withSize && typeof data.videoBytes === 'number') tags.push(element('span', 'tag', formatSize(data.videoBytes)));
+  return tags;
+}
+function retentionHours(data) {
+  if (typeof data?.expiresAt !== 'number' || typeof data?.completedAt !== 'number') return '24';
+  return String(Math.max(1, Math.round((data.expiresAt - data.completedAt) / 3_600_000)));
 }
 function stepBeforeFailure(data) {
   // A failed job doesn't say where it stopped: rendering errors happened while rendering, the rest before the queue.
@@ -468,9 +545,9 @@ function stepBeforeFailure(data) {
 function setJobVideo(url) {
   if (url === jobVideoUrl) return;
   // A new signed URL for the same video (each poll signs again) must not restart playback.
-  if (url && jobVideoUrl && url.split('?')[0] === jobVideoUrl.split('?')[0]) { jobVideoUrl = url; jobVideo.dataset.id = jobId; return; }
+  if (url && jobVideoUrl && url.split('?')[0] === jobVideoUrl.split('?')[0]) { jobVideoUrl = url; return; }
   jobVideoUrl = url;
-  if (url) { jobVideo.dataset.id = jobId; jobVideo.src = url; } else { jobVideo.removeAttribute('src'); jobVideo.load(); }
+  if (url) { jobVideo.dataset.id = jobId; jobVideo.dataset.retried = 'false'; jobVideo.src = url; } else { jobVideo.removeAttribute('src'); jobVideo.load(); }
 }
 async function refreshVideoSource(video) {
   // Signed links expire; fetch a fresh one once per failure.
@@ -495,8 +572,8 @@ async function downloadVideo(id) {
     else { jobProblem = { code: 'RENDER_EXPIRED' }; renderJob(); }
     return;
   }
-  const link = document.createElement('a');
   // The server names the file after the beatmap (Content-Disposition).
+  const link = document.createElement('a');
   link.href = url; link.download = '';
   document.body.append(link); link.click(); link.remove();
 }
@@ -526,47 +603,47 @@ function renderHistory() {
   historyList.replaceChildren(...(historyItems ?? []).map(historyEntry));
 }
 function historyEntry(item) {
-  const entry = document.createElement('li');
-  entry.className = 'history-item card';
+  const entry = element('li', 'hrow');
   entry.dataset.status = item.status;
-  const head = element('div', 'history-head');
-  const title = element('h2', 'history-title', mapTitle(item.beatmap));
+  const finished = TERMINAL_STATUSES.includes(item.status);
+  const thumb = element('span', item.videoAvailable ? 'thumb' : 'thumb gone');
+  thumb.setAttribute('aria-hidden', 'true');
+  const info = element('div', 'hinfo');
+  const title = element('h2', 'htitle', fullMapTitle(item.beatmap));
   title.title = title.textContent;
-  const badge = element('span', 'badge', t(`status.${item.status}`, { position: '?', progress: percent(item.progress) }, item.status));
-  badge.dataset.status = item.status;
-  head.append(title, badge);
-  const sub = element('p', 'history-sub', [
-    item.beatmap?.version ? `[${item.beatmap.version}]` : null, item.player, item.mods || null,
-  ].filter(Boolean).join(' · '));
-  const facts = element('dl', 'history-facts');
-  addFact(facts, t('history.created'), formatTime(item.createdAt));
-  addFact(facts, t('history.encoder'), `${item.resolution ?? ''} · ${encoderLabel(item.encoder)}`);
-  if (item.renderMs) addFact(facts, t('history.renderTime'), formatDuration(item.renderMs));
-  const files = element('p', 'history-files');
-  if (item.error) { files.textContent = errorText(item.error); files.dataset.tone = 'error'; }
-  else if (item.filesDeleted) files.textContent = t('history.deleted');
-  else if (TERMINAL_STATUSES.includes(item.status) && item.expiresAt) files.textContent = t('history.expires', { time: formatTime(item.expiresAt) });
-  const actions = element('div', 'history-actions');
-  if (item.videoAvailable) {
-    actions.append(
-      button(t('history.preview'), 'btn btn-secondary btn-small', () => openPreview(item)),
-      button(t('history.download'), 'btn btn-primary btn-small', () => downloadVideo(item.id)),
-    );
+  const meta = element('p', 'hmeta');
+  const facts = [
+    relativeTime(item.createdAt), item.resolution, encoderLabel(item.encoder),
+    item.error ? errorText(item.error) : item.renderMs ? t('history.renderTime', { duration: formatDuration(item.renderMs) }) : null,
+  ];
+  if (item.player || item.mods) facts.splice(1, 0, [item.player, item.mods].filter(Boolean).join(' · '));
+  meta.append(...facts.filter(Boolean).map((text) => element('span', '', text)));
+  info.append(title, meta);
+  const pill = element('span', 'pill', historyStatusText(item));
+  pill.dataset.tone = item.status === 'completed' && item.videoAvailable ? 'ok'
+    : item.status === 'failed' ? 'bad' : finished ? 'muted' : 'run';
+  if (finished && item.expiresAt && !item.filesDeleted) pill.title = t('history.expires', { time: formatTime(item.expiresAt) });
+  const actions = element('div', 'hact');
+  if (finished) {
+    const preview = iconButton('i-eye', t('history.preview'), 'ibtn', () => openPreview(item));
+    const download = iconButton('i-dl', t('history.download'), 'ibtn', () => downloadVideo(item.id));
+    const remove = iconButton('i-del', t('history.deleteFiles'), 'ibtn', () => deleteHistoryFiles(item.id));
+    preview.disabled = !item.videoAvailable; download.disabled = !item.videoAvailable; remove.disabled = Boolean(item.filesDeleted);
+    actions.append(preview, download, remove);
   }
-  if (TERMINAL_STATUSES.includes(item.status) && !item.filesDeleted) {
-    actions.append(button(t('history.deleteFiles'), 'btn btn-ghost btn-small', () => deleteHistoryFiles(item.id)));
-  }
-  entry.append(head, sub, facts, files, actions);
+  entry.append(thumb, info, pill, actions);
   return entry;
 }
-function addFact(list, label, value) {
-  if (!value) return;
-  list.append(element('dt', '', label), element('dd', '', value));
+function historyStatusText(item) {
+  if (item.status === 'completed') return item.videoAvailable ? t('history.done') : t('history.deleted');
+  if (item.status === 'failed') return t('status.failed');
+  if (item.status === 'cancelled') return t('status.cancelled');
+  return t(`status.${item.status}`, { position: '?', progress: percent(item.progress) }, item.status);
 }
 async function openPreview(item) {
   const url = await freshVideoUrl(item.id) ?? item.previewUrl;
   if (!url) return;
-  previewTitle.textContent = mapTitle(item.beatmap);
+  previewTitle.textContent = fullMapTitle(item.beatmap);
   previewVideo.dataset.id = item.id; previewVideo.dataset.retried = 'false';
   previewVideo.src = url;
   previewDialog.showModal();
@@ -579,14 +656,27 @@ async function deleteHistoryFiles(id) {
 }
 function mapTitle(beatmap) {
   if (!beatmap?.title) return beatmap?.id ? `#${beatmap.id}` : t('history.unknownMap');
-  return beatmap.artist ? `${beatmap.artist} - ${beatmap.title}` : beatmap.title;
+  return beatmap.artist ? `${beatmap.artist} – ${beatmap.title}` : beatmap.title;
+}
+function fullMapTitle(beatmap) {
+  return beatmap?.title && beatmap.version ? `${mapTitle(beatmap)} [${beatmap.version}]` : mapTitle(beatmap);
 }
 function formatTime(value) {
-  return typeof value === 'number' ? new Date(value).toLocaleString(document.documentElement.lang || undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+  return typeof value === 'number' ? new Date(value).toLocaleString(currentLanguage, { dateStyle: 'short', timeStyle: 'short' }) : '';
+}
+function relativeTime(value) {
+  if (typeof value !== 'number') return '';
+  const minutes = Math.round((value - Date.now()) / 60_000);
+  if (Math.abs(minutes) >= 24 * 60) return formatTime(value);
+  const format = new Intl.RelativeTimeFormat(currentLanguage, { numeric: 'auto' });
+  return Math.abs(minutes) < 60 ? format.format(minutes, 'minute') : format.format(Math.round(minutes / 60), 'hour');
 }
 function formatDuration(ms) {
   const seconds = Math.max(1, Math.round(ms / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+function formatSize(bytes) {
+  return bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
 }
 
 // ---- skins ----
@@ -614,19 +704,28 @@ async function loadSkins() {
 }
 function renderSkins() {
   skinList.replaceChildren(...skinNames.map((name) => {
-    const entry = element('li', 'skin-item card');
+    const entry = element('li', 'skin');
     const selected = skinSelect.value === name;
     entry.dataset.selected = String(selected);
-    const label = element('span', 'skin-name', name === 'default' ? t('settings.skin.default') : name);
+    const swatch = element('span', `sw sw-${name === 'default' ? 'default' : swatchIndex(name)}`);
+    swatch.setAttribute('aria-hidden', 'true');
+    const label = element('b', 'skin-name', name === 'default' ? t('settings.skin.default') : name);
     label.title = label.textContent;
-    const action = button(selected ? t('skins.inUse') : t('skins.use'), selected ? 'btn btn-ghost btn-small' : 'btn btn-secondary btn-small', () => {
-      skinSelect.value = name; rememberOptions(); renderSkins();
-      showSkin({ key: 'skins.selected', vars: { name: label.textContent } }, 'ok');
-    });
-    action.setAttribute('aria-pressed', String(selected));
-    entry.append(label, action);
+    entry.append(swatch, label);
+    if (selected) entry.append(element('span', 'okbadge', t('skins.inUse')));
+    else {
+      entry.append(button(t('skins.use'), 'btn small', () => {
+        skinSelect.value = name; optionsChanged(); renderSkins();
+        showSkin({ key: 'skins.selected', vars: { name: label.textContent } }, 'ok');
+      }));
+    }
     return entry;
   }));
+}
+function swatchIndex(name) {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+  return hash % SKIN_SWATCHES;
 }
 async function uploadSkin(file) {
   if (!file || skinBusy) return;
@@ -641,7 +740,6 @@ async function uploadSkin(file) {
     if (!response.ok || typeof data?.name !== 'string') { showSkin(data?.error ?? { key: 'skins.failed' }, 'error'); return; }
     skinSelect.dataset.wanted = data.name;
     await loadSkins();
-    rememberOptions();
     showSkin({ key: 'skins.installed', vars: { name: data.name } }, 'ok');
   } catch {
     showSkin({ key: 'skins.failed' }, 'error');
@@ -678,15 +776,13 @@ function renderHealth() {
   rendererLabel.textContent = kind === 'hardware' || kind === 'software'
     ? t('renderer.chip', { kind: t(`renderer.kind.${kind}`), encoder: encoderLabel(health.encoder) })
     : t('renderer.none');
-  const reason = health.status === 'degraded' && typeof health.reason === 'string' ? t(`reason.${health.reason}`, {}, health.reason) : '';
-  rendererReason.textContent = reason; rendererReason.hidden = !reason;
-  rendererStatus.title = reason;
-  rendererStatus.dataset.state = health.status;
+  let detail = kind === 'hardware' ? t('renderer.readyHardware') : t('renderer.readySoftware');
+  if (health.status === 'degraded' && typeof health.reason === 'string') detail = t(`reason.${health.reason}`, {}, health.reason);
+  rendererReason.textContent = detail;
+  rendererStatus.dataset.state = health.status === 'ok' && kind === 'hardware' ? 'ok' : 'warn';
   rendererStatus.hidden = false;
   const reporting = health.reportWebhook === true;
   diagSend.hidden = !reporting; diagAutoSend.hidden = !reporting; diagPrivacy.hidden = reporting;
-  diagDownload.classList.toggle('btn-primary', !reporting);
-  diagDownload.classList.toggle('btn-secondary', reporting);
   renderFacts();
 }
 function renderFacts() {
@@ -700,7 +796,11 @@ function renderFacts() {
     [t('diagnostics.renderer.disk'), formatBytes(health.freeDiskBytes)],
   ];
   if (health.status === 'degraded' && health.reason) facts.push([t('diagnostics.renderer.reason'), t(`reason.${health.reason}`, {}, health.reason)]);
-  rendererFacts.replaceChildren(...facts.flatMap(([label, value]) => [element('dt', '', label), element('dd', '', value)]));
+  rendererFacts.replaceChildren(...facts.map(([label, value]) => {
+    const row = element('div', 'fact');
+    row.append(element('dt', '', label), element('dd', '', value));
+    return row;
+  }));
   rendererFacts.dataset.state = health.status;
 }
 function renderProbes() {
@@ -708,11 +808,11 @@ function renderProbes() {
     ? diagnosticsReport.encoderProbes : diagnosticsReport?.preflight?.probes ?? [];
   probesEmpty.hidden = probes.length > 0;
   probeList.replaceChildren(...probes.filter((probe) => typeof probe?.encoder === 'string').map((probe) => {
-    const entry = element('li', 'probe');
-    entry.dataset.ok = String(probe.ok === true);
+    const entry = element('li', probe.ok ? 'st ok' : 'st bad');
+    entry.title = encoderLabel(probe.encoder);
     entry.append(
-      element('span', 'probe-name', `${encoderLabel(probe.encoder)} · ${probe.encoder}`),
-      element('span', 'badge', probe.ok ? t('diagnostics.renderer.probeOk') : t('diagnostics.renderer.probeFailed')),
+      element('span', 'st-name', probe.encoder),
+      element('b', '', probe.ok ? t('diagnostics.renderer.probeOk') : t('diagnostics.renderer.probeFailed')),
     );
     return entry;
   }));
@@ -819,10 +919,10 @@ function renderUpdate() {
   if (updateBanner.hidden) return;
   updateBanner.dataset.tone = updateMessage?.tone ?? 'info';
   updateBanner.setAttribute('aria-busy', String(updateBusy));
-  updateTitle.textContent = available ? t('update.available', { version: update.latest, current: update.current }) : '';
+  updateTitle.textContent = available ? t('update.available', { version: update.latest }) : '';
   if (updateMessage?.problem) updateDetail.textContent = errorText(updateMessage.problem);
   else if (updateMessage) updateDetail.textContent = t(updateMessage.key, updateMessage.vars);
-  else updateDetail.textContent = update.portable ? '' : t('update.gitHint');
+  else updateDetail.textContent = update.portable ? t('update.current', { current: update.current }) : t('update.gitHint');
   updateApply.hidden = !available || update.portable !== true;
   updateApply.setAttribute('aria-disabled', String(updateBusy));
   const notesUrl = typeof update?.notesUrl === 'string' && update.notesUrl.startsWith(ISSUE_URL_PREFIX) ? update.notesUrl : null;
@@ -879,9 +979,12 @@ async function setLanguage(language) {
   if (!loaded && language !== FALLBACK_LANGUAGE) loaded = await loadMessages(FALLBACK_LANGUAGE);
   if (request !== languageRequest || !loaded) return; // superseded, or nothing loaded: keep the text already on screen
   messages = loaded.messages;
+  currentLanguage = loaded.language;
   document.documentElement.lang = loaded.language;
+  for (const button of languageButtons) button.setAttribute('aria-pressed', String(button.dataset.lang === loaded.language));
   applyTranslations();
-  renderHealth(); renderJob(); renderHistory(); renderSkins(); renderSkinStatus(); renderPresetStatus();
+  renderSwitchState(); renderPresets(); renderPresetStatus();
+  renderHealth(); renderJob(); renderHistory(); renderSkins(); renderSkinStatus();
   renderDiagnosticsStatus(); renderProbes(); renderUpdate();
   if (settingsSearch.value) filterSettings();
 }
@@ -931,8 +1034,8 @@ function api(url, options = {}) {
   const headers = new Headers(options.headers);
   if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
   return fetch(url, { ...options, headers }).then((response) => {
-    // The token field stays hidden until the server asks for one.
-    if (response.status === 401 && tokenField.hidden) tokenField.hidden = false;
+    // The token field stays folded until the server asks for one.
+    if (response.status === 401) tokenField.open = true;
     return response;
   });
 }
@@ -946,6 +1049,18 @@ function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
+  return node;
+}
+function iconButton(icon, label, className, onClick) {
+  const node = document.createElement('button');
+  node.type = 'button'; node.className = className;
+  node.setAttribute('aria-label', label); node.title = label;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#${icon}`);
+  svg.append(use); node.append(svg);
+  node.addEventListener('click', onClick);
   return node;
 }
 function button(text, className, onClick) {

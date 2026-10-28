@@ -4,284 +4,307 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#1a1630">
   <title data-i18n="app.title">osu! Render</title>
   <link rel="stylesheet" href="/app.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
+<svg class="icon-sprite" aria-hidden="true">
+  <symbol id="i-render" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5 3.5-5 3.5z"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+  <symbol id="i-skin" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-2 0-3 3 0 4-1 3-2 3-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></symbol>
+  <symbol id="i-diag" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-del" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+</svg>
 <a class="skip-link" href="#main" data-i18n="nav.skip">Skip to content</a>
-<header class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="#/render" aria-label="osu! Render">
-      <span class="brand-mark" aria-hidden="true">o!</span>
-      <span class="brand-text"><strong data-i18n="app.title">osu! Render</strong><small data-i18n="app.tagline">danser-go replay renderer</small></span>
+
+<div class="app">
+  <aside class="rail">
+    <a class="brand" href="#/render">
+      <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><circle class="brand-ring" cx="18" cy="18" r="16"/><circle class="brand-core" cx="18" cy="18" r="10"/><path class="brand-play" d="M15.5 13.5l6 4.5-6 4.5z"/></svg>
+      <span class="brand-name">osu-render</span>
     </a>
-    <nav class="tabs" id="tabs" aria-label="Sections" data-i18n-aria-label="nav.label">
-      <a class="tab" href="#/render" data-route="render">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>
-        <span data-i18n="nav.render">Render</span>
-      </a>
-      <a class="tab" href="#/history" data-route="history">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        <span data-i18n="nav.history">History</span>
-      </a>
-      <a class="tab" href="#/skins" data-route="skins">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.6 0-1.3-1-1.6-1-2.6 0-.9.7-1.3 1.6-1.3H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>
-        <span data-i18n="nav.skins">Skins</span>
-      </a>
-      <a class="tab" href="#/diagnostics" data-route="diagnostics">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
-        <span data-i18n="nav.diagnostics">Diagnostics</span>
-      </a>
+    <nav class="nav" id="tabs" aria-label="Sections" data-i18n-aria-label="nav.label">
+      <a href="#/render" data-route="render"><svg class="nav-icon" aria-hidden="true"><use href="#i-render"/></svg><span data-i18n="nav.render">Render</span></a>
+      <a href="#/history" data-route="history"><svg class="nav-icon" aria-hidden="true"><use href="#i-hist"/></svg><span data-i18n="nav.history">History</span></a>
+      <a href="#/skins" data-route="skins"><svg class="nav-icon" aria-hidden="true"><use href="#i-skin"/></svg><span data-i18n="nav.skins">Skins</span></a>
+      <a href="#/diagnostics" data-route="diagnostics"><svg class="nav-icon" aria-hidden="true"><use href="#i-diag"/></svg><span data-i18n="nav.diagnostics">Diagnostics</span></a>
     </nav>
-    <div class="topbar-tools">
-      <p class="status-chip" id="rendererStatus" role="status" aria-live="polite" hidden><span class="sr-only" data-i18n="renderer.label">Renderer status:</span> <span class="chip-dot" aria-hidden="true"></span><span id="rendererLabel"></span><span class="chip-reason" id="rendererReason" hidden></span></p>
-      <label class="lang"><span class="sr-only" data-i18n="header.language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="zh-TW" lang="zh-TW">繁體中文</option><option value="es" lang="es">Español</option></select></label>
+    <div class="rail-foot">
+      <section class="update" id="updateBanner" role="status" aria-live="polite" hidden>
+        <strong id="updateTitle"></strong>
+        <span class="update-detail" id="updateDetail"></span>
+        <button type="button" id="updateApply" class="btn primary small" hidden data-i18n="update.apply">Update now</button>
+        <a id="updateNotes" class="update-notes" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
+      </section>
+      <div class="status" id="rendererStatus" role="status" aria-live="polite" hidden>
+        <span class="dot" aria-hidden="true"></span>
+        <div><span class="sr-only" data-i18n="renderer.label">Renderer status:</span> <b id="rendererLabel"></b><span class="status-detail" id="rendererReason"></span></div>
+      </div>
+      <div class="lang" id="language" role="group" aria-label="Language" data-i18n-aria-label="header.language">
+        <button type="button" data-lang="en" lang="en" aria-label="English" aria-pressed="true">EN</button><button type="button" data-lang="zh-TW" lang="zh-TW" aria-label="繁體中文" aria-pressed="false">中文</button><button type="button" data-lang="es" lang="es" aria-label="Español" aria-pressed="false">ES</button>
+      </div>
     </div>
-  </div>
-  <section class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
-    <p class="update-text"><strong id="updateTitle"></strong> <span id="updateDetail"></span></p>
-    <div class="update-actions">
-      <button type="button" id="updateApply" class="btn btn-primary btn-small" hidden data-i18n="update.apply">Update now</button>
-      <a id="updateNotes" class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
-    </div>
-  </section>
-</header>
+  </aside>
 
-<main id="main">
-  <section class="view view-render" id="view-render" data-view="render" aria-labelledby="renderTitle">
-    <h1 class="sr-only" id="renderTitle" tabindex="-1" data-i18n="nav.render">Render</h1>
-    <div class="render-grid">
-      <div class="render-main">
-        <label class="dropzone card" id="drop">
-          <input id="file" type="file" accept=".osr" class="sr-only">
-          <span class="drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-5 5m5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>
-          <strong class="drop-title" data-i18n="upload.drop">Drop an .osr replay here</strong>
-          <span class="drop-browse" data-i18n="upload.browse">or click to choose a file</span>
-          <span class="drop-limits" data-i18n="upload.limits">Max 5 MiB · osu!standard only</span>
-        </label>
+  <main id="main">
+    <section class="view" id="view-render" data-view="render" aria-labelledby="renderTitle">
+      <div id="renderIdle">
+        <h1 id="renderTitle" tabindex="-1" data-i18n="render.title">Turn a replay into a video</h1>
+        <p class="lede" data-i18n="render.lede">Drop a .osr file. We find the beatmap, render it and hand you an MP4.</p>
+        <div class="grid">
+          <div class="stack">
+            <label class="drop" id="drop">
+              <input id="file" type="file" accept=".osr" class="sr-only">
+              <span class="circle" aria-hidden="true"><svg><use href="#i-up"/></svg></span>
+              <strong data-i18n="upload.drop">Drop your replay here or click to choose</strong>
+              <span class="drop-hint" data-i18n="upload.limits">One .osr file · max 5 MiB · osu!standard only</span>
+            </label>
+            <section class="card" aria-labelledby="presetsTitle">
+              <div class="card-title"><h2 id="presetsTitle" data-i18n="presets.label">Presets</h2><button type="button" id="presetReset" class="btn ghost small" data-i18n="presets.reset">Reset to defaults</button></div>
+              <div class="chips" id="presetList">
+                <button type="button" id="presetSave" class="chip chip-add" data-i18n="presets.save">+ Save current</button>
+              </div>
+              <p class="note" id="presetStatus" role="status" aria-live="polite"></p>
+            </section>
+          </div>
+          <section class="card quick" aria-labelledby="quickTitle">
+            <h2 id="quickTitle" data-i18n="quick.title">Quick settings</h2>
+            <div class="field"><label class="lbl" for="skin" data-i18n="settings.skin.select">Skin</label>
+              <select id="skin" class="select" data-option="skin"><option value="default" selected data-i18n="settings.skin.default">Default (danser)</option></select>
+            </div>
+            <div class="row2">
+              <fieldset class="field">
+                <legend class="lbl" data-i18n="settings.output.resolution">Resolution</legend>
+                <div class="seg">
+                  <label><input type="radio" name="resolution" id="resolution-720p" value="720p" data-option="resolution"><span>720p</span></label>
+                  <label><input type="radio" name="resolution" id="resolution-1080p" value="1080p" data-option="resolution" checked><span>1080p</span></label>
+                </div>
+              </fieldset>
+              <div class="field"><span class="lbl" id="skipIntroLabel" data-i18n="quick.skipIntro">Skip intro</span>
+                <label class="switch"><span id="skipIntroState" data-i18n="quick.on">On</span><input id="skipIntro" data-option="skipIntro" type="checkbox" class="tog-input" aria-labelledby="skipIntroLabel" checked><span class="tog" aria-hidden="true"></span></label>
+              </div>
+            </div>
+            <div class="field"><label class="lbl" for="backgroundDim" data-i18n="settings.background.dim">Background dim</label>
+              <div class="range"><input id="backgroundDim" data-option="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue" for="backgroundDim">30%</output></div>
+            </div>
+            <div class="more">
+              <span class="muted" id="moreCount" data-i18n="quick.moreHint" data-i18n-n="34">34 more: audio, cursor, HUD, hit objects…</span>
+              <button type="button" id="moreSettings" class="btn small" data-i18n="quick.more">All settings</button>
+            </div>
+            <details class="tok" id="tokenField">
+              <summary data-i18n="upload.token">Service token (only if the server has a password)</summary>
+              <input id="token" type="password" autocomplete="current-password" aria-label="Service token" data-i18n-aria-label="upload.tokenLabel">
+            </details>
+          </section>
+        </div>
+      </div>
 
-        <section class="job card" id="job" hidden aria-labelledby="jobTitle">
-          <div class="job-head">
-            <div class="job-heading">
-              <h2 class="job-title" id="jobTitle" tabindex="-1"></h2>
-              <p class="job-sub" id="jobSub"></p>
+      <div id="job" hidden>
+        <h1 id="jobHeading" tabindex="-1"></h1>
+        <p class="lede" id="jobLede"></p>
+        <section class="card job-card" id="jobCard" aria-labelledby="jobTitle">
+          <div class="job">
+            <div class="ring" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Render progress" data-i18n-aria-label="job.progress">
+              <svg viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-track" cx="100" cy="100" r="88"/><circle class="ring-fill" id="progressFill" cx="100" cy="100" r="88"/></svg>
+              <div class="num"><div><b id="progressPercent">0%</b><span id="progressState"></span></div></div>
+            </div>
+            <div class="job-info">
+              <p class="meta-title" id="jobTitle"></p>
+              <p class="meta-sub" id="jobSub"></p>
+              <div class="tags" id="jobTags"></div>
+              <dl class="stats">
+                <div><dt data-i18n="job.speed">speed</dt><dd id="progressSpeed">–</dd></div>
+                <div><dt data-i18n="job.left">left</dt><dd id="progressEta">–</dd></div>
+                <div><dt data-i18n="job.length">length</dt><dd id="progressLength">–</dd></div>
+              </dl>
+              <div class="job-error" id="jobError" role="alert" hidden><p id="jobErrorText"></p></div>
+              <div class="actions">
+                <button type="button" id="cancel" class="btn ghost" hidden data-i18n="job.cancel">Cancel render</button>
+                <button type="button" id="retry" class="btn primary" hidden data-i18n="job.retry">Try again</button>
+                <button type="button" id="another" class="btn ghost" hidden data-i18n="job.another">Render another</button>
+              </div>
             </div>
           </div>
-          <ol class="stepper" id="steps">
-            <li data-step="uploaded"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.uploaded">Uploaded</span></li>
-            <li data-step="resolving"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.resolving">Finding beatmap</span></li>
-            <li data-step="downloading"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.downloading">Downloading</span></li>
-            <li data-step="queued"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.queued">Queued</span></li>
-            <li data-step="rendering"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.rendering">Rendering</span></li>
-            <li data-step="completed"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.completed">Done</span></li>
+          <ol class="steps" id="steps" aria-label="Stages" data-i18n-aria-label="job.stages">
+            <li data-step="uploaded"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.uploaded">Uploaded</span></li>
+            <li data-step="resolving"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.resolving">Beatmap found</span></li>
+            <li data-step="downloading"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.downloading">Beatmap downloaded</span></li>
+            <li data-step="queued"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.queued">Queued</span></li>
+            <li data-step="rendering"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.rendering">Rendering</span></li>
+            <li data-step="completed"><i aria-hidden="true"></i><span class="step-label" data-i18n="job.steps.completed">Done</span></li>
           </ol>
-          <p class="job-status" id="jobStatus" role="status" aria-live="polite"></p>
-          <div class="progress" id="progressBox">
-            <div class="progress-track" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Render progress" data-i18n-aria-label="job.progress"><div class="progress-fill" id="progressFill"></div></div>
-            <div class="progress-meta">
-              <strong class="progress-percent" id="progressPercent">0%</strong>
-              <span id="progressSpeed"></span>
-              <span id="progressEta"></span>
+          <p class="sr-only" id="jobStatus" role="status" aria-live="polite"></p>
+        </section>
+        <div class="done-grid" id="jobResult" hidden>
+          <div class="video"><video id="jobVideo" controls preload="metadata" playsinline></video></div>
+          <section class="card" aria-labelledby="doneTitle">
+            <span class="okbadge" id="doneBadge"></span>
+            <p class="meta-title" id="doneTitle"></p>
+            <p class="meta-sub" id="doneSub"></p>
+            <div class="tags" id="doneTags"></div>
+            <div class="actions">
+              <button type="button" id="download" class="btn primary"><svg class="btn-icon" aria-hidden="true"><use href="#i-dl"/></svg><span data-i18n="job.download">Download MP4</span></button>
+              <button type="button" id="doneAnother" class="btn ghost" data-i18n="job.another">Render another</button>
             </div>
+          </section>
+        </div>
+      </div>
+
+      <dialog class="drawer" id="settingsDrawer" aria-labelledby="drawerTitle">
+        <div class="drawer-head">
+          <div>
+            <h2 id="drawerTitle" data-i18n="settings.title">All settings</h2>
+            <p class="muted" data-i18n="settings.hint">Applied to this render only; the server's base settings never change.</p>
           </div>
-          <div class="job-error" id="jobError" role="alert" hidden>
-            <p id="jobErrorText"></p>
+          <button type="button" id="drawerClose" class="ibtn" aria-label="Close" data-i18n-aria-label="common.close"><svg aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="drawer-search">
+          <label><span class="sr-only" data-i18n="settings.search">Filter settings</span>
+            <input id="settingsSearch" class="input" type="search" autocomplete="off" placeholder="Search settings…" data-i18n-placeholder="settings.searchPlaceholder">
+          </label>
+        </div>
+        <div class="drawer-body" id="settingsGroups">
+          <fieldset>
+            <legend data-i18n="settings.playback.legend">Playback &amp; volume</legend>
+            <label class="setting slider"><span data-i18n="settings.playback.masterVolume">Master volume</span><span class="range"><input id="masterVolume" data-option="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue" for="masterVolume">50%</output></span></label>
+            <label class="setting slider"><span data-i18n="settings.playback.musicVolume">Music volume</span><span class="range"><input id="musicVolume" data-option="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue" for="musicVolume">50%</output></span></label>
+            <label class="setting slider"><span data-i18n="settings.playback.sampleVolume">Hitsound volume</span><span class="range"><input id="sampleVolume" data-option="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue" for="sampleVolume">50%</output></span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.background.legend">Background &amp; playfield</legend>
+            <label class="setting slider"><span data-i18n="settings.background.blur">Background blur</span><span class="range"><input id="backgroundBlur" data-option="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue" for="backgroundBlur">0%</output></span></label>
+            <label class="setting slider"><span data-i18n="settings.background.playfieldScale">Playfield scale</span><span class="range"><input id="playfieldScale" data-option="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue" for="playfieldScale">100%</output></span></label>
+            <label class="setting switch"><span data-i18n="settings.background.videos">Background video</span><input id="loadVideos" data-option="loadVideos" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.background.storyboards">Storyboard</span><input id="loadStoryboards" data-option="loadStoryboards" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.background.parallax">Background parallax</span><input id="backgroundParallax" data-option="backgroundParallax" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.background.bloom">Bloom</span><input id="bloom" data-option="bloom" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
+            <label class="setting slider"><span data-i18n="settings.cursor.size">Cursor size</span><span class="range"><input id="cursorSize" data-option="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue" for="cursorSize">12</output></span></label>
+            <label class="setting choice"><span data-i18n="settings.cursor.trailStyle">Trail style</span><select id="cursorTrailStyle" class="select" data-option="cursorTrailStyle" data-type="number"><option value="1" selected data-i18n="settings.cursor.trailOption" data-i18n-n="1">Style 1</option><option value="2" data-i18n="settings.cursor.trailOption" data-i18n-n="2">Style 2</option><option value="3" data-i18n="settings.cursor.trailOption" data-i18n-n="3">Style 3</option><option value="4" data-i18n="settings.cursor.trailOption" data-i18n-n="4">Style 4</option></select></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.glow">Trail glow</span><input id="cursorGlow" data-option="cursorGlow" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.rainbow">Rainbow cursor</span><input id="cursorRainbow" data-option="cursorRainbow" type="checkbox" class="tog-input"><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.ripples">Click ripples</span><input id="cursorRipples" data-option="cursorRipples" type="checkbox" class="tog-input"><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.smoke">Cursor smoke</span><input id="cursorSmoke" data-option="cursorSmoke" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.skinColors">Use skin colors</span><input id="useSkinColors" data-option="useSkinColors" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span><input id="useBeatmapColors" data-option="useBeatmapColors" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.skin.cursor">Use the skin's cursor</span><input id="useSkinCursor" data-option="useSkinCursor" type="checkbox" class="tog-input"><span class="tog" aria-hidden="true"></span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.hud.legend">HUD</legend>
+            <label class="setting switch"><span data-i18n="settings.hud.score">Score &amp; accuracy</span><input id="showScore" data-option="showScore" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.hpBar">HP bar</span><input id="showHpBar" data-option="showHpBar" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.combo">Combo</span><input id="showComboCounter" data-option="showComboCounter" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.hitError">Hit error meter</span><input id="showHitErrorMeter" data-option="showHitErrorMeter" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.pp">PP counter</span><input id="showPpCounter" data-option="showPpCounter" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.hitCounter">Hit counter</span><input id="showHitCounter" data-option="showHitCounter" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.strainGraph">Strain graph</span><input id="showStrainGraph" data-option="showStrainGraph" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.keyOverlay">Key overlay</span><input id="showKeyOverlay" data-option="showKeyOverlay" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.scoreboard">Leaderboard</span><input id="showScoreboard" data-option="showScoreboard" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.mods">Mods</span><input id="showMods" data-option="showMods" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.hud.results">Results screen</span><input id="showResultsScreen" data-option="showResultsScreen" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="settings.objects.legend">Hit objects</legend>
+            <label class="setting switch"><span data-i18n="settings.objects.approach">Approach circles</span><input id="showApproachCircles" data-option="showApproachCircles" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.objects.comboNumbers">Combo numbers</span><input id="showComboNumbers" data-option="showComboNumbers" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.objects.sliderEnds">Slider end circles</span><input id="showSliderEndCircles" data-option="showSliderEndCircles" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.objects.followCircle">Slider follow circle</span><input id="showSliderFollowCircle" data-option="showSliderFollowCircle" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span data-i18n="settings.objects.ticks">Slider ticks</span><input id="showSliderScorePoints" data-option="showSliderScorePoints" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+          </fieldset>
+          <p class="note" id="settingsNoMatch" hidden></p>
+        </div>
+        <p class="drawer-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
+      </dialog>
+    </section>
+
+    <section class="view" id="view-history" data-view="history" aria-labelledby="historyTitle" hidden>
+      <div class="view-head">
+        <div>
+          <h1 id="historyTitle" tabindex="-1" data-i18n="history.title">History</h1>
+          <p class="lede" data-i18n="history.hint">Your last 20 renders. Files are deleted automatically after a while.</p>
+        </div>
+        <button type="button" id="historyRefresh" class="btn ghost small"><svg class="btn-icon" aria-hidden="true"><use href="#i-refresh"/></svg><span data-i18n="history.refresh">Refresh</span></button>
+      </div>
+      <p class="note" id="historyStatus" role="status" aria-live="polite"></p>
+      <div class="card empty" id="historyEmpty" hidden>
+        <span class="circle circle-small" aria-hidden="true"><svg><use href="#i-hist"/></svg></span>
+        <p data-i18n="history.empty">No renders yet. Drop a replay on the Render page.</p>
+        <a class="btn primary" href="#/render" data-i18n="history.emptyAction">Render a replay</a>
+      </div>
+      <ul class="hlist" id="historyList"></ul>
+    </section>
+
+    <section class="view" id="view-skins" data-view="skins" aria-labelledby="skinsTitle" hidden>
+      <h1 id="skinsTitle" tabindex="-1" data-i18n="skins.title">Skins</h1>
+      <p class="lede" data-i18n="skins.hint">Installed on this server. Drop an .osk anywhere on this page to add one.</p>
+      <div class="skins">
+        <label class="skin upload-tile" id="skinDrop">
+          <input id="skinFile" type="file" accept=".osk" class="sr-only">
+          <span class="circle circle-small" aria-hidden="true"><svg><use href="#i-up"/></svg></span>
+          <b data-i18n="skins.upload">Upload .osk</b>
+          <span class="muted" data-i18n="skins.drop">or drag &amp; drop</span>
+        </label>
+        <ul class="skin-items" id="skinList" role="list"></ul>
+      </div>
+      <p class="note" id="skinStatus" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="view" id="view-diagnostics" data-view="diagnostics" aria-labelledby="diagnosticsTitle" hidden>
+      <h1 id="diagnosticsTitle" tabindex="-1" data-i18n="diagnostics.title">Diagnostics</h1>
+      <p class="lede" data-i18n="diagnostics.hint">Something off? A report helps the developer see what your machine did.</p>
+      <div class="grid diag-grid">
+        <section class="card diag-card" id="diagnostics" aria-labelledby="reportTitle">
+          <h2 id="reportTitle" data-i18n="diagnostics.report">What the report contains</h2>
+          <ul class="clean">
+            <li data-i18n="diagnostics.list.system">OS, CPU, GPU and driver versions</li>
+            <li data-i18n="diagnostics.list.encoders">Encoder self-test results, danser and FFmpeg info</li>
+            <li data-i18n="diagnostics.list.renders">Your recent render results, errors and logs, with home folder paths removed</li>
+          </ul>
+          <p class="muted never"><b data-i18n="diagnostics.neverLabel">Never included:</b> <span data-i18n="diagnostics.never">tokens, secrets, IP addresses or player names.</span></p>
+          <p class="muted" id="diagPrivacy" data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</p>
+          <p class="muted" id="diagAutoSend" hidden data-i18n="diagnostics.autoSend">This server sends a redacted report to the developer after every finished render.</p>
+          <div class="actions">
+            <button type="button" id="diagDownload" class="btn primary"><svg class="btn-icon" aria-hidden="true"><use href="#i-dl"/></svg><span data-i18n="diagnostics.download">Download report</span></button>
+            <button type="button" id="diagCopy" class="btn" data-i18n="diagnostics.copy">Copy summary</button>
+            <button type="button" id="diagIssue" class="btn ghost" data-i18n="diagnostics.issue">Open GitHub issue</button>
+            <button type="button" id="diagSend" class="btn ghost" hidden data-i18n="diagnostics.send">Send to developer</button>
           </div>
-          <div class="job-result" id="jobResult" hidden>
-            <video class="preview-video" id="jobVideo" controls preload="metadata" playsinline></video>
-          </div>
-          <div class="job-actions">
-            <button type="button" id="download" class="btn btn-primary" hidden data-i18n="job.download">Download MP4</button>
-            <button type="button" id="retry" class="btn btn-primary" hidden data-i18n="job.retry">Try again</button>
-            <button type="button" id="cancel" class="btn btn-danger" hidden data-i18n="job.cancel">Cancel render</button>
-            <button type="button" id="another" class="btn btn-ghost" hidden data-i18n="job.another">Render another replay</button>
-          </div>
+          <p class="note" id="diagStatus" role="status" aria-live="polite"></p>
+          <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
+        </section>
+        <section class="card" aria-labelledby="selftestTitle">
+          <h2 id="selftestTitle" data-i18n="diagnostics.renderer.probes">Encoder self-test</h2>
+          <p class="muted" id="probesEmpty" data-i18n="diagnostics.renderer.probesHint">Download or copy the report to run the self-test.</p>
+          <ul class="selftest" id="probeList"></ul>
+          <h2 class="card-sub" data-i18n="diagnostics.renderer.title">Renderer</h2>
+          <dl class="facts" id="rendererFacts"></dl>
         </section>
       </div>
+    </section>
+  </main>
 
-      <aside class="quick card" aria-labelledby="quickTitle">
-        <div class="card-head">
-          <h2 id="quickTitle" data-i18n="quick.title">Quick settings</h2>
-          <p class="card-hint" data-i18n="quick.hint">Applied to your next render only.</p>
-        </div>
-        <label class="field token-field" id="tokenField" hidden><span data-i18n="upload.token">Service token</span>
-          <input id="token" type="password" autocomplete="current-password" placeholder="Required by this server" data-i18n-placeholder="upload.tokenPlaceholder">
-        </label>
-        <div class="field skin-field">
-          <label for="skin" data-i18n="settings.skin.select">Skin</label>
-          <div class="field-row">
-            <select id="skin" data-option="skin"><option value="default" selected data-i18n="settings.skin.default">Default (danser)</option></select>
-            <a class="btn btn-ghost btn-small" href="#/skins" data-i18n="quick.manageSkins">Manage</a>
-          </div>
-        </div>
-        <label class="field"><span data-i18n="settings.output.resolution">Resolution</span><select id="resolution" data-option="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
-        <label class="field range-field"><span data-i18n="settings.background.dim">Background dim</span><input id="backgroundDim" data-option="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue" for="backgroundDim">30%</output></label>
-        <div class="toggles">
-          <label class="toggle"><input id="skipIntro" data-option="skipIntro" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.playback.skipIntro">Skip intro automatically</span></label>
-          <label class="toggle"><input id="cursorGlow" data-option="cursorGlow" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.glow">Trail glow</span></label>
-          <label class="toggle"><input id="showResultsScreen" data-option="showResultsScreen" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.results">Results screen</span></label>
-        </div>
-        <button type="button" id="moreSettings" class="btn btn-secondary btn-block">
-          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10m4 0h2M4 12h4m4 0h8M4 18h12m4 0h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-          <span data-i18n="quick.more">More settings</span>
-        </button>
-        <div class="presets">
-          <label class="field"><span data-i18n="presets.label">Presets</span>
-            <select id="presetSelect"><option value="" data-i18n="presets.choose">Load a preset…</option></select>
-          </label>
-          <div class="preset-actions">
-            <button type="button" id="presetSave" class="btn btn-ghost btn-small" data-i18n="presets.save">Save as preset</button>
-            <button type="button" id="presetDelete" class="btn btn-ghost btn-small" disabled data-i18n="presets.delete">Delete preset</button>
-            <button type="button" id="presetReset" class="btn btn-ghost btn-small" data-i18n="presets.reset">Reset to defaults</button>
-          </div>
-          <p class="note" id="presetStatus" role="status" aria-live="polite"></p>
-        </div>
-      </aside>
-    </div>
-
-    <dialog class="drawer" id="settingsDrawer" aria-labelledby="drawerTitle">
-      <div class="drawer-head">
-        <div>
-          <h2 id="drawerTitle" data-i18n="settings.title">All render settings</h2>
-          <p class="card-hint" data-i18n="settings.hint">Applied to this render only; the server's base settings never change.</p>
-        </div>
-        <button type="button" id="drawerClose" class="btn btn-icon-only" aria-label="Close" data-i18n-aria-label="common.close"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-      </div>
-      <label class="field search-field"><span class="sr-only" data-i18n="settings.search">Filter settings</span>
-        <input id="settingsSearch" type="search" autocomplete="off" placeholder="Search settings…" data-i18n-placeholder="settings.searchPlaceholder">
-      </label>
-      <div class="drawer-body" id="settingsGroups">
-        <fieldset>
-          <legend data-i18n="settings.playback.legend">Playback &amp; volume</legend>
-          <label class="setting range-field"><span data-i18n="settings.playback.masterVolume">Master volume</span><input id="masterVolume" data-option="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue" for="masterVolume">50%</output></label>
-          <label class="setting range-field"><span data-i18n="settings.playback.musicVolume">Music volume</span><input id="musicVolume" data-option="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue" for="musicVolume">50%</output></label>
-          <label class="setting range-field"><span data-i18n="settings.playback.sampleVolume">Hitsound volume</span><input id="sampleVolume" data-option="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue" for="sampleVolume">50%</output></label>
-        </fieldset>
-        <fieldset>
-          <legend data-i18n="settings.background.legend">Background &amp; playfield</legend>
-          <label class="setting range-field"><span data-i18n="settings.background.blur">Background blur</span><input id="backgroundBlur" data-option="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue" for="backgroundBlur">0%</output></label>
-          <label class="setting range-field"><span data-i18n="settings.background.playfieldScale">Playfield scale</span><input id="playfieldScale" data-option="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue" for="playfieldScale">100%</output></label>
-          <label class="setting toggle"><input id="loadVideos" data-option="loadVideos" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.videos">Background video</span></label>
-          <label class="setting toggle"><input id="loadStoryboards" data-option="loadStoryboards" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.storyboards">Storyboard</span></label>
-          <label class="setting toggle"><input id="backgroundParallax" data-option="backgroundParallax" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.parallax">Background parallax</span></label>
-          <label class="setting toggle"><input id="bloom" data-option="bloom" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.bloom">Bloom</span></label>
-        </fieldset>
-        <fieldset>
-          <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
-          <label class="setting range-field"><span data-i18n="settings.cursor.size">Cursor size</span><input id="cursorSize" data-option="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue" for="cursorSize">12</output></label>
-          <label class="setting"><span data-i18n="settings.cursor.trailStyle">Trail style</span><select id="cursorTrailStyle" data-option="cursorTrailStyle" data-type="number"><option value="1" selected data-i18n="settings.cursor.trailOption" data-i18n-n="1">Style 1</option><option value="2" data-i18n="settings.cursor.trailOption" data-i18n-n="2">Style 2</option><option value="3" data-i18n="settings.cursor.trailOption" data-i18n-n="3">Style 3</option><option value="4" data-i18n="settings.cursor.trailOption" data-i18n-n="4">Style 4</option></select></label>
-          <label class="setting toggle"><input id="cursorRainbow" data-option="cursorRainbow" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.rainbow">Rainbow cursor</span></label>
-          <label class="setting toggle"><input id="cursorRipples" data-option="cursorRipples" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.ripples">Click ripples</span></label>
-          <label class="setting toggle"><input id="cursorSmoke" data-option="cursorSmoke" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.smoke">Cursor smoke</span></label>
-          <label class="setting toggle"><input id="useSkinColors" data-option="useSkinColors" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.skinColors">Use skin colors</span></label>
-          <label class="setting toggle"><input id="useBeatmapColors" data-option="useBeatmapColors" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span></label>
-          <label class="setting toggle"><input id="useSkinCursor" data-option="useSkinCursor" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.skin.cursor">Use the skin's cursor</span></label>
-        </fieldset>
-        <fieldset>
-          <legend data-i18n="settings.hud.legend">HUD</legend>
-          <label class="setting toggle"><input id="showScore" data-option="showScore" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.score">Score &amp; accuracy</span></label>
-          <label class="setting toggle"><input id="showHpBar" data-option="showHpBar" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hpBar">HP bar</span></label>
-          <label class="setting toggle"><input id="showComboCounter" data-option="showComboCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.combo">Combo</span></label>
-          <label class="setting toggle"><input id="showHitErrorMeter" data-option="showHitErrorMeter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hitError">Hit error meter</span></label>
-          <label class="setting toggle"><input id="showPpCounter" data-option="showPpCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.pp">PP counter</span></label>
-          <label class="setting toggle"><input id="showHitCounter" data-option="showHitCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hitCounter">Hit counter</span></label>
-          <label class="setting toggle"><input id="showStrainGraph" data-option="showStrainGraph" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.strainGraph">Strain graph</span></label>
-          <label class="setting toggle"><input id="showKeyOverlay" data-option="showKeyOverlay" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.keyOverlay">Key overlay</span></label>
-          <label class="setting toggle"><input id="showScoreboard" data-option="showScoreboard" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.scoreboard">Leaderboard</span></label>
-          <label class="setting toggle"><input id="showMods" data-option="showMods" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.mods">Mods</span></label>
-        </fieldset>
-        <fieldset>
-          <legend data-i18n="settings.objects.legend">Hit objects</legend>
-          <label class="setting toggle"><input id="showApproachCircles" data-option="showApproachCircles" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.approach">Approach circles</span></label>
-          <label class="setting toggle"><input id="showComboNumbers" data-option="showComboNumbers" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.comboNumbers">Combo numbers</span></label>
-          <label class="setting toggle"><input id="showSliderEndCircles" data-option="showSliderEndCircles" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.sliderEnds">Slider end circles</span></label>
-          <label class="setting toggle"><input id="showSliderFollowCircle" data-option="showSliderFollowCircle" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.followCircle">Slider follow circle</span></label>
-          <label class="setting toggle"><input id="showSliderScorePoints" data-option="showSliderScorePoints" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.ticks">Slider ticks</span></label>
-        </fieldset>
-        <p class="note" id="settingsNoMatch" hidden></p>
-      </div>
-      <p class="drawer-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
-    </dialog>
-  </section>
-
-  <section class="view" id="view-history" data-view="history" aria-labelledby="historyTitle" hidden>
-    <div class="view-head">
-      <div>
-        <h1 id="historyTitle" tabindex="-1" data-i18n="history.title">History</h1>
-        <p class="card-hint" data-i18n="history.hint">Your recent renders on this server. Videos are deleted automatically after a while.</p>
-      </div>
-      <button type="button" id="historyRefresh" class="btn btn-secondary" data-i18n="history.refresh">Refresh</button>
-    </div>
-    <p class="note" id="historyStatus" role="status" aria-live="polite"></p>
-    <div class="empty card" id="historyEmpty" hidden>
-      <svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      <p data-i18n="history.empty">No renders yet. Upload a replay to start.</p>
-      <a class="btn btn-primary" href="#/render" data-i18n="history.emptyAction">Render a replay</a>
-    </div>
-    <ul class="history-list" id="historyList"></ul>
-  </section>
-
-  <section class="view" id="view-skins" data-view="skins" aria-labelledby="skinsTitle" hidden>
-    <div class="view-head">
-      <div>
-        <h1 id="skinsTitle" tabindex="-1" data-i18n="skins.title">Skins</h1>
-        <p class="card-hint" data-i18n="skins.hint">Uploaded skins are saved on this server and can be picked for any render.</p>
-      </div>
-    </div>
-    <label class="dropzone dropzone-small card" id="skinDrop">
-      <input id="skinFile" type="file" accept=".osk" class="sr-only">
-      <span class="drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-5 5m5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>
-      <strong class="drop-title" data-i18n="skins.drop">Drop an .osk skin here</strong>
-      <span class="drop-browse" data-i18n="upload.browse">or click to choose a file</span>
-    </label>
-    <p class="note" id="skinStatus" role="status" aria-live="polite"></p>
-    <ul class="skin-list" id="skinList"></ul>
-  </section>
-
-  <section class="view" id="view-diagnostics" data-view="diagnostics" aria-labelledby="diagnosticsTitle" hidden>
-    <div class="view-head">
-      <div>
-        <h1 id="diagnosticsTitle" tabindex="-1" data-i18n="diagnostics.title">Diagnostics</h1>
-        <p class="card-hint" data-i18n="diagnostics.hint">Helps track down GPU and renderer problems</p>
-      </div>
-    </div>
-    <div class="diag-grid">
-      <section class="card" aria-labelledby="rendererTitle">
-        <div class="card-head"><h2 id="rendererTitle" data-i18n="diagnostics.renderer.title">Renderer</h2></div>
-        <dl class="facts" id="rendererFacts"></dl>
-        <h3 class="sub-title" data-i18n="diagnostics.renderer.probes">Encoder self-tests</h3>
-        <p class="note" id="probesEmpty" data-i18n="diagnostics.renderer.probesHint">Shown after you download or copy the report, which runs the self-tests.</p>
-        <ul class="probe-list" id="probeList"></ul>
-      </section>
-      <section class="card diag-card" id="diagnostics" aria-labelledby="reportTitle">
-        <div class="card-head"><h2 id="reportTitle" data-i18n="diagnostics.report">Diagnostics report</h2></div>
-        <ul class="diag-list">
-          <li data-i18n="diagnostics.includes">Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.</li>
-          <li data-i18n="diagnostics.excludes">Never includes tokens, secrets, IP addresses or player names.</li>
-          <li id="diagPrivacy" data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
-          <li id="diagAutoSend" hidden data-i18n="diagnostics.autoSend">This server sends a redacted report to the developer after every finished render.</li>
-        </ul>
-        <div class="diag-actions">
-          <button type="button" id="diagSend" class="btn btn-primary" hidden data-i18n="diagnostics.send">Send to developer</button>
-          <button type="button" id="diagDownload" class="btn btn-primary" data-i18n="diagnostics.download">Download report</button>
-          <button type="button" id="diagCopy" class="btn btn-secondary" data-i18n="diagnostics.copy">Copy summary</button>
-          <button type="button" id="diagIssue" class="btn btn-secondary" data-i18n="diagnostics.issue">Open GitHub issue</button>
-        </div>
-        <p class="note" id="diagStatus" role="status" aria-live="polite"></p>
-        <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
-      </section>
-    </div>
-  </section>
-</main>
+  <nav class="tabbar" id="tabbar" aria-label="Sections" data-i18n-aria-label="nav.label">
+    <a href="#/render" data-route="render"><svg class="nav-icon" aria-hidden="true"><use href="#i-render"/></svg><span data-i18n="nav.render">Render</span></a>
+    <a href="#/history" data-route="history"><svg class="nav-icon" aria-hidden="true"><use href="#i-hist"/></svg><span data-i18n="nav.history">History</span></a>
+    <a href="#/skins" data-route="skins"><svg class="nav-icon" aria-hidden="true"><use href="#i-skin"/></svg><span data-i18n="nav.skins">Skins</span></a>
+    <a href="#/diagnostics" data-route="diagnostics"><svg class="nav-icon" aria-hidden="true"><use href="#i-diag"/></svg><span data-i18n="nav.diagnostics">Diagnostics</span></a>
+  </nav>
+</div>
 
 <dialog class="modal" id="previewDialog" aria-labelledby="previewTitle">
   <div class="drawer-head">
     <h2 id="previewTitle"></h2>
-    <button type="button" id="previewClose" class="btn btn-icon-only" aria-label="Close" data-i18n-aria-label="common.close"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button type="button" id="previewClose" class="ibtn" aria-label="Close" data-i18n-aria-label="common.close"><svg aria-hidden="true"><use href="#i-x"/></svg></button>
   </div>
-  <video class="preview-video" id="previewVideo" controls preload="metadata" playsinline></video>
+  <div class="video"><video id="previewVideo" controls preload="metadata" playsinline></video></div>
 </dialog>
 </body>
 </html>
