@@ -187,7 +187,7 @@ being looked up and downloaded, so unsubmitted and local-only maps render too an
 ## Updating
 
 **Portable zip, 0.4.0 and later: update from the web page.** When osu-render starts, and when you open the page
-(at most every 6 hours), it asks GitHub for the newest release. If there is one, a banner at the top of the page
+(then every 10 minutes, also while the page is open), it asks GitHub for the newest release. If there is one, a banner at the top of the page
 says *osu-render X is available*. Click **Update now** and confirm:
 
 1. The service downloads the new zip from this repository's

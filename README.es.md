@@ -196,7 +196,7 @@ descarga nada.
 ## Actualizar
 
 **Zip portable, 0.4.0 o posterior: actualiza desde la página.** Cuando osu-render arranca, y cuando abres la página
-(como mucho cada 6 horas), le pregunta a GitHub por la versión más nueva. Si hay una, aparece arriba un aviso que
+(y luego cada 10 minutos, también mientras la página está abierta), le pregunta a GitHub por la versión más nueva. Si hay una, aparece arriba un aviso que
 dice *Ya está disponible osu-render X*. Haz clic en **Actualizar ahora** y confirma:
 
 1. El servicio descarga el zip nuevo desde las [Releases](https://github.com/956zs/osu-render/releases) de este
