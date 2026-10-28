@@ -9,8 +9,8 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 (x264) cuando no.
 
 <p>
-  <img src="docs/screenshot-en.png" alt="Interfaz web de osu-render en escritorio: la pestaña Renderizar con la zona para soltar el replay y los ajustes rápidos" width="600">
-  <img src="docs/screenshot-mobile-es.png" alt="Pestaña Renderizar de osu-render en un celular, en español, con la barra de pestañas abajo" width="190">
+  <img src="docs/screenshot-en.png" alt="Interfaz web de osu-render en escritorio: la pestaña Renderizar con el hit circle para soltar el replay, los preajustes, los ajustes rápidos y el menú lateral" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="Pestaña Renderizar de osu-render en un celular, en español, con el aviso de actualización y la barra de pestañas flotante" width="190">
 </p>
 
 > **El soporte para Windows y NVIDIA/AMD es nuevo y necesita testers.** Si tienes uno de esos equipos, la forma
@@ -44,11 +44,12 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 ## Funciones
 
 - Interfaz web con arrastrar y soltar, en English, 繁體中文 y Español, con las pestañas **Renderizar**, **Historial**,
-  **Skins** y **Diagnóstico** y un tema oscuro al estilo de osu!lazer (en el celular, las pestañas van abajo).
-- **Ajustes rápidos** junto a la zona para soltar el replay, el resto de opciones en el panel **Más ajustes** con
+  **Skins** y **Diagnóstico** y un tema oscuro hecho con formas de osu!: la zona para soltar es un hit circle y el progreso es un approach
+  circle (en el celular, las pestañas van en una barra flotante abajo).
+- **Ajustes rápidos** junto a la zona para soltar el replay, el resto de opciones en el panel **Todos los ajustes** con
   buscador, preajustes con nombre guardados en el navegador y **Restablecer**.
 - Vista paso a paso del trabajo (subido → buscando el mapa → descargando → en cola → renderizando → listo) con
-  porcentaje, velocidad de render y tiempo restante, y vista previa del video en la página al terminar. Si recargas
+  porcentaje en un approach circle, velocidad de render, tiempo restante y duración del mapa, y vista previa del video en la página al terminar. Si recargas
   la página, el render en curso se sigue mostrando.
 - Solo subes el replay. El mapa se busca por su checksum con la API de osu!, se descarga de mirrors
   configurables (si uno falla se prueba el siguiente) y se verifica contra el MD5 del replay antes de renderizar.
@@ -156,7 +157,7 @@ del zip, los enumera.
 Abre la pestaña **Skins** y suelta un archivo `.osk` (o haz clic para elegirlo). El skin se instala en el
 servidor y se usará en tu próximo render; después sigue en la lista para otros renders. **Usar en el próximo
 render** elige un skin instalado, igual que la lista **Skin** de **Ajustes rápidos** en la pestaña **Renderizar**.
-Activa **Usar el cursor del skin** (en **Más ajustes**) para usar el cursor del skin en lugar del de danser. Si subes un skin con el mismo nombre, reemplaza al anterior.
+Activa **Usar el cursor del skin** (en **Todos los ajustes**) para usar el cursor del skin en lugar del de danser. Si subes un skin con el mismo nombre, reemplaza al anterior.
 
 También puedes agregar skins a mano: copia la carpeta del skin (la que tiene `skin.ini`) o un archivo `.osk` a
 la carpeta de skins: `data\skins` en el zip portable, `data/skins` en otras instalaciones (se cambia con
@@ -337,7 +338,7 @@ dos GPUs y `danser.log`).
 Sí. En `.env` define `HOST=0.0.0.0` y un `AUTH_TOKEN` largo y aleatorio, y reinicia. Cuando Windows pregunte,
 permite que Node.js use redes **privadas** en el Firewall (o agrega una regla de entrada para el puerto TCP 3030).
 Tus amigos abren `http://<IP-de-tu-PC-en-la-red-local>:3030/` y escriben el token en el campo **Token del
-servicio** (en **Ajustes rápidos**; aparece cuando el servidor pide un token). Los renders van de uno en uno y cada cliente puede tener como máximo 3 trabajos sin terminar. No lo
+servicio** (abajo en **Ajustes rápidos**; se despliega solo cuando el servidor pide un token). Los renders van de uno en uno y cada cliente puede tener como máximo 3 trabajos sin terminar. No lo
 expongas a internet sin HTTPS, ver [Notas de seguridad](#notas-de-seguridad).
 
 ## Instalar desde el código fuente

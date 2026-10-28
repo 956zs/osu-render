@@ -8,8 +8,8 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 (NVIDIA NVENC, AMD AMF or Intel Quick Sync) when it can and falls back to the CPU (x264) when it cannot.
 
 <p>
-  <img src="docs/screenshot-en.png" alt="osu-render web UI on desktop: the Render tab with the replay drop zone and quick settings" width="600">
-  <img src="docs/screenshot-mobile-es.png" alt="osu-render Render tab on a phone, in Spanish, with the bottom tab bar" width="190">
+  <img src="docs/screenshot-en.png" alt="osu-render web UI on desktop: the Render tab with the hit-circle drop zone, presets and quick settings, and the side rail" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="osu-render Render tab on a phone, in Spanish, with the update notice and the floating tab bar" width="190">
 </p>
 
 > **Windows and NVIDIA/AMD support is new and needs testers.** If you have one of those setups, the
@@ -43,11 +43,12 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 ## Features
 
 - Drag-and-drop web UI in English, 繁體中文 and Español with **Render**, **History**, **Skins** and **Diagnostics**
-  tabs in an osu!lazer-style dark theme (a bottom tab bar on phones).
-- Quick settings next to the drop zone, every other option in a searchable **More settings** panel, named
+  tabs in a dark theme built from osu! shapes: a hit-circle drop zone and an approach-ring progress meter (on
+  phones the tabs become a floating bottom bar).
+- Quick settings next to the drop zone, every other option in a searchable **All settings** panel, named
   presets saved in your browser and **Reset to defaults**.
-- Step-by-step job view (uploaded → finding beatmap → downloading → queued → rendering → done) with percent,
-  render speed and ETA, and an inline video preview when it finishes. A render in progress is picked up again
+- Step-by-step job view (uploaded → finding beatmap → downloading → queued → rendering → done) with an approach-ring percentage,
+  render speed, time left and map length, and an inline video preview when it finishes. A render in progress is picked up again
   after a page reload.
 - Upload only the replay. The beatmap is found by its checksum through the osu! API, downloaded from
   configurable mirrors (with fallback) and checked against the replay's MD5 before rendering.
@@ -149,7 +150,7 @@ lists them.
 Open the **Skins** tab and drop an `.osk` file on it (or click to choose one). The skin is installed on the
 server and selected for your next render; it stays in the list for later renders. **Use for next render** picks
 an installed skin, and the **Skin** list in **Quick settings** on the **Render** tab does the same. Turn on
-**Use the skin's cursor** (under **More settings**) to draw the skin's cursor instead of danser's. Uploading a skin with the same name
+**Use the skin's cursor** (under **All settings**) to draw the skin's cursor instead of danser's. Uploading a skin with the same name
 replaces the old one.
 
 You can also add skins by hand: copy a skin folder (the one that contains `skin.ini`) or an `.osk` file into
@@ -319,7 +320,7 @@ danser's OpenGL drawing is chosen by Windows/the driver and can be a different G
 **Can friends on my LAN use it?**
 Yes. In `.env` set `HOST=0.0.0.0` and a long random `AUTH_TOKEN`, then restart. Allow Node.js through the
 Windows Firewall on **private** networks when Windows asks (or add an inbound rule for TCP port 3030). Friends
-open `http://<your-PC's-LAN-IP>:3030/` and enter the token in the **Service token** field (in **Quick settings**; it appears when the server asks for a token). Renders run one at a
+open `http://<your-PC's-LAN-IP>:3030/` and enter the token under **Service token** at the bottom of **Quick settings** (it opens by itself when the server asks for a token). Renders run one at a
 time and each client can have at most 3 unfinished jobs. Do not expose it to the internet without HTTPS, see
 [Security notes](#security-notes).
 
