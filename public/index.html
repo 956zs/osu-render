@@ -240,9 +240,11 @@
       <ul class="diag-list">
         <li data-i18n="diagnostics.includes">Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.</li>
         <li data-i18n="diagnostics.excludes">Never includes tokens, secrets, IP addresses or player names.</li>
-        <li data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
+        <li id="diagPrivacy" data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
+        <li id="diagAutoSend" hidden data-i18n="diagnostics.autoSend">This server sends a redacted report to the developer after every finished render.</li>
       </ul>
       <div class="diag-actions">
+        <button type="button" id="diagSend" hidden data-i18n="diagnostics.send">Send to developer</button>
         <button type="button" id="diagDownload" data-i18n="diagnostics.download">Download report</button>
         <button type="button" id="diagCopy" class="secondary" data-i18n="diagnostics.copy">Copy summary</button>
         <button type="button" id="diagIssue" class="secondary" data-i18n="diagnostics.issue">Open GitHub issue</button>
@@ -275,6 +277,9 @@ const diagCopy = document.querySelector('#diagCopy');
 const diagIssue = document.querySelector('#diagIssue');
 const diagStatus = document.querySelector('#diagStatus');
 const diagSummary = document.querySelector('#diagSummary');
+const diagSend = document.querySelector('#diagSend');
+const diagPrivacy = document.querySelector('#diagPrivacy');
+const diagAutoSend = document.querySelector('#diagAutoSend');
 const LANGUAGES = [...languageSelect.options].map((option) => option.value);
 const FALLBACK_LANGUAGE = 'en';
 const LANGUAGE_STORAGE_KEY = 'language';
@@ -343,6 +348,19 @@ diagIssue.addEventListener('click', async () => {
   if (typeof url !== 'string' || !url.startsWith(ISSUE_URL_PREFIX)) { showDiagnostics('diagnostics.noIssueLink', 'error'); return; }
   window.open(url, '_blank', 'noopener');
   showDiagnostics('diagnostics.opened', 'ok');
+});
+diagSend.addEventListener('click', async () => {
+  if (diagnosticsBusy) return;
+  setDiagnosticsBusy(true); showDiagnostics('diagnostics.sending', 'info');
+  try {
+    const response = await api('/api/diagnostics/send', { method: 'POST' });
+    const data = await readJson(response);
+    if (response.status === 401 || data?.error?.code === 'UNAUTHORIZED') { showDiagnostics('diagnostics.needsToken', 'error'); return; }
+    if (response.ok && data?.sent === true) { showDiagnostics('diagnostics.sent', 'ok'); return; }
+    showDiagnostics(data?.error?.code === 'REPORT_WEBHOOK_DISABLED' ? 'errors.REPORT_WEBHOOK_DISABLED' : 'errors.REPORT_SEND_FAILED', 'error');
+  } catch {
+    showDiagnostics('errors.REPORT_SEND_FAILED', 'error');
+  } finally { setDiagnosticsBusy(false); }
 });
 
 languageSelect.value = detectLanguage();
@@ -511,6 +529,9 @@ function renderHealth() {
   rendererReason.textContent = reason; rendererReason.hidden = !reason;
   rendererStatus.dataset.state = health.status;
   rendererStatus.hidden = false;
+  const reporting = health.reportWebhook === true;
+  diagSend.hidden = !reporting; diagAutoSend.hidden = !reporting; diagPrivacy.hidden = reporting;
+  diagDownload.classList.toggle('secondary', reporting);
 }
 
 async function fetchDiagnostics() {
@@ -531,7 +552,7 @@ async function fetchDiagnostics() {
 function setDiagnosticsBusy(busy) {
   diagnosticsBusy = busy;
   diagnosticsCard.setAttribute('aria-busy', String(busy));
-  for (const button of [diagDownload, diagCopy, diagIssue]) button.setAttribute('aria-disabled', String(busy));
+  for (const button of [diagSend, diagDownload, diagCopy, diagIssue]) button.setAttribute('aria-disabled', String(busy));
 }
 function showDiagnostics(key, tone) {
   diagnosticsMessage = key ? { key, tone } : null; renderDiagnosticsStatus();

@@ -16,6 +16,7 @@ import type { Paths, RenderRow } from './types.js';
 import { parseRenderOptions, type RenderOptions } from './render-options.js';
 import { appConfig } from './app-config.js';
 import { collectDiagnostics, type DiagnosticsReport } from './diagnostics.js';
+import type { ReportTrigger } from './report-webhook.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
@@ -29,6 +30,8 @@ export interface HttpDependencies {
   preflight: PreflightService;
   preflightState: PreflightState;
   paths: Pick<Paths, 'replays' | 'videos' | 'data' | 'logs'>;
+  /** Present only when REPORT_WEBHOOK_URL is valid. */
+  reporter?: { send(report: DiagnosticsReport, trigger: ReportTrigger): Promise<void> };
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -41,28 +44,8 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   const translations = await loadTranslations(path.resolve(settings.root, 'public/i18n'));
   let diagnosticsInFlight: Promise<DiagnosticsReport> | undefined;
   let diagnosticsCache: { at: number; report: DiagnosticsReport } | undefined;
-  app.addHook('onRequest', async (request) => {
-    if (request.url.startsWith('/api/')) authorize(request);
-  });
-  app.setErrorHandler((error, request, reply) => {
-    const safe = publicError(error);
-    if (safe.statusCode >= 500) request.log.error({ err: error }, safe.code);
-    reply.code(safe.statusCode).send({ error: { code: safe.code, message: safe.publicMessage } });
-  });
-
-  app.get('/health', async () => dependencies.preflight.health(
-    await dependencies.preflightState.refreshIfNeeded(),
-    dependencies.database.queuedCount(),
-    await dependencies.storage.freeBytes(),
-    limits.hardMinFreeBytes,
-  ));
-  app.get('/', async (_request, reply) => reply.type('text/html; charset=utf-8').send(indexHtml));
-  app.get('/i18n/:file', async (request, reply) => {
-    const text = translations.get((request.params as { file?: string }).file ?? '');
-    if (text === undefined) throw new AppError('NOT_FOUND', 'Language is not available.', 404);
-    return reply.type('application/json; charset=utf-8').header('Cache-Control', 'no-cache').send(text);
-  });
-  app.get('/api/diagnostics', async (_request, reply) => {
+  let manualSend: Promise<void> | undefined;
+  const diagnostics = async (): Promise<DiagnosticsReport> => {
     if (!diagnosticsCache || Date.now() - diagnosticsCache.at >= DIAGNOSTICS_CACHE_MS) {
       diagnosticsInFlight ??= collectDiagnostics({
         preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
@@ -72,9 +55,43 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
         diagnosticsCache = { at: Date.now(), report };
         return report;
       }).finally(() => { diagnosticsInFlight = undefined; });
-      await diagnosticsInFlight;
+      return diagnosticsInFlight;
     }
-    return reply.header('Cache-Control', 'no-store').send(diagnosticsCache?.report);
+    return diagnosticsCache.report;
+  };
+  app.addHook('onRequest', async (request) => {
+    if (request.url.startsWith('/api/')) authorize(request);
+  });
+  app.setErrorHandler((error, request, reply) => {
+    const safe = publicError(error);
+    if (safe.statusCode >= 500) request.log.error({ err: error }, safe.code);
+    reply.code(safe.statusCode).send({ error: { code: safe.code, message: safe.publicMessage } });
+  });
+
+  app.get('/health', async () => ({
+    ...await dependencies.preflight.health(
+      await dependencies.preflightState.refreshIfNeeded(),
+      dependencies.database.queuedCount(),
+      await dependencies.storage.freeBytes(),
+      limits.hardMinFreeBytes,
+    ),
+    reportWebhook: dependencies.reporter !== undefined,
+  }));
+  app.get('/', async (_request, reply) => reply.type('text/html; charset=utf-8').send(indexHtml));
+  app.get('/i18n/:file', async (request, reply) => {
+    const text = translations.get((request.params as { file?: string }).file ?? '');
+    if (text === undefined) throw new AppError('NOT_FOUND', 'Language is not available.', 404);
+    return reply.type('application/json; charset=utf-8').header('Cache-Control', 'no-cache').send(text);
+  });
+  app.get('/api/diagnostics', async (_request, reply) => reply.header('Cache-Control', 'no-store').send(await diagnostics()));
+  app.post('/api/diagnostics/send', async () => {
+    const reporter = dependencies.reporter;
+    if (!reporter) throw new AppError('REPORT_WEBHOOK_DISABLED', 'Reporting to the developer is not configured on this server.', 409);
+    // Repeated clicks while a send is running share it instead of posting the same report twice.
+    manualSend ??= diagnostics().then((report) => reporter.send(report, 'manual'))
+      .finally(() => { manualSend = undefined; });
+    await manualSend;
+    return { sent: true };
   });
 
   app.post('/api/renders', async (request) => createRender(request, dependencies));

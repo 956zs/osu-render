@@ -74,7 +74,9 @@
     "BEATMAP_CHECKSUM_MISMATCH": "The downloaded beatmap doesn't match the replay's version.",
     "RENDER_FAILED": "The render failed.",
     "RENDER_TIMEOUT": "The render took too long and was stopped.",
-    "INTERNAL_ERROR": "The server ran into an internal error."
+    "INTERNAL_ERROR": "The server ran into an internal error.",
+    "REPORT_WEBHOOK_DISABLED": "Sending reports to the developer isn't set up on this server.",
+    "REPORT_SEND_FAILED": "Couldn't send the report to the developer. Try again later, or download it and send the file instead."
   },
   "settings": {
     "title": "Custom render settings",
@@ -143,9 +145,11 @@
     "includes": "Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.",
     "excludes": "Never includes tokens, secrets, IP addresses or player names.",
     "privacy": "Nothing is sent automatically. You choose whether to share it.",
+    "autoSend": "This server sends a redacted report to the developer after every finished render.",
     "download": "Download report",
     "copy": "Copy summary",
     "issue": "Open GitHub issue",
+    "send": "Send to developer",
     "summaryLabel": "Report summary",
     "loading": "Collecting the report… encoder self-tests can take a while.",
     "downloaded": "Report downloaded.",
@@ -155,6 +159,8 @@
     "openAgain": "Report ready. Click “Open GitHub issue” again.",
     "needsToken": "This server requires a service token. Enter it in step 01 and try again.",
     "failed": "Couldn't get the diagnostics report. Try again.",
-    "noIssueLink": "The report doesn't include a valid GitHub issue link."
+    "noIssueLink": "The report doesn't include a valid GitHub issue link.",
+    "sending": "Sending the report to the developer…",
+    "sent": "Report sent to the developer. Thanks!"
   }
 }

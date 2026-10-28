@@ -74,7 +74,9 @@
     "BEATMAP_CHECKSUM_MISMATCH": "El mapa descargado no coincide con la versión del replay.",
     "RENDER_FAILED": "El render falló.",
     "RENDER_TIMEOUT": "El render tardó demasiado y se detuvo.",
-    "INTERNAL_ERROR": "El servidor tuvo un error interno."
+    "INTERNAL_ERROR": "El servidor tuvo un error interno.",
+    "REPORT_WEBHOOK_DISABLED": "Este servidor no tiene configurado el envío de reportes al desarrollador.",
+    "REPORT_SEND_FAILED": "No se pudo enviar el reporte al desarrollador. Inténtalo más tarde, o descárgalo y envía el archivo."
   },
   "settings": {
     "title": "Ajustes de render personalizados",
@@ -143,9 +145,11 @@
     "includes": "Incluye tu sistema operativo, el modelo y driver de la GPU, pruebas de los codificadores, información de danser y ffmpeg, y los resultados y logs de los renders recientes, con las rutas de tu carpeta personal ocultas.",
     "excludes": "Nunca incluye tokens, secretos, direcciones IP ni nombres de jugadores.",
     "privacy": "No se envía nada automáticamente. Tú decides si lo compartes.",
+    "autoSend": "Este servidor envía un reporte anonimizado al desarrollador después de cada render terminado.",
     "download": "Descargar reporte",
     "copy": "Copiar resumen",
     "issue": "Abrir issue en GitHub",
+    "send": "Enviar al desarrollador",
     "summaryLabel": "Resumen del reporte",
     "loading": "Generando el reporte… las pruebas de los codificadores pueden tardar un poco.",
     "downloaded": "Reporte descargado.",
@@ -155,6 +159,8 @@
     "openAgain": "El reporte está listo. Haz clic de nuevo en “Abrir issue en GitHub”.",
     "needsToken": "Este servidor requiere un token del servicio. Ingrésalo en el paso 01 e inténtalo de nuevo.",
     "failed": "No se pudo obtener el reporte de diagnóstico. Inténtalo de nuevo.",
-    "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub."
+    "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub.",
+    "sending": "Enviando el reporte al desarrollador…",
+    "sent": "Reporte enviado al desarrollador. ¡Gracias!"
   }
 }

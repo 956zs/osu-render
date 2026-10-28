@@ -4,7 +4,7 @@ import type { RenderDatabase } from './database.js';
 import type { BeatmapResolver } from './beatmap-resolver.js';
 import type { DanserRenderer } from './renderer.js';
 import type { StorageManager } from './storage.js';
-import type { ReplayMetadata, RenderRow } from './types.js';
+import type { RenderFinishedEvent, RenderReporter, ReplayMetadata, RenderRow } from './types.js';
 import { log } from './logger.js';
 import { limits } from './config.js';
 
@@ -17,6 +17,7 @@ export class RenderQueue {
     resolver: BeatmapResolver;
     renderer: DanserRenderer;
     storage: StorageManager;
+    reporter?: RenderReporter;
   }) {}
 
   private get database(): RenderDatabase { return this.dependencies.database; }
@@ -82,6 +83,7 @@ export class RenderQueue {
         return;
       }
       log('info', 'render_completed', { component: 'worker', jobId: job.id, ...renderStats(this.database.getRender(job.id)) });
+      this.report(job.id, 'completed');
     } catch (error) {
       if (this.database.getRender(job.id)?.status === 'cancelled') return;
       const safe = publicError(error);
@@ -91,6 +93,7 @@ export class RenderQueue {
         component: 'worker', jobId: job.id, code: safe.code, message: safe.message,
         ...renderStats(this.database.getRender(job.id)), ...debugError(error),
       });
+      this.report(job.id, safe.code === 'RENDER_TIMEOUT' ? 'timeout' : 'failed');
     }
   }
 
@@ -110,6 +113,15 @@ export class RenderQueue {
       log('error', 'beatmap_resolution_failed', {
         component: 'resolver', jobId: id, code: safe.code, ...debugError(error),
       });
+      this.report(id, 'failed');
+    }
+  }
+
+  private report(id: string, outcome: RenderFinishedEvent['outcome']): void {
+    try {
+      this.dependencies.reporter?.renderFinished({ id, outcome });
+    } catch (error) {
+      log('warn', 'report_hook_failed', { component: 'worker', jobId: id, ...debugError(error) });
     }
   }
 }

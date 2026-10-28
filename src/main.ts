@@ -12,6 +12,9 @@ import { createHttpServer } from './http.js';
 import { startCleanupScheduler } from './cleanup.js';
 import { log } from './logger.js';
 import { encoderKind, type EncoderSetting } from './encoders.js';
+import { collectDiagnostics } from './diagnostics.js';
+import { WebhookReporter } from './report-webhook.js';
+import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 
 const paths = getPaths();
 await ensureDirectories(paths);
@@ -46,12 +49,26 @@ const renderer = new DanserRenderer({
   danserBin: settings.danserBin, danserDir: settings.danserDir, settingsName: settings.danserSettingsName, paths,
   timeoutMs: limits.maxRenderMinutes * 60 * 1000,
 });
-const queue = new RenderQueue({ database, resolver, renderer, storage });
+const reportWebhookUrl = parseWebhookUrl(settings.reportWebhookUrl);
+if (settings.reportWebhookUrl && !reportWebhookUrl) {
+  log('warn', 'report_webhook_invalid', {
+    component: 'report', detail: 'REPORT_WEBHOOK_URL must be https://discord.com/api/webhooks/<id>/<token>; reporting is disabled.',
+  });
+}
+const reporter = reportWebhookUrl ? new WebhookReporter({
+  url: reportWebhookUrl,
+  secrets: webhookSecrets(settings.reportWebhookUrl),
+  collect: (focusRender) => collectDiagnostics({
+    preflight, preflightResult: preflightState.current(), settings, paths, database, storage,
+    skipProbes: 'auto_report', focusRender,
+  }),
+}) : undefined;
+const queue = new RenderQueue({ database, resolver, renderer, storage, reporter });
 for (const interrupted of database.recoverInterrupted()) {
   try { await queue.recover(interrupted); } catch { database.markFailed(interrupted.id, 'INVALID_REPLAY', 'Interrupted job could not be recovered.'); }
 }
 queue.start();
-const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths });
+const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths, reporter });
 const cleanupTimer = startCleanupScheduler(database, paths, async () => {
   await storage.cleanupTemp();
   await storage.evictBeatmaps();
@@ -61,7 +78,7 @@ log('info', 'service_started', {
   component: 'server', host: settings.host, port: settings.port,
   renderer: preflightResult.renderer, display: preflightResult.display, encoder: preflightResult.encoder,
   encoderKind: encoderKind(preflightResult.encoder), platform: process.platform, layout: tools.layout,
-  freeDiskBytes: await storage.freeBytes(),
+  reportWebhook: reporter !== undefined, freeDiskBytes: await storage.freeBytes(),
 });
 
 async function shutdown(signal: string): Promise<void> {
