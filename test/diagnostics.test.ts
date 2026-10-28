@@ -167,7 +167,7 @@ test('readLogTail returns the last bytes starting at a whole line', async () => 
 });
 
 test('issue option mapping matches the issue form', async () => {
-  const form = await readFile(path.join('.github', 'ISSUE_TEMPLATE', 'gpu-report.yml'), 'utf8');
+  const form = await readFile(path.join('.github', 'ISSUE_TEMPLATE', 'gpu-report.yml'), 'utf8').then((text) => text.replace(/\r\n/g, '\n'));
   for (const option of [...Object.values(ISSUE_OS_OPTIONS), ...Object.values(ISSUE_RESULT_OPTIONS)]) {
     assert.ok(form.includes(`        - ${option}\n`), `issue form is missing option "${option}"`);
   }

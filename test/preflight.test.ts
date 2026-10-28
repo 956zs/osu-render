@@ -94,7 +94,7 @@ test('auto mode on linux stops at the first passing encoder', async () => {
       '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=240x144:r=1',
       '-frames:v', '1', '-an', '-vf', 'format=nv12', '-c:v', 'h264_nvenc', '-f', 'null', '-',
     ]);
-    assert.equal(probe.options.env.LD_LIBRARY_PATH?.split(':')[0], path.join(directory, 'ffmpeg'));
+    assert.ok(probe.options.env.LD_LIBRARY_PATH?.startsWith(`${path.join(directory, 'ffmpeg')}:`) || probe.options.env.LD_LIBRARY_PATH === path.join(directory, 'ffmpeg'));
     assert.equal(probe.options.timeoutMs, 20000);
   });
 });
