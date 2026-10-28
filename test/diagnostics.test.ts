@@ -210,6 +210,8 @@ test('buildIssueUrl prefills fields and truncates the diagnostics field to the l
 
 const SECRET = 'super-secret-oauth-value-123';
 const TOKEN = 'auth-token-value-456';
+const WEBHOOK_TOKEN = 'webhookTokenValue_abcdefghijklmnop-789';
+const WEBHOOK = `https://discord.com/api/webhooks/123456789012345678/${WEBHOOK_TOKEN}`;
 
 function fakeTools(directory: string): DanserTools {
   return {
@@ -222,6 +224,7 @@ function settingsFor(danserDir: string): DiagnosticsSettings {
   return {
     host: '192.168.1.50', port: 3030, renderEncoder: 'auto', danserDir, osuClientId: '12345',
     osuClientSecret: SECRET, authToken: TOKEN, mirrors: ['https://mirror.example.com/d/{id}', 'not a url'],
+    reportWebhookUrl: WEBHOOK,
   };
 }
 
@@ -248,7 +251,7 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     ].join('\n'));
     const failedId = '11111111-1111-4111-8111-111111111111';
     await writeFile(path.join(logs, `${failedId}.log`),
-      `Loading replay of SecretPlayer from ${os.homedir()}/x.osr\nout=${failedId}.mp4\nclient 203.0.113.9 token ${TOKEN}\nnvenc init failed\n`);
+      `Loading replay of SecretPlayer from ${os.homedir()}/x.osr\nout=${failedId}.mp4\nclient 203.0.113.9 token ${TOKEN}\nposting to ${WEBHOOK}\nnvenc init failed\n`);
     const okId = '22222222-2222-4222-8222-222222222222';
     await writeFile(path.join(logs, `${okId}.log`), 'should not be included\n');
 
@@ -309,20 +312,20 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     assert.equal(report.encoderProbes[1].error, 'Error from <ip>');
     assert.deepEqual(report.config, {
       host: 'other', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: true,
-      mirrors: ['mirror.example.com', 'invalid'],
+      reportWebhook: true, mirrors: ['mirror.example.com', 'invalid'],
     });
     assert.deepEqual(report.storage, { freeBytes: 42 });
     assert.equal(report.renders.length, 2);
     assert.deepEqual(report.renders.map((render) => render.index), [1, 2]);
     assert.equal(report.renders[0].renderMs, 3000);
     assert.equal(report.renders[0].errorCode, 'RENDER_FAILED');
-    assert.match(report.renders[0].logTail ?? '', /Loading replay of <player> from ~\/x\.osr\nout=<render-id>\.mp4\nclient <ip> token <secret>\nnvenc init failed/);
+    assert.match(report.renders[0].logTail ?? '', /Loading replay of <player> from ~\/x\.osr\nout=<render-id>\.mp4\nclient <ip> token <secret>\nposting to <secret>\nnvenc init failed/);
     assert.equal(report.renders[1].logTail, undefined);
     assert.equal(report.errors.length, 0);
 
     const json = JSON.stringify(report);
     assert.match(report.renders[0].logTail ?? '', /out=<render-id>\.mp4/);
-    for (const forbidden of [failedId, okId, SECRET, TOKEN, 'SecretPlayer', 'OtherPlayer', '10.1.2.3', '203.0.113.9', '198.51.100.7', '192.168.1.50', '/r.osr', os.homedir()]) {
+    for (const forbidden of [failedId, okId, SECRET, TOKEN, WEBHOOK, WEBHOOK_TOKEN, 'SecretPlayer', 'OtherPlayer', '10.1.2.3', '203.0.113.9', '198.51.100.7', '192.168.1.50', '/r.osr', os.homedir()]) {
       assert.ok(!json.includes(forbidden), `report must not contain ${forbidden}`);
     }
     for (const id of [failedId, okId]) {
@@ -439,5 +442,49 @@ test('skipProbes reports the preflight probes instead of running new ones', asyn
     assert.equal(report.probesSkipped, 'render_active');
     assert.deepEqual(report.encoderProbes, preflightProbes);
     assert.ok(!report.errors.some((error) => error.source === 'encoderProbes'));
+  });
+});
+
+test('collectDiagnostics focuses a render: own log tail size and lookup beyond the recent list', async () => {
+  await withTempDir(async (directory) => {
+    const logs = path.join(directory, 'logs');
+    await mkdir(logs, { recursive: true });
+    const focusId = '44444444-4444-4444-8444-444444444444';
+    const newerId = '55555555-5555-4555-8555-555555555555';
+    await writeFile(path.join(logs, `${focusId}.log`), `${'x'.repeat(100)}\nby FocusPlayer ok ${WEBHOOK_TOKEN}\n`);
+    await writeFile(path.join(logs, `${newerId}.log`), 'newer completed log\n');
+    const options = {
+      preflight: {
+        run: async (): Promise<PreflightResult> => ({ renderer: true, display: true, encoder: 'libx264', probes: [] }),
+        probeAll: async () => { throw new Error('auto reports must not probe'); },
+        tools: async () => fakeTools(path.join(directory, 'danser')),
+      },
+      preflightResult: { renderer: true, display: true, encoder: 'libx264', probes: [{ encoder: 'libx264', ok: true, durationMs: 5 }] } as PreflightResult,
+      settings: settingsFor(path.join(directory, 'danser')),
+      paths: { data: directory, logs },
+      runCommand: async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); },
+      platform: 'linux' as const,
+      sysDrmDir: path.join(directory, 'no-drm'),
+      skipProbes: 'auto_report' as const,
+      focusRender: { id: focusId, logTailBytes: 80 },
+    };
+    const focused = row({ id: focusId, status: 'completed', player_name: 'FocusPlayer', created_at: 1 });
+    const report = await collectDiagnostics({
+      ...options,
+      database: { recentRenders: () => [row({ id: newerId, status: 'completed', created_at: 2 })], getRender: (id) => (id === focusId ? focused : undefined) },
+    });
+    assert.equal(report.probesSkipped, 'auto_report');
+    assert.deepEqual(report.encoderProbes.map((probe) => probe.encoder), ['libx264']);
+    assert.equal(report.focusRender, 2);
+    assert.equal(report.renders[0].logTail, undefined);
+    assert.equal(report.renders[1].logTail, 'by <player> ok <secret>\n');
+
+    const inRecent = await collectDiagnostics({ ...options, database: { recentRenders: () => [focused] } });
+    assert.equal(inRecent.focusRender, 1);
+    const missing = await collectDiagnostics({ ...options, database: { recentRenders: () => [] } });
+    assert.equal(missing.focusRender, undefined);
+    assert.equal(missing.config.reportWebhook, true);
+    const disabled = await collectDiagnostics({ ...options, settings: { ...options.settings, reportWebhookUrl: 'http://discord.com/api/webhooks/1/abc' } });
+    assert.equal(disabled.config.reportWebhook, false);
   });
 });

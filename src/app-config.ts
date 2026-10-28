@@ -15,6 +15,13 @@ export interface AppConfig {
     issueUrl: string;
     issueTemplate: string;
   };
+  reportWebhook: {
+    username: string;
+    timeoutMs: number;
+    retryAfterCapMs: number;
+    minIntervalMs: number;
+    autoLogTailBytes: { failed: number; completed: number };
+  };
   i18n: { languages: readonly string[]; fallback: string };
 }
 
@@ -32,7 +39,7 @@ export function loadAppConfig(defaultsFile = DEFAULTS_FILE, localFile = LOCAL_CO
 }
 
 export function validateAppConfig(value: unknown): AppConfig {
-  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'i18n']);
+  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'i18n']);
   const encoders = object(root.encoders, 'encoders', ['autoOrder', 'selfTest']);
   const autoOrder = object(encoders.autoOrder, 'encoders.autoOrder');
   if (!('default' in autoOrder)) throw configError('encoders.autoOrder.default', 'is required');
@@ -40,6 +47,9 @@ export function validateAppConfig(value: unknown): AppConfig {
   const preflight = object(root.preflight, 'preflight', ['retryIntervalMs', 'softwareFallbackRetryMs']);
   const diagnostics = object(root.diagnostics, 'diagnostics',
     ['logTailBytes', 'reportLogTailBytes', 'recentRenders', 'issueUrl', 'issueTemplate']);
+  const reportWebhook = object(root.reportWebhook, 'reportWebhook',
+    ['username', 'timeoutMs', 'retryAfterCapMs', 'minIntervalMs', 'autoLogTailBytes']);
+  const autoLogTail = object(reportWebhook.autoLogTailBytes, 'reportWebhook.autoLogTailBytes', ['failed', 'completed']);
   const i18n = object(root.i18n, 'i18n', ['languages', 'fallback']);
   const languages = stringArray(i18n.languages, 'i18n.languages', /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
   const fallback = string(i18n.fallback, 'i18n.fallback');
@@ -64,6 +74,16 @@ export function validateAppConfig(value: unknown): AppConfig {
       recentRenders: integer(diagnostics.recentRenders, 'diagnostics.recentRenders', 0),
       issueUrl: httpsUrl(diagnostics.issueUrl, 'diagnostics.issueUrl'),
       issueTemplate: string(diagnostics.issueTemplate, 'diagnostics.issueTemplate', /^[\w.-]+$/),
+    },
+    reportWebhook: {
+      username: string(reportWebhook.username, 'reportWebhook.username', /^[^\n]{1,80}$/),
+      timeoutMs: integer(reportWebhook.timeoutMs, 'reportWebhook.timeoutMs', 1),
+      retryAfterCapMs: integer(reportWebhook.retryAfterCapMs, 'reportWebhook.retryAfterCapMs', 0),
+      minIntervalMs: integer(reportWebhook.minIntervalMs, 'reportWebhook.minIntervalMs', 0),
+      autoLogTailBytes: {
+        failed: integer(autoLogTail.failed, 'reportWebhook.autoLogTailBytes.failed', 0),
+        completed: integer(autoLogTail.completed, 'reportWebhook.autoLogTailBytes.completed', 0),
+      },
     },
     i18n: { languages, fallback },
   };

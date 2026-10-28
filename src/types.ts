@@ -112,3 +112,13 @@ export interface HealthSnapshot {
   freeDiskBytes: number;
   reason?: string;
 }
+
+export interface RenderFinishedEvent {
+  id: string;
+  outcome: 'completed' | 'failed' | 'timeout';
+}
+
+/** Notified when a render ends (not when cancelled); must never throw or block the queue. */
+export interface RenderReporter {
+  renderFinished(event: RenderFinishedEvent): void;
+}
