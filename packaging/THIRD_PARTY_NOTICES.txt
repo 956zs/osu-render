@@ -1,0 +1,54 @@
+osu-render - third-party software notices
+=========================================
+
+osu-render itself is released under the MIT License (see LICENSE).
+This Windows portable package also contains the following third-party
+software. Each component is distributed under its own license and is
+included unmodified.
+
+
+Node.js (runtime\node.exe)
+--------------------------
+Copyright Node.js contributors. All rights reserved.
+License: MIT (plus the licenses of its bundled dependencies), see
+runtime\LICENSE.
+Website and source: https://nodejs.org/  https://github.com/nodejs/node
+Bundled version: @NODE_VERSION@ (win-x64), from https://nodejs.org/dist/@NODE_VERSION@/
+
+
+danser-go (danser\)
+-------------------
+Copyright Wieku and the danser-go contributors.
+License: GNU General Public License v3.0
+  https://www.gnu.org/licenses/gpl-3.0.html
+Source code: https://github.com/Wieku/danser-go
+The bundled build is the official release zip "danser-@DANSER_VERSION@-win.zip":
+  https://github.com/Wieku/danser-go/releases/tag/@DANSER_VERSION@
+Source for this exact version:
+  https://github.com/Wieku/danser-go/tree/@DANSER_VERSION@
+osu-render runs danser-cli.exe as a separate program.
+
+
+FFmpeg (danser\ffmpeg\)
+-----------------------
+The FFmpeg libraries and programs shipped inside the danser-go release
+were built with GPL components enabled and are licensed under the
+GNU General Public License version 3 or later.
+  https://www.gnu.org/licenses/gpl-3.0.html
+Website, license details and source: https://ffmpeg.org/
+  https://ffmpeg.org/legal.html  https://ffmpeg.org/download.html
+FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
+
+
+npm packages (node_modules\)
+----------------------------
+Direct dependencies:
+  fastify            MIT   https://github.com/fastify/fastify
+  @fastify/multipart MIT   https://github.com/fastify/fastify-multipart
+  better-sqlite3     MIT   https://github.com/WiseLibs/better-sqlite3
+                           (includes SQLite, public domain: https://sqlite.org/copyright.html)
+  yauzl              MIT   https://github.com/thejoshwolfe/yauzl
+Their transitive dependencies (listed in package-lock.json) use the MIT,
+ISC, BSD-2-Clause, BSD-3-Clause or Apache-2.0 licenses. Every
+package in node_modules\ keeps its own LICENSE file and the "license"
+field of its package.json.

@@ -1,0 +1,266 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - packaging/**
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_MAJOR: '24'
+  DANSER_VERSION: 0.12.1
+  DANSER_SHA256: 68b9529ac7a745283d59d26d7fa7178d8b7cccd50d070746791c397b7594da71
+
+jobs:
+  package:
+    name: Windows portable zip
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_MAJOR }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - name: Build
+        run: |
+          Remove-Item -Recurse -Force dist
+          npm run build
+
+      - name: Resolve version
+        id: version
+        env:
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+            if ($version -ne $pkg) { throw "Tag $env:GITHUB_REF_NAME does not match package.json version $pkg" }
+          } else {
+            $version = "$pkg-$($env:COMMIT_SHA.Substring(0, 7))"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Package version: $version"
+
+      - name: Stage files
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'stage/osu-render'
+          New-Item -ItemType Directory -Force -Path "$stage/dist", "$stage/config", "$stage/scripts/windows", "$stage/runtime" | Out-Null
+          Copy-Item -Recurse dist/src "$stage/dist/src"
+          Copy-Item -Recurse public "$stage/public"
+          Copy-Item config/defaults.json "$stage/config/"
+          Copy-Item package.json, package-lock.json, .env.example, LICENSE "$stage/"
+          Copy-Item README*.md "$stage/"
+          Copy-Item -Recurse docs "$stage/docs"
+          Copy-Item packaging/windows/start.bat, packaging/windows/doctor.bat, packaging/THIRD_PARTY_NOTICES.txt "$stage/"
+          Copy-Item packaging/windows/setup.ps1, packaging/windows/open-browser.ps1 "$stage/scripts/windows/"
+          Push-Location $stage
+          npm ci --omit=dev --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm ci --omit=dev failed" }
+          Pop-Location
+          "STAGE=$stage" >> $env:GITHUB_ENV
+
+      - name: Download Node.js runtime
+        run: |
+          $index = Invoke-RestMethod https://nodejs.org/dist/index.json
+          $release = $index | Where-Object { $_.version -like "v$env:NODE_MAJOR.*" -and $_.lts } | Select-Object -First 1
+          if (-not $release) { throw "No LTS release found for Node $env:NODE_MAJOR" }
+          $v = $release.version
+          $name = "node-$v-win-x64"
+          $dir = Join-Path $env:RUNNER_TEMP 'node-download'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Invoke-WebRequest "https://nodejs.org/dist/$v/$name.zip" -OutFile "$dir/$name.zip"
+          Invoke-WebRequest "https://nodejs.org/dist/$v/SHASUMS256.txt" -OutFile "$dir/SHASUMS256.txt"
+          $line = Select-String -Path "$dir/SHASUMS256.txt" -Pattern "  $name.zip$" | Select-Object -First 1
+          if (-not $line) { throw "$name.zip is not listed in SHASUMS256.txt" }
+          $expected = ($line.Line -split '\s+')[0]
+          $actual = (Get-FileHash -Algorithm SHA256 "$dir/$name.zip").Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Node.js checksum mismatch: $actual != $expected" }
+          Expand-Archive -Path "$dir/$name.zip" -DestinationPath $dir
+          Copy-Item "$dir/$name/node.exe", "$dir/$name/LICENSE" "$env:STAGE/runtime/"
+          "NODE_VERSION=$v" >> $env:GITHUB_ENV
+          Write-Host "Bundled Node.js $v (sha256 $actual)"
+
+      - name: Cache danser zip
+        id: danser-cache
+        uses: actions/cache@v6
+        with:
+          path: .ci/danser-zip
+          key: danser-zip-${{ env.DANSER_VERSION }}-win
+
+      - name: Download danser
+        if: steps.danser-cache.outputs.cache-hit != 'true'
+        run: |
+          New-Item -ItemType Directory -Force -Path .ci/danser-zip | Out-Null
+          Invoke-WebRequest "https://github.com/Wieku/danser-go/releases/download/$env:DANSER_VERSION/danser-$env:DANSER_VERSION-win.zip" -OutFile .ci/danser-zip/danser.zip
+
+      - name: Add danser
+        run: |
+          $actual = (Get-FileHash -Algorithm SHA256 .ci/danser-zip/danser.zip).Hash.ToLowerInvariant()
+          if ($actual -ne $env:DANSER_SHA256) { throw "danser checksum mismatch: $actual" }
+          Expand-Archive -Path .ci/danser-zip/danser.zip -DestinationPath "$env:STAGE/danser"
+
+      - name: Fill in versions
+        run: |
+          $notices = "$env:STAGE/THIRD_PARTY_NOTICES.txt"
+          $text = (Get-Content $notices -Raw).Replace('@DANSER_VERSION@', $env:DANSER_VERSION).Replace('@NODE_VERSION@', $env:NODE_VERSION)
+          [IO.File]::WriteAllText($notices, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"))
+
+      - name: Create zip
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $name = "osu-render-$version-win-x64.zip"
+          $out = Join-Path $env:RUNNER_TEMP 'out'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Push-Location (Split-Path $env:STAGE)
+          7z a -tzip -mx=7 "$out/$name" osu-render | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
+          Pop-Location
+          $hash = (Get-FileHash -Algorithm SHA256 "$out/$name").Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText("$out/$name.sha256", "$hash  $name`n")
+          $notes = (Get-Content packaging/release-notes.md -Raw).Replace('@VERSION@', $version).Replace('@NODE_VERSION@', $env:NODE_VERSION).Replace('@DANSER_VERSION@', $env:DANSER_VERSION).Replace('@SHA256@', $hash)
+          [IO.File]::WriteAllText("$out/release-notes.md", $notes)
+          "ZIP=$out/$name" >> $env:GITHUB_ENV
+          "OUT=$out" >> $env:GITHUB_ENV
+          Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $name, ((Get-Item "$out/$name").Length / 1MB), $hash)
+
+      - name: Smoke test extracted zip
+        env:
+          OSU_RENDER_NO_BROWSER: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = Join-Path $env:RUNNER_TEMP 'smoke test ü'
+          Expand-Archive -Path $env:ZIP -DestinationPath $base
+          $root = Join-Path $base 'osu-render'
+          Set-Location -LiteralPath $root
+          Get-ChildItem -Force | Format-Table Mode, Length, Name
+          foreach ($required in 'start.bat', 'doctor.bat', 'THIRD_PARTY_NOTICES.txt', '.env.example', 'LICENSE', 'README.md',
+              'runtime/node.exe', 'runtime/LICENSE', 'dist/src/main.js', 'dist/src/doctor.js', 'public/index.html', 'config/defaults.json',
+              'scripts/windows/setup.ps1', 'scripts/windows/open-browser.ps1', 'danser/danser-cli.exe', 'danser/ffmpeg/ffmpeg.exe',
+              'node_modules/better-sqlite3/build/Release/better_sqlite3.node') {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $required))) { throw "Missing $required" }
+          }
+          if (Test-Path node_modules/typescript) { throw "dev dependencies were packaged" }
+          if ((Get-Content start.bat -Raw) -notmatch "`r`n") { throw "start.bat does not use CRLF line endings" }
+          $node = Join-Path $root 'runtime/node.exe'
+          & $node --version
+
+          Write-Host '::group::doctor --json'
+          & $node dist/src/doctor.js --json > report.json
+          Write-Host "doctor exit code: $LASTEXITCODE"
+          $report = Get-Content report.json -Raw | ConvertFrom-Json
+          $files = $report.danser.files
+          foreach ($key in 'danserCli', 'ffmpeg', 'ffprobe') { if ($files.$key -ne $true) { throw "danser.files.$key is $($files.$key)" } }
+          $x264 = $report.encoderProbes | Where-Object encoder -eq 'libx264'
+          if ($x264.ok -ne $true) { throw "libx264 self-test failed: $($x264.error)" }
+          if ($report.preflight.encoder -eq 'unknown') { throw 'preflight encoder is unknown' }
+          Write-Host "preflight: $($report.preflight | ConvertTo-Json -Compress)"
+          Remove-Item report.json
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::setup.ps1 (Windows PowerShell 5.1)'
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 -ClientId 1 -ClientSecret dummy-secret
+          if ($LASTEXITCODE -ne 0) { throw "setup.ps1 exited with $LASTEXITCODE" }
+          $bytes = [IO.File]::ReadAllBytes((Join-Path $root '.env'))
+          if ($bytes[0] -eq 0xEF) { throw '.env has a UTF-8 BOM' }
+          & $node -e "process.loadEnvFile('.env'); if (process.env.OSU_CLIENT_ID !== '1' || process.env.OSU_CLIENT_SECRET !== 'dummy-secret' || process.env.PORT !== '3030') process.exit(1)"
+          if ($LASTEXITCODE -ne 0) { throw '.env written by setup.ps1 does not parse as expected' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 -ClientId abc -ClientSecret x -Force
+          if ($LASTEXITCODE -eq 0) { throw 'setup.ps1 accepted a non-numeric client id' }
+          Write-Host '::endgroup::'
+
+          function Wait-Health([int]$seconds) {
+            $deadline = (Get-Date).AddSeconds($seconds)
+            while ((Get-Date) -lt $deadline) {
+              try { if ((Invoke-WebRequest http://127.0.0.1:3030/health -TimeoutSec 2).StatusCode -eq 200) { return $true } } catch { }
+              Start-Sleep -Seconds 1
+            }
+            return $false
+          }
+          function Test-Endpoints {
+            $index = Invoke-WebRequest http://127.0.0.1:3030/
+            if ($index.StatusCode -ne 200 -or $index.Content -notmatch '<html') { throw 'GET / did not return HTML' }
+            $es = Invoke-WebRequest http://127.0.0.1:3030/i18n/es.json
+            if ($es.StatusCode -ne 200) { throw "GET /i18n/es.json returned $($es.StatusCode)" }
+          }
+
+          Write-Host '::group::node dist/src/main.js'
+          $server = Start-Process -FilePath $node -ArgumentList 'dist/src/main.js' -WorkingDirectory $root -PassThru -NoNewWindow `
+            -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'main.out.log') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'main.err.log')
+          try {
+            if (-not (Wait-Health 60)) { throw '/health did not answer within 60 s' }
+            Test-Endpoints
+            if (-not (Test-Path -LiteralPath (Join-Path $root 'data/render.db'))) { throw 'data/render.db was not created inside the package folder' }
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $env:RUNNER_TEMP 'main.out.log'), (Join-Path $env:RUNNER_TEMP 'main.err.log') -ErrorAction SilentlyContinue
+          }
+          Start-Sleep -Seconds 2
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::start.bat'
+          $empty = Join-Path $env:RUNNER_TEMP 'empty-stdin.txt'
+          New-Item -ItemType File -Force -Path $empty | Out-Null
+          $bat = Start-Process -FilePath (Join-Path $root 'start.bat') -WorkingDirectory $env:RUNNER_TEMP -PassThru -NoNewWindow `
+            -RedirectStandardInput $empty -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'bat.out.log') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'bat.err.log')
+          try {
+            if (-not (Wait-Health 60)) { throw 'start.bat: /health did not answer within 60 s' }
+            Test-Endpoints
+            $second = Start-Process -FilePath (Join-Path $root 'start.bat') -WorkingDirectory $env:RUNNER_TEMP -PassThru -NoNewWindow -Wait `
+              -RedirectStandardInput $empty -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'bat2.out.log') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'bat2.err.log')
+            Get-Content (Join-Path $env:RUNNER_TEMP 'bat2.out.log')
+            if ($second.ExitCode -ne 2) { throw "second start.bat should report the port in use (exit 2), got $($second.ExitCode)" }
+          } finally {
+            taskkill /PID $bat.Id /T /F | Out-Null
+            Get-Content (Join-Path $env:RUNNER_TEMP 'bat.out.log'), (Join-Path $env:RUNNER_TEMP 'bat.err.log') -ErrorAction SilentlyContinue
+          }
+          Write-Host '::endgroup::'
+          Write-Host 'Smoke test passed.'
+          exit 0
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: osu-render-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            ${{ env.OUT }}/*.zip
+            ${{ env.OUT }}/*.sha256
+            ${{ env.OUT }}/release-notes.md
+          if-no-files-found: error
+          compression-level: 0
+
+  release:
+    name: GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: osu-render-${{ needs.package.outputs.version }}-win-x64
+          path: out
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "osu-render $GITHUB_REF_NAME" --notes-file out/release-notes.md \
+            out/*.zip out/*.sha256
