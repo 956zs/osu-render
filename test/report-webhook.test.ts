@@ -171,8 +171,12 @@ test('postWebhook aborts a hung request after timeoutMs', async () => {
   const fetch: FetchLike = (_url, init) => new Promise((_resolve, reject) => {
     init.signal.addEventListener('abort', () => reject(init.signal.reason));
   });
-  await assert.rejects(postWebhook(URL_OK, message, { fetch, timeoutMs: 20, retryAfterCapMs: 0 }),
-    (error: unknown) => error instanceof ReportSendError && error.detail === 'request timed out');
+  // AbortSignal.timeout's timer is unref'd; a real request keeps the loop alive, this fake one does not (Node 22).
+  const keepAlive = setTimeout(() => undefined, 5000);
+  try {
+    await assert.rejects(postWebhook(URL_OK, message, { fetch, timeoutMs: 20, retryAfterCapMs: 0 }),
+      (error: unknown) => error instanceof ReportSendError && error.detail === 'request timed out');
+  } finally { clearTimeout(keepAlive); }
 });
 
 test('WebhookReporter serializes sends and spaces them by minIntervalMs', async () => {
