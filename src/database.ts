@@ -100,8 +100,9 @@ export class RenderDatabase {
     }
     this.addMissingColumns('renders', {
       beatmap_title: 'TEXT', beatmap_artist: 'TEXT', beatmap_version: 'TEXT', files_deleted_at: 'INTEGER',
+      beatmap_creator: 'TEXT', beatmap_length: 'INTEGER',
     });
-    this.addMissingColumns('beatmaps', { title: 'TEXT', artist: 'TEXT', version: 'TEXT' });
+    this.addMissingColumns('beatmaps', { title: 'TEXT', artist: 'TEXT', version: 'TEXT', creator: 'TEXT', length: 'INTEGER' });
   }
 
   private addMissingColumns(table: 'renders' | 'beatmaps', wanted: Record<string, 'TEXT' | 'INTEGER'>): void {
@@ -152,9 +153,10 @@ export class RenderDatabase {
   /** Unsubmitted local maps have no online ids (0 or -1 in the .osu); those are stored as NULL. */
   updateBeatmap(id: string, beatmap: BeatmapMetadata): void {
     this.db.prepare(`UPDATE renders SET updated_at = ?, beatmap_id = ?, beatmapset_id = ?,
-      beatmap_title = ?, beatmap_artist = ?, beatmap_version = ? WHERE id = ?`)
+      beatmap_title = ?, beatmap_artist = ?, beatmap_version = ?, beatmap_creator = ?, beatmap_length = ? WHERE id = ?`)
       .run(Date.now(), onlineId(beatmap.id), onlineId(beatmap.beatmapsetId),
-        beatmap.title ?? null, beatmap.artist ?? null, beatmap.version ?? null, id);
+        beatmap.title ?? null, beatmap.artist ?? null, beatmap.version ?? null, beatmap.creator ?? null,
+        lengthSeconds(beatmap.totalLength), id);
   }
 
   setStatus(id: string, status: JobStatus, progress?: number): void {
@@ -225,14 +227,15 @@ export class RenderDatabase {
   saveBeatmap(row: Omit<BeatmapRow, 'created_at' | 'last_used_at'>): void {
     const now = Date.now();
     this.db.prepare(`INSERT INTO beatmaps
-      (checksum, beatmap_id, beatmapset_id, map_path, size_bytes, created_at, last_used_at, title, artist, version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (checksum, beatmap_id, beatmapset_id, map_path, size_bytes, created_at, last_used_at, title, artist, version, creator, length)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(checksum) DO UPDATE SET beatmap_id=excluded.beatmap_id,
       beatmapset_id=excluded.beatmapset_id, map_path=excluded.map_path,
       size_bytes=excluded.size_bytes, last_used_at=excluded.last_used_at,
-      title=excluded.title, artist=excluded.artist, version=excluded.version`)
+      title=excluded.title, artist=excluded.artist, version=excluded.version,
+      creator=excluded.creator, length=excluded.length`)
       .run(row.checksum, row.beatmap_id, row.beatmapset_id, row.map_path, row.size_bytes, now, now,
-        row.title ?? null, row.artist ?? null, row.version ?? null);
+        row.title ?? null, row.artist ?? null, row.version ?? null, row.creator ?? null, row.length ?? null);
   }
 
   touchBeatmap(checksum: string): void {
@@ -278,6 +281,11 @@ export class RenderDatabase {
   close(): void {
     this.db.close();
   }
+}
+
+/** Map length in whole seconds; anything else is stored as unknown. */
+function lengthSeconds(value: number | undefined): number | null {
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
 }
 
 function onlineId(value: number): number | null {

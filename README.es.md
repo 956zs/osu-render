@@ -9,8 +9,8 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 (x264) cuando no.
 
 <p>
-  <img src="docs/screenshot-en.png" alt="Interfaz web de osu-render en escritorio: subida del replay, ajustes de render y tarjeta de diagnóstico" width="600">
-  <img src="docs/screenshot-mobile-es.png" alt="Interfaz web de osu-render en un celular, en español" width="190">
+  <img src="docs/screenshot-en.png" alt="Interfaz web de osu-render en escritorio: la pestaña Renderizar con el hit circle para soltar el replay, los preajustes, los ajustes rápidos y el menú lateral" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="Pestaña Renderizar de osu-render en un celular, en español, con el aviso de actualización y la barra de pestañas flotante" width="190">
 </p>
 
 > **El soporte para Windows y NVIDIA/AMD es nuevo y necesita testers.** Si tienes uno de esos equipos, la forma
@@ -43,20 +43,27 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 
 ## Funciones
 
-- Interfaz web con arrastrar y soltar, en English, 繁體中文 y Español (diseño para escritorio y celular).
+- Interfaz web con arrastrar y soltar, en English, 繁體中文 y Español, con las pestañas **Renderizar**, **Historial**,
+  **Skins** y **Diagnóstico** y un tema oscuro hecho con formas de osu!: la zona para soltar es un hit circle y el progreso es un approach
+  circle (en el celular, las pestañas van en una barra flotante abajo).
+- **Ajustes rápidos** junto a la zona para soltar el replay, el resto de opciones en el panel **Todos los ajustes** con
+  buscador, preajustes con nombre guardados en el navegador y **Restablecer**.
+- Vista paso a paso del trabajo (subido → buscando el mapa → descargando → en cola → renderizando → listo) con
+  porcentaje en un approach circle, velocidad de render, tiempo restante y duración del mapa, y vista previa del video en la página al terminar. Si recargas
+  la página, el render en curso se sigue mostrando.
 - Solo subes el replay. El mapa se busca por su checksum con la API de osu!, se descarga de mirrors
   configurables (si uno falla se prueba el siguiente) y se verifica contra el MD5 del replay antes de renderizar.
 - 720p o 1080p a 60 FPS, video H.264 con audio AAC.
 - Opciones visuales por render: saltar la intro, volúmenes, atenuación/desenfoque/paralaje del fondo, bloom,
   escala del área de juego, tamaño/estela/efectos del cursor, colores de la skin o del mapa, elementos del HUD y
   detalles de los objetos.
-- Skins personalizados: sube un `.osk` desde la interfaz web (o cópialo a `data/skins`) y elígelo en cada render.
+- Skins personalizados: sube un `.osk` en la pestaña **Skins** (o cópialo a `data/skins`) y elígelo en cada render.
 - Detección automática del codificador por GPU con una prueba real de un fotograma; si falla, usa x264.
 - Cola FIFO persistente (SQLite), un render a la vez, recuperación tras un cierre inesperado o reinicio.
 - Protección de disco: rechaza renders si queda poco espacio; videos y replays caducan a las 24 horas
   (`VIDEO_RETENTION_HOURS`) y los mapas
   en caché se borran empezando por los menos usados.
-- Historial de renders por cliente, con botones para descargar y borrar archivos.
+- Historial de renders por cliente, con botones de vista previa, descarga y borrado de archivos.
 - Usa los mapas de una carpeta `Songs` local de osu!stable antes de descargar, así que también funcionan mapas sin publicar.
 - API HTTP sencilla con descargas por rangos (`Range`) y token bearer opcional.
 - Reporte de diagnóstico integrado (`doctor.bat`, `npm run doctor` o la interfaz web) para reportar problemas.
@@ -147,10 +154,10 @@ del zip, los enumera.
 
 ## Skins personalizados
 
-En la interfaz web abre **Ajustes de render personalizados → Skin**, haz clic en **Subir .osk** y elige el
-archivo del skin. El skin se instala en el servidor y queda seleccionado de inmediato; después lo encuentras en
-la lista **Skin** para tus próximos renders. Marca **Usar el cursor del skin** para usar el cursor del skin en
-lugar del de danser. Si subes un skin con el mismo nombre, reemplaza al anterior.
+Abre la pestaña **Skins** y suelta un archivo `.osk` (o haz clic para elegirlo). El skin se instala en el
+servidor y se usará en tu próximo render; después sigue en la lista para otros renders. **Usar en el próximo
+render** elige un skin instalado, igual que la lista **Skin** de **Ajustes rápidos** en la pestaña **Renderizar**.
+Activa **Usar el cursor del skin** (en **Todos los ajustes**) para usar el cursor del skin en lugar del de danser. Si subes un skin con el mismo nombre, reemplaza al anterior.
 
 También puedes agregar skins a mano: copia la carpeta del skin (la que tiene `skin.ini`) o un archivo `.osk` a
 la carpeta de skins: `data\skins` en el zip portable, `data/skins` en otras instalaciones (se cambia con
@@ -160,11 +167,11 @@ archivos) están en `config/defaults.json`, en la sección `skins`.
 
 ## Historial de renders y tiempo de conservación
 
-La tarjeta **Historial** muestra tus renders recientes en este servidor (los más nuevos primero, hasta 20): mapa,
+La pestaña **Historial** muestra tus renders recientes en este servidor (los más nuevos primero, hasta 20): mapa,
 jugador, mods, resolución, codificador, cuánto tardó el render y cuándo se borrarán sus archivos. Los videos
-terminados tienen un botón **Descargar**. **Borrar archivos** elimina en ese momento el video, el replay y el log;
+terminados tienen los botones **Vista previa** (reproduce el video en la página) y **Descargar**. **Borrar archivos** elimina en ese momento el video, el replay y el log;
 la entrada queda en la lista marcada como borrada. La lista solo muestra los renders subidos desde tu propia
-dirección (con el zip portable, eso es solo tu PC) y se actualiza cuando termina un render.
+dirección (con el zip portable, eso es solo tu PC) y se actualiza mientras hay un render en curso.
 
 Los videos, replays y logs de los renders terminados, fallidos y cancelados se guardan durante
 `VIDEO_RETENTION_HOURS` horas (24 por defecto, de 1 a 720) y luego se borran solos. Cámbialo en `.env` y reinicia.
@@ -254,7 +261,7 @@ a veces agrega `.txt` al guardar, y osu-render no lee `.env.txt` (`start.bat` av
 Explorador de archivos, **Vista → Mostrar → Extensiones de nombre de archivo** muestra el nombre real.
 
 Desde entonces, cada render terminado (correcto, fallido o que excedió el tiempo; no los cancelados) envía un
-reporte anonimizado al canal de Discord del mantenedor, y la tarjeta **Diagnóstico** muestra el botón **Enviar al
+reporte anonimizado al canal de Discord del mantenedor, y la pestaña **Diagnóstico** muestra el botón **Enviar al
 desarrollador** para enviar uno a mano (por ejemplo, si hay un problema al arrancar). Los reportes automáticos
 reutilizan la prueba de codificadores del arranque en lugar de hacer una nueva, así que nunca interrumpen un
 render. Si la URL no es válida, el servicio muestra una advertencia al arrancar (y registra `report_webhook_invalid`) y
@@ -269,9 +276,11 @@ Cualquiera de estas opciones genera el mismo reporte:
 - **Zip de Windows:** haz doble clic en **`doctor.bat`**. Muestra un resumen, guarda
   `data\diagnostics\doctor-<timestamp>.json` y abre esa carpeta en el Explorador. Puedes ejecutarlo con el
   servicio encendido o apagado.
-- **Interfaz web:** la tarjeta **Diagnóstico** tiene **Descargar reporte** (el archivo JSON), **Copiar resumen**
+- **Interfaz web:** la pestaña **Diagnóstico** tiene **Descargar reporte** (el archivo JSON), **Copiar resumen**
   (texto corto para un chat) y **Abrir issue en GitHub** (abre en otra pestaña un formulario de issue ya
-  rellenado). Generar el reporte puede tardar unos segundos porque prueba todos los codificadores.
+  rellenado). Generar el reporte puede tardar unos segundos porque prueba todos los codificadores. La misma
+  pestaña muestra el estado del renderizador (codificador, pantalla, espacio libre en disco) y, después de generar
+  un reporte, el resultado de la autoprueba de cada codificador.
 - **Desde el código fuente:** `npm run doctor` (resumen) o `npm run doctor -- --json` (imprime el JSON). Ambos
   guardan además el archivo en `data/diagnostics/`. `GET /api/diagnostics` también devuelve el JSON.
 
@@ -329,7 +338,7 @@ dos GPUs y `danser.log`).
 Sí. En `.env` define `HOST=0.0.0.0` y un `AUTH_TOKEN` largo y aleatorio, y reinicia. Cuando Windows pregunte,
 permite que Node.js use redes **privadas** en el Firewall (o agrega una regla de entrada para el puerto TCP 3030).
 Tus amigos abren `http://<IP-de-tu-PC-en-la-red-local>:3030/` y escriben el token en el campo **Token del
-servicio**. Los renders van de uno en uno y cada cliente puede tener como máximo 3 trabajos sin terminar. No lo
+servicio** (abajo en **Ajustes rápidos**; se despliega solo cuando el servidor pide un token). Los renders van de uno en uno y cada cliente puede tener como máximo 3 trabajos sin terminar. No lo
 expongas a internet sin HTTPS, ver [Notas de seguridad](#notas-de-seguridad).
 
 ## Instalar desde el código fuente
@@ -517,7 +526,8 @@ automático de codificadores por plataforma, el tamaño y el tiempo límite de l
 diagnóstico, el enlace para issues, y del webhook de reportes el tiempo límite, el máximo de espera tras un 429, la
 separación entre mensajes y el tamaño del final del log (`reportWebhook`), y la búsqueda de actualizaciones
 (`update`: activarla o no, repositorio de GitHub, intervalo, límites de tamaño de descarga y hosts de descarga
-permitidos). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
+permitidos) y cuánto duran los enlaces firmados de vista previa del video (`preview.ttlSeconds`, 3600 por
+defecto). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
 sobrescribir; se combina sobre los valores por defecto y git lo ignora. Ejemplo:
 
 ```json
@@ -548,10 +558,10 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | Método y ruta | Descripción |
 | --- | --- |
 | `POST /api/renders` | Subida multipart: `replay` (el `.osr`, máx. 5 MiB) y `options` opcional (texto JSON). Devuelve `{ "id", "status" }`. |
-| `GET /api/renders/:id` | Estado del trabajo, progreso, posición en la cola, mapa, formato de salida y error. |
-| `GET /api/renders/:id/video` | El MP4 terminado. Soporta HTTP `Range`. |
+| `GET /api/renders/:id` | Estado del trabajo, progreso, posición en la cola, mapa (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), formato de salida, `startedAt`, `renderMs` y error. Durante el render, `speed` (un número como `1.42`) y `eta` (texto tal como lo imprime danser); al terminar, `previewUrl` (un enlace firmado al video, ver abajo). |
+| `GET /api/renders/:id/video` | El MP4 terminado, con el nombre `Artist - Title [Version].mp4`. Soporta HTTP `Range`. También acepta el `previewUrl` firmado (`?exp=<segundos unix>&sig=<hex>`) en lugar del header Bearer, para que un elemento `<video>` pueda reproducirlo. Los enlaces firmados caducan tras `preview.ttlSeconds` (1 hora por defecto) y dejan de funcionar cuando el servicio se reinicia (la clave es aleatoria en cada arranque); un enlace inválido o caducado devuelve `UNAUTHORIZED` (403). |
 | `DELETE /api/renders/:id` | Cancela un trabajo. |
-| `GET /api/renders?limit=N` | Tus renders recientes (solo de la misma dirección de cliente, 20 por defecto, máximo 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error" }] }`. |
+| `GET /api/renders?limit=N` | Tus renders recientes (solo de la misma dirección de cliente, 20 por defecto, máximo 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
 | `DELETE /api/renders/:id/files` | Borra ya el video, el replay y el log de tu propio render terminado; la entrada del historial se queda. Error `RENDER_ACTIVE` (409) si todavía está en curso. Un video borrado devuelve `RENDER_EXPIRED` (410). |
 | `GET /api/skins` | Skins instalados: `{ "skins": [{ "name" }] }`, con el `default` integrado primero. |
 | `POST /api/skins` | Subida multipart: `skin` (un `.osk`). Lo instala y devuelve `{ "name" }`, o el error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
@@ -576,7 +586,10 @@ Estados del trabajo: `uploaded` → `resolving` → `downloading` → `queued` �
 - Por defecto el servicio escucha en `127.0.0.1`, así que solo tu propio equipo puede conectarse.
 - **Define `AUTH_TOKEN` antes de exponerlo** (`HOST=0.0.0.0`, reenvío de puertos o un reverse proxy). El token
   protege `/api/*`; la página web tiene un campo para ingresarlo. Usa HTTPS (con un reverse proxy) si el token
-  pasa por una red en la que no confías.
+  pasa por una red en la que no confías. Los enlaces `previewUrl` firmados y de corta duración son la única forma
+  de acceder a una ruta `/api` sin el token.
+- La página se sirve con una Content-Security-Policy estricta: scripts, estilos y peticiones solo del mismo origen,
+  sin scripts ni estilos en línea, y no se puede incrustar en otras páginas (`frame-ancestors 'none'`).
 - El navegador no puede pasar argumentos arbitrarios a danser o FFmpeg ni rutas de archivos. Las opciones de
   render se validan contra una lista permitida y se convierten en un conjunto fijo de parámetros y parches de
   configuración de danser.

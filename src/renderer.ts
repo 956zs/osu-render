@@ -11,10 +11,18 @@ import type { Paths, RenderRow } from './types.js';
 import { buildDanserPatch, parseRenderOptions } from './render-options.js';
 
 const execFileAsync = promisify(execFile);
-const PROGRESS_PATTERN = /Progress:\s*(\d+)%,\s*Speed:/g;
+const PROGRESS_PATTERN = /Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)?x?(?:,\s*ETA:\s*([^,]*))?/g;
 const TERMINATE_GRACE_MS = 10_000;
 const STDIO_DRAIN_MS = 2_000;
 const RM_RETRY = { force: true, recursive: true, maxRetries: 5, retryDelay: 200 } as const;
+
+/** Render speed (1 = real time) and danser's ETA text, from the latest progress line. */
+export interface ProgressDetail {
+  speed: number | null;
+  eta: string | null;
+}
+
+export type ProgressListener = (progress: number, detail: ProgressDetail) => void;
 
 export type ProcessSpawner = (command: string, args: string[], options: SpawnOptions) => ChildProcess;
 
@@ -46,7 +54,7 @@ export class DanserRenderer {
     this.platform = options.platform ?? process.platform;
   }
 
-  async render(job: RenderRow, onProgress: (progress: number) => void): Promise<string> {
+  async render(job: RenderRow, onProgress: ProgressListener): Promise<string> {
     const danserOutput = path.join(this.options.paths.danserOutput, `${job.id}.mp4`);
     const partOutput = path.join(this.options.paths.videos, `${job.id}.mp4.part`);
     const finalOutput = path.join(this.options.paths.videos, `${job.id}.mp4`);
@@ -84,7 +92,7 @@ export class DanserRenderer {
     jobId: string,
     tools: DanserTools,
     args: string[],
-    onProgress: (value: number) => void,
+    onProgress: ProgressListener,
   ): Promise<void> {
     const spawnProcess = this.options.spawnProcess ?? spawn;
     const child = spawnProcess(tools.danserCli, args, {
@@ -161,13 +169,17 @@ export function buildDanserArguments(job: RenderRow, settingsName = 'service'): 
   return argumentsList;
 }
 
-export function createProgressParser(onProgress: (value: number) => void): (output: string) => void {
+export function createProgressParser(onProgress: ProgressListener): (output: string) => void {
   let pending = '';
   return (output) => {
     const lines = `${pending}${output}`.split(/\r\n|\r|\n/);
     pending = lines.pop() ?? '';
     for (const line of lines) {
-      for (const match of line.matchAll(PROGRESS_PATTERN)) onProgress(Math.min(100, Number(match[1])));
+      for (const match of line.matchAll(PROGRESS_PATTERN)) {
+        const speed = match[2] === undefined ? Number.NaN : Number(match[2]);
+        const eta = match[3]?.trim();
+        onProgress(Math.min(100, Number(match[1])), { speed: Number.isFinite(speed) ? speed : null, eta: eta ? eta : null });
+      }
     }
   };
 }

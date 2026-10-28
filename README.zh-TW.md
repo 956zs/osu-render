@@ -8,8 +8,8 @@
 不能用時改用 CPU（x264）。
 
 <p>
-  <img src="docs/screenshot-en.png" alt="osu-render 桌面版網頁介面：上傳 replay、自訂渲染設定與診斷報告卡片" width="600">
-  <img src="docs/screenshot-mobile-es.png" alt="osu-render 手機版網頁介面（西班牙文）" width="190">
+  <img src="docs/screenshot-en.png" alt="osu-render 桌面版網頁介面：「渲染」分頁的 hit circle 拖放區、預設組合、快速設定與側邊欄" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="osu-render 手機上的「渲染」分頁（西班牙文），含更新通知與浮動分頁列" width="190">
 </p>
 
 > **Windows 與 NVIDIA/AMD 支援是新功能，需要測試者。** 如果你有這類環境，最簡單的試用方式是
@@ -41,17 +41,22 @@
 
 ## 功能
 
-- 拖放式網頁介面，支援 English、繁體中文、Español（桌面與手機版面）。
+- 拖放式網頁介面，支援 English、繁體中文、Español，分成「**渲染**」、「**歷史紀錄**」、「**Skin**」、「**診斷**」四個分頁，
+  深色主題取材自 osu! 的元素：拖放區是一顆 hit circle，進度是 approach circle（手機上分頁變成浮在下方的分頁列）。
+- 拖放區旁就是「**快速設定**」，其他選項都在可搜尋的「**所有設定**」面板；可以把設定存成具名的預設組合（存在瀏覽器裡），
+  也能「**還原預設值**」。
+- 逐步顯示任務進度（已上傳 → 尋找圖譜 → 下載 → 排隊 → 渲染 → 完成），以 approach circle 顯示百分比，並附渲染速度、剩餘時間與圖譜長度，完成後可直接在網頁上
+  預覽影片。重新整理網頁後會接續顯示進行中的渲染。
 - 只需上傳 replay。服務會用 checksum 透過 osu! API 找圖譜，從可設定的 mirror 下載（失敗會換下一個），
   渲染前再比對 replay 的 MD5。
 - 720p 或 1080p、60 FPS，H.264 影像搭配 AAC 音訊。
 - 每個任務可單獨調整畫面：跳過前奏、音量、背景暗度／模糊／視差、Bloom、遊戲區縮放、游標大小／軌跡／特效、
   Skin 或圖譜配色、HUD 元件與 hit object 細節。
-- 自訂皮膚：在網頁介面上傳 `.osk`（或直接放進 `data/skins`），每次渲染都能選擇。
+- 自訂皮膚：在「**Skin**」分頁上傳 `.osk`（或直接放進 `data/skins`），每次渲染都能選擇。
 - 自動偵測 GPU 編碼器，並實際編碼一個 frame 做自我測試；失敗時改用 x264。
 - SQLite 持久化 FIFO 佇列，一次只渲染一個任務，當機或重啟後可自動恢復。
 - 磁碟保護：剩餘空間不足時拒絕新任務；影片與 replay 24 小時後過期（`VIDEO_RETENTION_HOURS`），快取圖譜依最久未使用（LRU）清除。
-- 每個用戶端都有渲染歷史紀錄，可下載或刪除檔案。
+- 每個用戶端都有渲染歷史紀錄，可預覽、下載或刪除檔案。
 - 下載前先用本機 osu!stable `Songs` 資料夾裡的圖譜，未上架的圖譜也能渲染。
 - 精簡的 HTTP API，影片下載支援 Range，可選用 bearer token。
 - 內建診斷報告（`doctor.bat`、`npm run doctor` 或網頁介面），方便回報問題。
@@ -132,8 +137,9 @@ danser。適用 Windows 10 / 11 64 位元。
 
 ## 自訂皮膚
 
-在網頁介面打開 **自訂畫面設定 → 皮膚**，按 **上傳 .osk** 並選擇皮膚檔。皮膚會安裝到伺服器上並立即選用，之後的
-渲染也能從 **皮膚** 清單中選擇。勾選 **使用皮膚的游標** 會改用皮膚自己的游標，而不是 danser 的。上傳同名皮膚會
+打開「**Skin**」分頁，把 `.osk` 檔拖進去（或點擊選擇檔案）。皮膚會安裝到伺服器上，並用於下一次渲染；之後也會留在清單中。
+按「**用於下一次渲染**」可以選用已安裝的皮膚，「**渲染**」分頁「**快速設定**」裡的 **皮膚** 清單也一樣。在「**所有設定**」
+開啟 **使用皮膚的游標** 會改用皮膚自己的游標，而不是 danser 的。上傳同名皮膚會
 取代舊的。
 
 也可以手動加入皮膚：把皮膚資料夾（含有 `skin.ini` 的那一層）或 `.osk` 檔複製到皮膚資料夾，可攜版是
@@ -143,9 +149,9 @@ danser。適用 Windows 10 / 11 64 位元。
 
 ## 渲染歷史與保存期限
 
-**歷史紀錄** 卡片會列出你最近在這台伺服器上的渲染（最新的在前，最多 20 筆）：圖譜、玩家、mod、解析度、編碼器、
-渲染花了多久，以及檔案什麼時候會被刪除。完成的影片有 **下載** 按鈕。**刪除檔案** 會立刻刪除影片、replay 與日誌，
-紀錄本身會留在清單上並標示為已刪除。清單只會顯示從你自己的位址上傳的渲染（可攜版就是你這台電腦），渲染完成時會
+「**歷史紀錄**」分頁會列出你最近在這台伺服器上的渲染（最新的在前，最多 20 筆）：圖譜、玩家、mod、解析度、編碼器、
+渲染花了多久，以及檔案什麼時候會被刪除。完成的影片有「**預覽**」（直接在網頁上播放）與「**下載**」按鈕。**刪除檔案** 會立刻刪除影片、replay 與日誌，
+紀錄本身會留在清單上並標示為已刪除。清單只會顯示從你自己的位址上傳的渲染（可攜版就是你這台電腦），有渲染進行時會
 自動重新整理。
 
 完成、失敗與取消的渲染，其影片、replay 與日誌會保留 `VIDEO_RETENTION_HOURS` 小時（預設 24，可設 1 到 720），之後
@@ -218,8 +224,8 @@ npm run build
 請確認檔名真的是 `.env` 而不是 `.env.txt`：記事本存檔時有時會加上 `.txt`，而 osu-render 不會讀取 `.env.txt`（`start.bat`
 發現這種檔案時會警告）。在檔案總管選「**檢視 → 顯示 → 副檔名**」即可看到真正的檔名。
 
-之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷報告**」
-卡片也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
+之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷**」
+分頁也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
 不會重新測試，所以不會干擾渲染。網址錯誤時，服務會在啟動時顯示警告（並記錄 `report_webhook_invalid`），並在不回報的狀態下繼續執行；網址有效時會記錄 `report_webhook_enabled`。
 
 請不要把網址給別人：任何拿到網址的人都能在那個頻道發訊息。
@@ -230,8 +236,9 @@ npm run build
 
 - **Windows zip：** 雙擊 **`doctor.bat`**。它會印出摘要、儲存 `data\diagnostics\doctor-<timestamp>.json`，並在
   檔案總管開啟該資料夾。服務執行中或已停止時都可以執行。
-- **網頁介面：** 「**診斷報告**」卡片有「**下載報告**」（JSON 檔）、「**複製摘要**」（適合貼到聊天的短文字）與
+- **網頁介面：** 「**診斷**」分頁有「**下載報告**」（JSON 檔）、「**複製摘要**」（適合貼到聊天的短文字）與
   「**開啟 GitHub issue**」（在新分頁開啟預先填好的 issue 表單）。因為要測試每個編碼器，產生報告可能需要幾秒。
+  同一個分頁也會顯示渲染器狀態（編碼器、顯示環境、可用磁碟空間），產生報告後還會列出每個編碼器的自我測試結果。
 - **從原始碼執行：** `npm run doctor`（摘要）或 `npm run doctor -- --json`（印出 JSON）。兩者都會把檔案寫到
   `data/diagnostics/`。`GET /api/diagnostics` 也會回傳這份 JSON。
 
@@ -275,7 +282,7 @@ AMD），都不行就用 CPU。頁面右上角的標籤會顯示結果，也可�
 **區網裡的朋友可以用嗎？**
 可以。在 `.env` 設定 `HOST=0.0.0.0` 與一組夠長的隨機 `AUTH_TOKEN`，然後重新啟動。Windows 防火牆詢問時，允許
 Node.js 在**私人**網路通訊（或新增 TCP 3030 連接埠的輸入規則）。朋友開啟 `http://<你電腦的區網 IP>:3030/`，
-在「**服務 Token**」欄位輸入 token。渲染一次只跑一個，每個用戶端最多 3 個未完成的任務。沒有 HTTPS 的話不要
+展開「**快速設定**」底部的「**服務 Token**」輸入 token（伺服器要求 token 時會自動展開）。渲染一次只跑一個，每個用戶端最多 3 個未完成的任務。沒有 HTTPS 的話不要
 直接開放到網際網路，見[安全性說明](#安全性說明)。
 
 ## 從原始碼安裝
@@ -446,7 +453,7 @@ journalctl --user -u osu-render.service -f
 印出 `No beatmap specified, closing...` 後結束。
 
 不屬於機密的可調參數放在 [`config/defaults.json`](config/defaults.json)：各平台的編碼器自動順序、自我測試的尺寸與
-逾時、診斷報告大小、issue 連結，回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`），以及更新檢查（`update`：開關、GitHub repo、檢查間隔、下載大小上限與允許的下載主機）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
+逾時、診斷報告大小、issue 連結，回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`），以及更新檢查（`update`：開關、GitHub repo、檢查間隔、下載大小上限與允許的下載主機），以及影片預覽簽章連結的有效時間（`preview.ttlSeconds`，預設 3600 秒）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
 忽略。範例：
 
 ```json
@@ -475,10 +482,10 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | 方法與路徑 | 說明 |
 | --- | --- |
 | `POST /api/renders` | multipart 上傳：`replay`（`.osr`，最大 5 MiB）與選用的 `options`（JSON 字串）。回傳 `{ "id", "status" }`。 |
-| `GET /api/renders/:id` | 任務狀態、進度、佇列位置、圖譜、輸出格式與錯誤。 |
-| `GET /api/renders/:id/video` | 完成的 MP4，支援 HTTP `Range`。 |
+| `GET /api/renders/:id` | 任務狀態、進度、佇列位置、圖譜（`id`、`beatmapsetId`、`checksum`、`title`、`artist`、`version`）、輸出格式、`startedAt`、`renderMs` 與錯誤。渲染中另有 `speed`（數字，例如 `1.42`）與 `eta`（danser 印出的文字）；完成後有 `previewUrl`（簽章過的影片連結，見下一列）。 |
+| `GET /api/renders/:id/video` | 完成的 MP4，檔名為 `Artist - Title [Version].mp4`，支援 HTTP `Range`。也接受簽章過的 `previewUrl`（`?exp=<unix 秒數>&sig=<hex>`）取代 Bearer header，讓 `<video>` 元素可以播放。簽章連結在 `preview.ttlSeconds`（預設 1 小時）後失效，服務重新啟動後也會失效（金鑰每次啟動隨機產生）；無效或過期的連結回傳 `UNAUTHORIZED`（403）。 |
 | `DELETE /api/renders/:id` | 取消任務。 |
-| `GET /api/renders?limit=N` | 你最近的渲染（只限同一個用戶端位址，預設 20、最多 100）：`{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error" }] }`。 |
+| `GET /api/renders?limit=N` | 你最近的渲染（只限同一個用戶端位址，預設 20、最多 100）：`{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`。 |
 | `DELETE /api/renders/:id/files` | 立刻刪除你自己已結束渲染的影片、replay 與日誌，歷史紀錄會保留。還在執行時回傳錯誤 `RENDER_ACTIVE`（409）。已刪除的影片回傳 `RENDER_EXPIRED`（410）。 |
 | `GET /api/skins` | 已安裝的皮膚：`{ "skins": [{ "name" }] }`，內建的 `default` 排第一。 |
 | `POST /api/skins` | multipart 上傳：`skin`（`.osk` 檔）。安裝後回傳 `{ "name" }`，或錯誤 `SKIN_INVALID`（422）／`SKIN_TOO_LARGE`（413）。 |
@@ -502,7 +509,10 @@ curl -o my-play.mp4 http://127.0.0.1:3030/api/renders/<id>/video
 
 - 服務預設只監聽 `127.0.0.1`，只有你自己的電腦連得到。
 - **對外開放前請先設定 `AUTH_TOKEN`**（`HOST=0.0.0.0`、port forwarding 或反向代理）。token 保護 `/api/*`；網頁上
-  有欄位可以輸入。token 要經過不信任的網路時，請用 HTTPS（反向代理）。
+  有欄位可以輸入。token 要經過不信任的網路時，請用 HTTPS（反向代理）。短時效、簽章過的 `previewUrl` 影片連結是
+  唯一不需要 token 就能存取的 `/api` 路徑。
+- 網頁帶有嚴格的 Content-Security-Policy：腳本、樣式與請求都只限同源，不允許行內腳本或樣式，也不能被嵌入其他網頁
+  （`frame-ancestors 'none'`）。
 - 瀏覽器無法傳入任意的 danser 或 FFmpeg 參數或檔案路徑。渲染選項會經過白名單檢查，轉換成固定的 danser 參數與設定修改。
 - 下載的 `.osz` 會以防禦性方式解壓縮：限制項目數與總大小，不允許絕對路徑、`..`、符號連結或其他特殊檔案、Windows
   保留名稱（`CON`、`NUL`、`COM1`…）或只差大小寫的重複名稱，而且 `.osu` 檔必須符合 replay 的圖譜 MD5。

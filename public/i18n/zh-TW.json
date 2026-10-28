@@ -1,21 +1,31 @@
 {
   "app": {
-    "title": "osu! Render",
-    "eyebrow": "danser-go render service",
-    "heading": "把 replay 變成影片",
-    "subtitle": "上傳 .osr，系統會自動找圖、排隊並輸出 MP4。"
+    "title": "osu! Render"
+  },
+  "nav": {
+    "skip": "跳到主要內容",
+    "label": "分頁",
+    "render": "渲染",
+    "history": "歷史紀錄",
+    "skins": "Skin",
+    "diagnostics": "診斷"
   },
   "header": {
     "language": "語言"
   },
+  "common": {
+    "close": "關閉"
+  },
   "renderer": {
     "label": "渲染器狀態：",
-    "chip": "{kind} · {encoder}",
+    "chip": "{encoder} · {kind}",
     "none": "沒有可用的影片編碼器",
     "kind": {
       "hardware": "GPU",
       "software": "CPU"
-    }
+    },
+    "readyHardware": "硬體編碼器就緒",
+    "readySoftware": "找不到 GPU 編碼器，渲染會比較慢"
   },
   "encoder": {
     "nvenc": "NVIDIA NVENC",
@@ -31,21 +41,90 @@
     "encoder_unavailable": "設定的編碼器無法使用",
     "storage_low": "磁碟空間不足"
   },
+  "update": {
+    "available": "{version} 版已推出",
+    "apply": "立即更新",
+    "notes": "更新內容",
+    "gitHint": "從原始碼安裝的請執行 git pull、npm ci 和 npm run build，然後重新啟動 osu-render。",
+    "confirm": "要下載 osu-render {version} 並重新啟動嗎？設定和檔案都會保留，頁面會自動重新整理。",
+    "downloading": "正在下載並檢查更新，可能需要幾分鐘…",
+    "restarting": "正在安裝更新並重新啟動，頁面會自動重新整理。",
+    "done": "已更新到 osu-render {version}。",
+    "notInstalled": "更新沒有安裝成功，目前仍是 {version}。詳細資訊在 data\\update\\apply-update.log。",
+    "timeout": "osu-render 沒有重新啟動。請查看 osu-render 視窗，然後重新整理這個頁面。",
+    "current": "目前是 {current}"
+  },
   "upload": {
-    "title": "上傳 replay",
-    "hint": "目前一次處理一個 render",
-    "token": "服務 Token",
-    "tokenPlaceholder": "未啟用驗證可留空",
-    "drop": "拖入 .osr replay",
-    "browse": "或點擊選擇檔案",
-    "limits": "上限 5 MiB · 僅支援 osu!standard"
+    "drop": "把 replay 拖到這裡，或點擊選擇檔案",
+    "limits": "一個 .osr 檔案 · 上限 5 MiB · 僅支援 osu!standard",
+    "token": "服務 Token（只有伺服器設了密碼才需要）",
+    "tokenLabel": "服務 Token"
+  },
+  "quick": {
+    "title": "快速設定",
+    "more": "所有設定",
+    "skipIntro": "跳過前奏",
+    "on": "開啟",
+    "off": "關閉",
+    "moreHint": "還有 {n} 項：音訊、游標、HUD、物件…"
+  },
+  "presets": {
+    "label": "預設組合",
+    "save": "+ 儲存目前設定",
+    "delete": "刪除預設「{name}」",
+    "reset": "還原預設值",
+    "namePrompt": "為這組設定命名：",
+    "saved": "已儲存預設「{name}」。",
+    "applied": "已載入預設「{name}」。",
+    "deleted": "已刪除預設「{name}」。",
+    "resetDone": "設定已還原為預設值。",
+    "confirmDelete": "要刪除預設「{name}」嗎？",
+    "storageFailed": "這個瀏覽器封鎖了本機儲存，無法儲存預設組合。"
   },
   "job": {
+    "steps": {
+      "uploaded": "已上傳",
+      "resolving": "找到圖譜",
+      "downloading": "圖譜已下載",
+      "queued": "排隊中",
+      "rendering": "渲染中",
+      "completed": "完成"
+    },
     "progress": "渲染進度",
     "download": "下載 MP4",
+    "retry": "再試一次",
     "cancel": "取消任務",
-    "uploadFailed": "上傳失敗。",
-    "mapResolving": "尋找圖譜中"
+    "another": "再渲染一個",
+    "untitled": "你的 replay",
+    "by": "玩家 {player}",
+    "speed": "速度",
+    "cancelled": "這次渲染已取消。",
+    "uploadFailed": "上傳失敗，請檢查網路連線後再試。",
+    "ring": {
+      "uploaded": "上傳中",
+      "resolving": "尋找圖譜中",
+      "downloading": "下載圖譜中",
+      "queued": "排隊中 · 第 {position} 位",
+      "rendering": "渲染中",
+      "finalizing": "影片收尾中",
+      "completed": "完成",
+      "failed": "失敗",
+      "cancelled": "已取消"
+    },
+    "stages": "階段",
+    "left": "剩餘",
+    "length": "長度",
+    "mappedBy": "作圖者 {creator}",
+    "doneIn": "{duration} 完成",
+    "activeTitle": "準備渲染中",
+    "renderingTitle": "渲染中",
+    "activeLede": "你可以關閉這個分頁，任務會在伺服器上繼續進行。",
+    "doneTitle": "影片完成了",
+    "doneLede": "檔案會保留 {hours} 小時。",
+    "expiredLede": "這支影片的檔案已被刪除。",
+    "failedTitle": "渲染失敗",
+    "cancelledTitle": "渲染已取消",
+    "failedLede": "沒有產生影片。可以再試一次，或換一個 replay。"
   },
   "status": {
     "uploaded": "已上傳",
@@ -86,17 +165,17 @@
     "UPDATE_FAILED": "無法下載或驗證更新，沒有任何檔案被變更。請稍後再試。"
   },
   "settings": {
-    "title": "自訂畫面設定",
-    "hint": "每個任務獨立套用，不會修改伺服器基礎設定",
-    "badge": "可選 · {n} 項",
+    "title": "所有設定",
+    "hint": "只套用到這次渲染，不會修改伺服器的基礎設定。",
+    "search": "篩選設定",
+    "searchPlaceholder": "搜尋設定…",
+    "noMatch": "沒有符合「{query}」的設定。",
     "footer": "FPS、影片編碼器與 motion blur 由伺服器固定，避免設定造成渲染失敗。",
     "output": {
-      "legend": "輸出影片",
       "resolution": "解析度"
     },
     "playback": {
       "legend": "播放與音量",
-      "skipIntro": "自動跳過前奏",
       "masterVolume": "總音量",
       "musicVolume": "音樂音量",
       "sampleVolume": "打擊音量"
@@ -124,15 +203,9 @@
       "beatmapColors": "使用圖譜顏色"
     },
     "skin": {
-      "legend": "皮膚",
       "select": "皮膚",
       "default": "預設（danser）",
-      "cursor": "使用皮膚的游標",
-      "upload": "上傳 .osk",
-      "uploading": "正在上傳並安裝皮膚…",
-      "installed": "已安裝「{name}」並選用。",
-      "failed": "皮膚上傳失敗，請檢查網路連線後再試一次。",
-      "hint": "上傳的皮膚會保存在這台伺服器上，之後每次渲染都能選用。"
+      "cursor": "使用皮膚的游標"
     },
     "hud": {
       "legend": "HUD 顯示",
@@ -157,11 +230,38 @@
       "ticks": "Slider Tick"
     }
   },
+  "history": {
+    "title": "歷史紀錄",
+    "hint": "你最近的 20 次渲染。檔案過一段時間後會自動刪除。",
+    "refresh": "重新整理",
+    "empty": "還沒有渲染紀錄。到「渲染」頁拖入一個 replay 吧。",
+    "emptyAction": "渲染 replay",
+    "failed": "無法載入歷史紀錄。",
+    "unknownMap": "未知圖譜",
+    "renderTime": "渲染 {duration}",
+    "deleted": "檔案已刪除",
+    "expires": "檔案保留到 {time}",
+    "preview": "預覽",
+    "download": "下載",
+    "deleteFiles": "刪除檔案",
+    "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。",
+    "done": "完成"
+  },
+  "skins": {
+    "title": "Skin",
+    "hint": "已安裝在這台伺服器上。把 .osk 拖到這個頁面任何地方即可新增。",
+    "drop": "或直接拖放",
+    "uploading": "正在上傳並安裝皮膚…",
+    "installed": "已安裝「{name}」，下一次渲染會使用它。",
+    "failed": "皮膚上傳失敗，請檢查網路連線後再試一次。",
+    "use": "用於下一次渲染",
+    "inUse": "下一次渲染會使用",
+    "selected": "下一次渲染會使用「{name}」。",
+    "upload": "上傳 .osk"
+  },
   "diagnostics": {
-    "title": "診斷報告",
-    "hint": "協助排查 GPU 與渲染器問題",
-    "includes": "內容包含作業系統、GPU 型號與驅動版本、編碼器自我測試、danser 與 ffmpeg 資訊，以及最近的渲染結果與日誌；家目錄路徑會被遮蔽。",
-    "excludes": "不包含 token、密鑰、IP 位址或玩家名稱。",
+    "title": "診斷",
+    "hint": "哪裡怪怪的？報告能幫開發者看到你的電腦做了什麼。",
     "privacy": "不會自動上傳任何資料，是否分享由你決定。",
     "autoSend": "此伺服器會在每次渲染結束後，自動把遮蔽過個人資訊的報告傳送給開發者。",
     "download": "下載報告",
@@ -175,36 +275,40 @@
     "copyManual": "瀏覽器封鎖了剪貼簿，請手動選取下方文字並複製。",
     "opened": "已在新分頁開啟 GitHub issue。",
     "openAgain": "報告已就緒，請再按一次「開啟 GitHub issue」。",
-    "needsToken": "此伺服器需要 service token，請在 01 填入後再試。",
+    "needsToken": "此伺服器需要 service token，請在「渲染」分頁的快速設定填入後再試。",
     "failed": "無法取得診斷報告，請再試一次。",
     "noIssueLink": "報告中沒有有效的 GitHub issue 連結。",
     "sending": "正在把報告傳送給開發者…",
-    "sent": "已把報告傳送給開發者，感謝！"
+    "sent": "已把報告傳送給開發者，感謝！",
+    "report": "報告包含哪些內容",
+    "renderer": {
+      "title": "渲染器",
+      "status": "狀態",
+      "ok": "就緒",
+      "degraded": "降級運作",
+      "encoder": "影片編碼器",
+      "display": "顯示環境",
+      "available": "可用",
+      "unavailable": "不可用",
+      "platform": "平台",
+      "queue": "排隊中的渲染",
+      "disk": "可用磁碟空間",
+      "reason": "問題",
+      "probes": "編碼器自我測試",
+      "probesHint": "下載或複製報告時會執行自我測試。",
+      "probeOk": "正常",
+      "probeFailed": "失敗"
+    },
+    "list": {
+      "system": "作業系統、CPU、GPU 與驅動程式版本",
+      "encoders": "編碼器自我測試結果、danser 與 FFmpeg 資訊",
+      "renders": "最近的渲染結果、錯誤與日誌（已移除家目錄路徑）"
+    },
+    "neverLabel": "絕不包含：",
+    "never": "token、密鑰、IP 位址或玩家名稱。"
   },
-  "update": {
-    "available": "osu-render {version} 已推出（目前版本 {current}）。",
-    "apply": "立即更新",
-    "notes": "更新內容",
-    "gitHint": "從原始碼安裝的請執行 git pull、npm ci 和 npm run build，然後重新啟動 osu-render。",
-    "confirm": "要下載 osu-render {version} 並重新啟動嗎？設定和檔案都會保留，頁面會自動重新整理。",
-    "downloading": "正在下載並檢查更新，可能需要幾分鐘…",
-    "restarting": "正在安裝更新並重新啟動，頁面會自動重新整理。",
-    "done": "已更新到 osu-render {version}。",
-    "notInstalled": "更新沒有安裝成功，目前仍是 {version}。詳細資訊在 data\\update\\apply-update.log。",
-    "timeout": "osu-render 沒有重新啟動。請查看 osu-render 視窗，然後重新整理這個頁面。"
-  },
-  "history": {
-    "title": "歷史紀錄",
-    "hint": "你最近在這台伺服器上的渲染。影片過一段時間後會自動刪除。",
-    "refresh": "重新整理",
-    "empty": "還沒有渲染紀錄。上傳一個 replay 開始吧。",
-    "failed": "無法載入歷史紀錄。",
-    "unknownMap": "未知圖譜",
-    "took": "渲染耗時 {duration}",
-    "deleted": "檔案已刪除",
-    "expires": "檔案保留到 {time}",
-    "download": "下載",
-    "deleteFiles": "刪除檔案",
-    "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。"
+  "render": {
+    "title": "把 replay 變成影片",
+    "lede": "拖入 .osr 檔案，我們會找到圖譜、渲染並交給你一支 MP4。"
   }
 }

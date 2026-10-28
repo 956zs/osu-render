@@ -142,3 +142,25 @@ test('send to developer surfaces REPORT_SEND_FAILED without internals', async ()
     assert.deepEqual(response.json(), { error: { code: 'REPORT_SEND_FAILED', message: 'The report could not be sent to the developer.' } });
   }, false, reporter);
 });
+
+test('page assets come from an allowlist with a strict content security policy', async () => {
+  await withServer(async (app) => {
+    for (const [url, type] of [['/', /^text\/html/], ['/app.css', /^text\/css/], ['/app.js', /^text\/javascript/]] as const) {
+      const response = await app.inject({ method: 'GET', url });
+      assert.equal(response.statusCode, 200, url);
+      assert.match(String(response.headers['content-type']), type, url);
+      assert.equal(response.headers['cache-control'], 'no-cache', url);
+      assert.equal(response.headers['x-content-type-options'], 'nosniff', url);
+      const csp = String(response.headers['content-security-policy']);
+      for (const directive of ["default-src 'self'", "script-src 'self'", "style-src 'self'", "frame-ancestors 'none'", "connect-src 'self'"]) {
+        assert.ok(csp.includes(directive), `${url}: ${directive}`);
+      }
+      assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
+    }
+    for (const url of ['/app.ts', '/index.html', '/../package.json', '/%2E%2E/package.json', '/public/app.js', '/i18n/app.js']) {
+      const response = await app.inject({ method: 'GET', url });
+      assert.equal(response.statusCode, 404, url);
+      assert.ok(!response.body.includes('"version"'), url);
+    }
+  });
+});

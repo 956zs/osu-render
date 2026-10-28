@@ -195,7 +195,7 @@ jobs:
           Set-Location -LiteralPath $root
           Get-ChildItem -Force | Format-Table Mode, Length, Name
           foreach ($required in 'start.bat', 'doctor.bat', 'set-webhook.bat', 'THIRD_PARTY_NOTICES.txt', '.env.example', 'LICENSE', 'README.md',
-              'runtime/node.exe', 'runtime/LICENSE', 'dist/src/main.js', 'dist/src/doctor.js', 'public/index.html', 'config/defaults.json',
+              'runtime/node.exe', 'runtime/LICENSE', 'dist/src/main.js', 'dist/src/doctor.js', 'public/index.html', 'public/app.js', 'public/app.css', 'config/defaults.json',
               'scripts/windows/setup.ps1', 'scripts/windows/open-browser.ps1', 'scripts/windows/apply-update.ps1', 'VERSION.json',
               'danser/danser-cli.exe', 'danser/ffmpeg/ffmpeg.exe',
               'node_modules/better-sqlite3/build/Release/better_sqlite3.node') {

@@ -47,13 +47,27 @@ test('danser uses the configured settings name', () => {
 
 test('progress parser only counts danser render progress lines', () => {
   const values: number[] = [];
-  const parse = createProgressParser((value) => values.push(value));
+  const parse = createProgressParser((value) => { values.push(value); });
   parse('Progress: 40%\n');
   parse('Progress: 41%, Speed: 1.20x, ETA: 1m');
   assert.deepEqual(values, []);
   parse('\rProgress: 42%,  Speed: 1.30x, ETA: 50s\r\nnoise Progress: 150%, Speed: 9x\n');
   parse('');
   assert.deepEqual(values, [41, 42, 100]);
+});
+
+test('progress parser captures render speed and ETA', () => {
+  const seen: Array<[number, { speed: number | null; eta: string | null }]> = [];
+  const parse = createProgressParser((value, detail) => { seen.push([value, detail]); });
+  parse('Progress: 12%\nProgress: 13%, Speed: 1.23x, ETA: 0:41\n');
+  parse('Progress: 14%, Speed: 0.98x\nProgress: 15%, Speed: 2x, ETA: 1m5s  \r');
+  parse('Progress: 16%, Speed: x, ETA: \n');
+  assert.deepEqual(seen, [
+    [13, { speed: 1.23, eta: '0:41' }],
+    [14, { speed: 0.98, eta: null }],
+    [15, { speed: 2, eta: '1m5s' }],
+    [16, { speed: null, eta: null }],
+  ]);
 });
 
 test('output tail keeps the newest bytes and drops a cut first line', () => {

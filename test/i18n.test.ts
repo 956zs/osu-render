@@ -49,10 +49,8 @@ function decodeEntities(text: string): string {
 }
 
 async function pageParts(): Promise<{ markup: string; script: string }> {
-  const html = await readFile('public/index.html', 'utf8');
-  const scriptStart = html.indexOf('<script type="module">');
-  assert.ok(scriptStart > 0, 'index.html must contain the module script');
-  return { markup: html.slice(0, scriptStart), script: html.slice(scriptStart) };
+  const [markup, script] = await Promise.all([readFile('public/index.html', 'utf8'), readFile('public/app.js', 'utf8')]);
+  return { markup, script };
 }
 
 // Collects every start tag that carries a data-i18n* attribute. Elements with data-i18n must hold
@@ -146,13 +144,13 @@ test('script references only existing keys and every key is used', async () => {
   const english = await loadLocale('en');
   const { markup, script } = await pageParts();
   const staticKeys = [
-    ...[...script.matchAll(/\b(?:t|showDiagnostics)\('([a-z][\w.]*)'/g)].map((match) => match[1]),
+    ...[...script.matchAll(/\b(?:t|showDiagnostics|showPreset)\('([a-z][\w.]*)'/g)].map((match) => match[1]),
     ...[...script.matchAll(/\bkey: '([a-z][\w.]*)'/g)].map((match) => match[1]),
   ];
   assert.ok(staticKeys.length > 10);
   assert.deepEqual(staticKeys.filter((key) => !english.has(key)), []);
   const dynamicPrefixes = [...script.matchAll(/\bt\(`([a-z][\w.]*)\.\$\{/g)].map((match) => `${match[1]}.`);
-  assert.deepEqual([...new Set(dynamicPrefixes)].sort(), ['encoder.', 'errors.', 'reason.', 'renderer.kind.', 'status.']);
+  assert.deepEqual([...new Set(dynamicPrefixes)].sort(), ['encoder.', 'errors.', 'job.ring.', 'job.steps.', 'reason.', 'renderer.kind.', 'status.']);
   const markupKeys = [...markup.matchAll(/\sdata-i18n(?:-[a-z-]+)?="([a-z][\w.]*)"/g)].map((match) => match[1]);
   const used = new Set([...staticKeys, ...markupKeys]);
   const unused = [...english.keys()].filter((key) => !used.has(key) && !dynamicPrefixes.some((prefix) => key.startsWith(prefix)));
@@ -161,9 +159,10 @@ test('script references only existing keys and every key is used', async () => {
 
 test('language switcher lists exactly the shipped locales with autonyms', async () => {
   const { markup } = await pageParts();
-  const select = /<select id="language"[^>]*>([\s\S]*?)<\/select>/.exec(markup);
-  assert.ok(select, 'language select is missing');
-  const options = [...select[1].matchAll(/<option value="([^"]+)"[^>]*>([^<]+)<\/option>/g)];
-  assert.deepEqual(options.map((option) => option[1]).sort(), await localeNames());
-  assert.deepEqual(Object.fromEntries(options.map((option) => [option[1], option[2]])), { en: 'English', 'zh-TW': '繁體中文', es: 'Español' });
+  const group = /<div class="lang" id="language"[^>]*>([\s\S]*?)<\/div>/.exec(markup);
+  assert.ok(group, 'language switch is missing');
+  const buttons = [...group[1].matchAll(/<button type="button" data-lang="([^"]+)" lang="([^"]+)" aria-label="([^"]+)" aria-pressed="(?:true|false)">[^<]+<\/button>/g)];
+  assert.deepEqual(buttons.map((button) => button[1]).sort(), await localeNames());
+  for (const button of buttons) assert.equal(button[1], button[2]);
+  assert.deepEqual(Object.fromEntries(buttons.map((button) => [button[1], button[3]])), { en: 'English', 'zh-TW': '繁體中文', es: 'Español' });
 });

@@ -37,6 +37,7 @@ export interface AppConfig {
   };
   history: { defaultLimit: number; maxLimit: number };
   localSongs: { autoDetect: boolean; maxFiles: number; progressEvery: number };
+  preview: { ttlSeconds: number };
   i18n: { languages: readonly string[]; fallback: string };
 }
 
@@ -54,7 +55,7 @@ export function loadAppConfig(defaultsFile = DEFAULTS_FILE, localFile = LOCAL_CO
 }
 
 export function validateAppConfig(value: unknown): AppConfig {
-  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'i18n']);
+  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'preview', 'i18n']);
   const encoders = object(root.encoders, 'encoders', ['autoOrder', 'selfTest']);
   const autoOrder = object(encoders.autoOrder, 'encoders.autoOrder');
   if (!('default' in autoOrder)) throw configError('encoders.autoOrder.default', 'is required');
@@ -70,6 +71,7 @@ export function validateAppConfig(value: unknown): AppConfig {
     'downloadTimeoutMs', 'maxDownloadBytes', 'maxExtractedBytes', 'maxEntries', 'downloadHosts']);
   const history = object(root.history, 'history', ['defaultLimit', 'maxLimit']);
   const localSongs = object(root.localSongs, 'localSongs', ['autoDetect', 'maxFiles', 'progressEvery']);
+  const preview = object(root.preview, 'preview', ['ttlSeconds']);
   const i18n = object(root.i18n, 'i18n', ['languages', 'fallback']);
   const languages = stringArray(i18n.languages, 'i18n.languages', /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
   const fallback = string(i18n.fallback, 'i18n.fallback');
@@ -132,6 +134,7 @@ export function validateAppConfig(value: unknown): AppConfig {
       maxFiles: integer(localSongs.maxFiles, 'localSongs.maxFiles', 1),
       progressEvery: integer(localSongs.progressEvery, 'localSongs.progressEvery', 1),
     },
+    preview: { ttlSeconds: integer(preview.ttlSeconds, 'preview.ttlSeconds', 60) },
     i18n: { languages, fallback },
   };
 }

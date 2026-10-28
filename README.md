@@ -8,8 +8,8 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 (NVIDIA NVENC, AMD AMF or Intel Quick Sync) when it can and falls back to the CPU (x264) when it cannot.
 
 <p>
-  <img src="docs/screenshot-en.png" alt="osu-render web UI on desktop: replay upload, custom render settings and the diagnostics card" width="600">
-  <img src="docs/screenshot-mobile-es.png" alt="osu-render web UI on a phone, in Spanish" width="190">
+  <img src="docs/screenshot-en.png" alt="osu-render web UI on desktop: the Render tab with the hit-circle drop zone, presets and quick settings, and the side rail" width="600">
+  <img src="docs/screenshot-mobile-es.png" alt="osu-render Render tab on a phone, in Spanish, with the update notice and the floating tab bar" width="190">
 </p>
 
 > **Windows and NVIDIA/AMD support is new and needs testers.** If you have one of those setups, the
@@ -42,18 +42,25 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 
 ## Features
 
-- Drag-and-drop web UI in English, 繁體中文 and Español (desktop and mobile layouts).
+- Drag-and-drop web UI in English, 繁體中文 and Español with **Render**, **History**, **Skins** and **Diagnostics**
+  tabs in a dark theme built from osu! shapes: a hit-circle drop zone and an approach-ring progress meter (on
+  phones the tabs become a floating bottom bar).
+- Quick settings next to the drop zone, every other option in a searchable **All settings** panel, named
+  presets saved in your browser and **Reset to defaults**.
+- Step-by-step job view (uploaded → finding beatmap → downloading → queued → rendering → done) with an approach-ring percentage,
+  render speed, time left and map length, and an inline video preview when it finishes. A render in progress is picked up again
+  after a page reload.
 - Upload only the replay. The beatmap is found by its checksum through the osu! API, downloaded from
   configurable mirrors (with fallback) and checked against the replay's MD5 before rendering.
 - 720p or 1080p at 60 FPS, H.264 video with AAC audio.
 - Per-render visual options: skip intro, volumes, background dim/blur/parallax, bloom, playfield scale,
   cursor size/trail/effects, skin or beatmap colours, HUD elements and hit object details.
-- Custom skins: upload an `.osk` in the web UI (or drop it into `data/skins`) and pick it per render.
+- Custom skins: upload an `.osk` on the **Skins** tab (or drop it into `data/skins`) and pick it per render.
 - GPU encoder auto-detection with a real one-frame self-test, x264 fallback.
 - Persistent FIFO queue (SQLite), one render at a time, recovery after a crash or restart.
 - Disk guard: renders are refused when free space is low; old videos and replays expire after 24 hours
   (`VIDEO_RETENTION_HOURS`) and cached beatmaps are evicted least-recently-used first.
-- Render history per client, with download and delete buttons.
+- Render history per client, with preview, download and delete buttons.
 - Uses maps from a local osu!stable `Songs` folder before downloading, so unsubmitted maps work too.
 - Small HTTP API with Range downloads and an optional bearer token.
 - Built-in diagnostics report (`doctor.bat`, `npm run doctor` or the web UI) for bug reports.
@@ -140,9 +147,10 @@ lists them.
 
 ## Custom skins
 
-Open **Custom render settings → Skin** in the web UI, click **Upload .osk** and pick a skin file. The skin is
-installed on the server and selected right away; it stays in the **Skin** list for later renders. Tick
-**Use the skin's cursor** to draw the skin's cursor instead of danser's. Uploading a skin with the same name
+Open the **Skins** tab and drop an `.osk` file on it (or click to choose one). The skin is installed on the
+server and selected for your next render; it stays in the list for later renders. **Use for next render** picks
+an installed skin, and the **Skin** list in **Quick settings** on the **Render** tab does the same. Turn on
+**Use the skin's cursor** (under **All settings**) to draw the skin's cursor instead of danser's. Uploading a skin with the same name
 replaces the old one.
 
 You can also add skins by hand: copy a skin folder (the one that contains `skin.ini`) or an `.osk` file into
@@ -152,11 +160,11 @@ skin. Limits (200 MiB per `.osk`, size once unpacked, file count) are in `config
 
 ## Render history and retention
 
-The **History** card lists your recent renders on this server (newest first, up to 20): beatmap, player, mods,
-resolution, encoder, how long the render took and when its files will be deleted. Finished videos have a
-**Download** button. **Delete files** removes the video, replay and log right away; the entry stays in the list
+The **History** tab lists your recent renders on this server (newest first, up to 20): beatmap, player, mods,
+resolution, encoder, how long the render took and when its files will be deleted. Finished videos have
+**Preview** (plays the video on the page) and **Download** buttons. **Delete files** removes the video, replay and log right away; the entry stays in the list
 marked as deleted. The list only shows renders uploaded from your own address (on the portable zip that is just
-your PC) and refreshes when a render finishes.
+your PC) and refreshes while a render is running.
 
 Videos, replays and logs of finished, failed and cancelled renders are kept for `VIDEO_RETENTION_HOURS` hours
 (default 24, from 1 to 720) and then deleted automatically. Set it in `.env` and restart.
@@ -242,7 +250,7 @@ really named `.env` and not `.env.txt`: Notepad sometimes adds `.txt` when savin
 shows the real name.
 
 From then on, every finished render (successful, failed or timed out; not cancelled) sends a redacted report
-to the maintainer's Discord channel, and the **Diagnostics** card gets a **Send to developer** button for
+to the maintainer's Discord channel, and the **Diagnostics** tab gets a **Send to developer** button for
 sending one by hand (for example after a startup problem). Automatic reports reuse the startup encoder
 self-test instead of running a new one, so they never interrupt rendering. If the URL is wrong, the service
 prints a warning at startup (and logs `report_webhook_invalid`) and keeps running without reporting; with a valid
@@ -257,9 +265,10 @@ Any of these produces the same report:
 - **Windows zip:** double-click **`doctor.bat`**. It prints a summary, saves
   `data\diagnostics\doctor-<timestamp>.json` and opens that folder in Explorer. You can run it while the
   service is running or stopped.
-- **Web UI:** the **Diagnostics** card has **Download report** (the JSON file), **Copy summary** (short text for
+- **Web UI:** the **Diagnostics** tab has **Download report** (the JSON file), **Copy summary** (short text for
   chat) and **Open GitHub issue** (opens a pre-filled issue form in a new tab). Collecting the report can take
-  a few seconds because it self-tests every encoder.
+  a few seconds because it self-tests every encoder. The same tab shows the renderer status (encoder, display,
+  free disk space) and, once a report has been collected, the result of each encoder self-test.
 - **From source:** `npm run doctor` (summary) or `npm run doctor -- --json` (prints the JSON). Both also write
   the file to `data/diagnostics/`. `GET /api/diagnostics` returns the JSON too.
 
@@ -311,7 +320,7 @@ danser's OpenGL drawing is chosen by Windows/the driver and can be a different G
 **Can friends on my LAN use it?**
 Yes. In `.env` set `HOST=0.0.0.0` and a long random `AUTH_TOKEN`, then restart. Allow Node.js through the
 Windows Firewall on **private** networks when Windows asks (or add an inbound rule for TCP port 3030). Friends
-open `http://<your-PC's-LAN-IP>:3030/` and enter the token in the **Service token** field. Renders run one at a
+open `http://<your-PC's-LAN-IP>:3030/` and enter the token under **Service token** at the bottom of **Quick settings** (it opens by itself when the server asks for a token). Renders run one at a
 time and each client can have at most 3 unfinished jobs. Do not expose it to the internet without HTTPS, see
 [Security notes](#security-notes).
 
@@ -494,7 +503,8 @@ run `danser-cli -noupdatecheck` once from the danser folder: it creates `setting
 Tunables that are not secrets live in [`config/defaults.json`](config/defaults.json): the encoder auto order
 per platform, self-test size and timeout, diagnostics sizes, the issue link, and the report webhook's
 timeout, 429 retry cap, spacing between messages and log tail sizes (`reportWebhook`), and the update checks
-(`update`: on/off, GitHub repository, check interval, download size limits and allowed download hosts). To change them, create
+(`update`: on/off, GitHub repository, check interval, download size limits and allowed download hosts), and how
+long signed video preview links stay valid (`preview.ttlSeconds`, default 3600). To change them, create
 `config/local.json` with only the keys you want to override; it is merged over the defaults and ignored by
 git. Example:
 
@@ -526,10 +536,10 @@ If `AUTH_TOKEN` is set, add `-H "Authorization: Bearer $AUTH_TOKEN"` to every `/
 | Method & path | Description |
 | --- | --- |
 | `POST /api/renders` | Multipart upload: `replay` (the `.osr`, max 5 MiB) and optional `options` (JSON string). Returns `{ "id", "status" }`. |
-| `GET /api/renders/:id` | Job status, progress, queue position, beatmap, output format and error. |
-| `GET /api/renders/:id/video` | The finished MP4. Supports HTTP `Range`. |
+| `GET /api/renders/:id` | Job status, progress, queue position, beatmap (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), output format, `startedAt`, `renderMs` and error. While rendering, `speed` (a number such as `1.42`) and `eta` (text as printed by danser); once completed, `previewUrl` (a signed video link, see below). |
+| `GET /api/renders/:id/video` | The finished MP4, named `Artist - Title [Version].mp4`. Supports HTTP `Range`. Also accepts the signed `previewUrl` (`?exp=<unix seconds>&sig=<hex>`) instead of the Bearer header, so a `<video>` element can play it. Signed links expire after `preview.ttlSeconds` (default 1 hour) and stop working when the service restarts (the key is random per process); an invalid or expired link returns `UNAUTHORIZED` (403). |
 | `DELETE /api/renders/:id` | Cancel a job. |
-| `GET /api/renders?limit=N` | Your recent renders (same client address only, default 20, max 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error" }] }`. |
+| `GET /api/renders?limit=N` | Your recent renders (same client address only, default 20, max 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
 | `DELETE /api/renders/:id/files` | Deletes the video, replay and log of your own finished render now; the history entry stays. Error `RENDER_ACTIVE` (409) while it is still running. A deleted video returns `RENDER_EXPIRED` (410). |
 | `GET /api/skins` | Installed skins: `{ "skins": [{ "name" }] }`, built-in `default` first. |
 | `POST /api/skins` | Multipart upload: `skin` (an `.osk`). Installs it and returns `{ "name" }`, or error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
@@ -554,7 +564,10 @@ per render, 5 uploads per minute and 3 unfinished jobs per client.
 - The service listens on `127.0.0.1` by default, so only your own machine can reach it.
 - **Set `AUTH_TOKEN` before exposing it** (`HOST=0.0.0.0`, port forwarding or a reverse proxy). The token
   protects `/api/*`; the web page has a field for it. Use HTTPS (a reverse proxy) if the token crosses a network
-  you do not trust.
+  you do not trust. The signed, short-lived `previewUrl` video links are the only way to reach an `/api` route
+  without the token.
+- The page is served with a strict Content-Security-Policy: scripts, styles and requests are same-origin only,
+  no inline scripts or styles, and the page cannot be framed (`frame-ancestors 'none'`).
 - The browser cannot pass arbitrary danser or FFmpeg arguments or file paths. Render options are checked
   against a whitelist and turned into a fixed set of danser flags and settings patches.
 - Downloaded `.osz` archives are extracted defensively: limits on entry count and total size, no absolute
