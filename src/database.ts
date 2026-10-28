@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import type { BeatmapRow, JobStatus, RenderRow, ReplayMetadata } from './types.js';
+import type { BeatmapMetadata, BeatmapRow, JobStatus, RenderRow, ReplayMetadata } from './types.js';
 import { DEFAULT_RENDER_OPTIONS, RESOLUTION_DIMENSIONS, type RenderOptions } from './render-options.js';
 import { limits } from './config.js';
 
@@ -40,7 +40,22 @@ CREATE TABLE IF NOT EXISTS beatmaps (
   created_at INTEGER NOT NULL,
   last_used_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS local_beatmaps (
+  md5 TEXT PRIMARY KEY,
+  osu_path TEXT NOT NULL,
+  set_dir TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  mtime INTEGER NOT NULL,
+  beatmap_id INTEGER,
+  beatmapset_id INTEGER,
+  title TEXT,
+  artist TEXT,
+  version TEXT,
+  length_ms INTEGER
+);
+CREATE INDEX IF NOT EXISTS local_beatmaps_path_idx ON local_beatmaps(osu_path);
 `;
+const FINISHED_STATUSES = "'completed','failed','cancelled'";
 
 const ACTIVE_STATUSES = "'uploaded','resolving','downloading','queued','rendering','finalizing'";
 
@@ -83,6 +98,17 @@ export class RenderDatabase {
     if (!columns.some((column) => column.name === 'options_json')) {
       this.db.exec("ALTER TABLE renders ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}'");
     }
+    this.addMissingColumns('renders', {
+      beatmap_title: 'TEXT', beatmap_artist: 'TEXT', beatmap_version: 'TEXT', files_deleted_at: 'INTEGER',
+    });
+    this.addMissingColumns('beatmaps', { title: 'TEXT', artist: 'TEXT', version: 'TEXT' });
+  }
+
+  private addMissingColumns(table: 'renders' | 'beatmaps', wanted: Record<string, 'TEXT' | 'INTEGER'>): void {
+    const existing = new Set((this.db.pragma(`table_info(${table})`) as Array<{ name: string }>).map((column) => column.name));
+    for (const [name, type] of Object.entries(wanted)) {
+      if (!existing.has(name)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+    }
   }
 
   getRender(id: string): RenderRow | undefined {
@@ -123,9 +149,12 @@ export class RenderDatabase {
       WHERE id = ?`).run(Date.now(), replay.playerName, replay.beatmapChecksum, replay.mods, id);
   }
 
-  updateBeatmap(id: string, beatmapId: number, beatmapsetId: number): void {
-    this.db.prepare(`UPDATE renders SET updated_at = ?, beatmap_id = ?, beatmapset_id = ? WHERE id = ?`)
-      .run(Date.now(), beatmapId, beatmapsetId, id);
+  /** Unsubmitted local maps have no online ids (0 or -1 in the .osu); those are stored as NULL. */
+  updateBeatmap(id: string, beatmap: BeatmapMetadata): void {
+    this.db.prepare(`UPDATE renders SET updated_at = ?, beatmap_id = ?, beatmapset_id = ?,
+      beatmap_title = ?, beatmap_artist = ?, beatmap_version = ? WHERE id = ?`)
+      .run(Date.now(), onlineId(beatmap.id), onlineId(beatmap.beatmapsetId),
+        beatmap.title ?? null, beatmap.artist ?? null, beatmap.version ?? null, id);
   }
 
   setStatus(id: string, status: JobStatus, progress?: number): void {
@@ -196,12 +225,14 @@ export class RenderDatabase {
   saveBeatmap(row: Omit<BeatmapRow, 'created_at' | 'last_used_at'>): void {
     const now = Date.now();
     this.db.prepare(`INSERT INTO beatmaps
-      (checksum, beatmap_id, beatmapset_id, map_path, size_bytes, created_at, last_used_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (checksum, beatmap_id, beatmapset_id, map_path, size_bytes, created_at, last_used_at, title, artist, version)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(checksum) DO UPDATE SET beatmap_id=excluded.beatmap_id,
       beatmapset_id=excluded.beatmapset_id, map_path=excluded.map_path,
-      size_bytes=excluded.size_bytes, last_used_at=excluded.last_used_at`)
-      .run(row.checksum, row.beatmap_id, row.beatmapset_id, row.map_path, row.size_bytes, now, now);
+      size_bytes=excluded.size_bytes, last_used_at=excluded.last_used_at,
+      title=excluded.title, artist=excluded.artist, version=excluded.version`)
+      .run(row.checksum, row.beatmap_id, row.beatmapset_id, row.map_path, row.size_bytes, now, now,
+        row.title ?? null, row.artist ?? null, row.version ?? null);
   }
 
   touchBeatmap(checksum: string): void {
@@ -224,7 +255,19 @@ export class RenderDatabase {
 
   expiredRenders(now: number): RenderRow[] {
     return this.db.prepare(`SELECT * FROM renders WHERE expires_at IS NOT NULL AND expires_at < ?
-      AND status IN ('completed','failed','cancelled')`).all(now) as RenderRow[];
+      AND status IN (${FINISHED_STATUSES}) AND files_deleted_at IS NULL`).all(now) as RenderRow[];
+  }
+
+  /** The row stays so history can show the render with its files gone. */
+  markFilesDeleted(id: string, now = Date.now()): void {
+    this.db.prepare(`UPDATE renders SET files_deleted_at = ?, video_path = NULL, updated_at = ?
+      WHERE id = ? AND status IN (${FINISHED_STATUSES}) AND files_deleted_at IS NULL`).run(now, now, id);
+  }
+
+  rendersForClient(clientKey: string, limit: number): RenderRow[] {
+    if (!Number.isSafeInteger(limit) || limit <= 0) return [];
+    return this.db.prepare('SELECT * FROM renders WHERE client_key = ? ORDER BY created_at DESC, rowid DESC LIMIT ?')
+      .all(clientKey, limit) as RenderRow[];
   }
 
   recentRenders(limit: number): RenderRow[] {
@@ -235,4 +278,8 @@ export class RenderDatabase {
   close(): void {
     this.db.close();
   }
+}
+
+function onlineId(value: number): number | null {
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
 }

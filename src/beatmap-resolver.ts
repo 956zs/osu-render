@@ -6,6 +6,8 @@ import { directorySize, extractOsz, installExtracted, md5File } from './archive.
 import type { RenderDatabase } from './database.js';
 import type { MirrorChain } from './mirrors.js';
 import type { OsuApiClient } from './osu-api.js';
+import { copySetFolder, type LocalBeatmap } from './local-songs.js';
+import { log } from './logger.js';
 import type { BeatmapMetadata, BeatmapRow, Paths } from './types.js';
 
 const MAX_BEATMAP_SECONDS = 15 * 60;
@@ -14,6 +16,11 @@ interface ResolverLimits {
   maxCompressedBytes: number;
   maxExtractedBytes: number;
   maxEntries: number;
+}
+
+/** Local osu!stable Songs index; see LocalSongsIndex. */
+export interface LocalBeatmapSource {
+  lookup(md5: string): Promise<LocalBeatmap | null>;
 }
 
 interface ResolvedBeatmap {
@@ -30,14 +37,20 @@ export class BeatmapResolver {
     private readonly osuApi: OsuApiClient,
     private readonly mirrors: MirrorChain,
     private readonly limits: ResolverLimits,
+    private readonly localSongs?: LocalBeatmapSource,
   ) {}
 
   async resolve(checksum: string, onDownloading: () => void): Promise<ResolvedBeatmap> {
     const cached = await this.findCached(checksum);
     if (cached) return {
-      metadata: { id: cached.beatmap_id, beatmapsetId: cached.beatmapset_id, checksum },
+      metadata: {
+        id: cached.beatmap_id, beatmapsetId: cached.beatmapset_id, checksum,
+        title: cached.title ?? undefined, artist: cached.artist ?? undefined, version: cached.version ?? undefined,
+      },
       cache: cached,
     };
+    const local = await this.resolveLocal(checksum);
+    if (local) return local;
     const metadata = await this.osuApi.lookupBeatmap(checksum);
     if ((metadata.totalLength ?? 0) > MAX_BEATMAP_SECONDS) {
       throw new AppError('RENDER_FAILED', 'Beatmap duration exceeds the 15 minute limit.', 422);
@@ -55,11 +68,45 @@ export class BeatmapResolver {
     return { metadata, cache };
   }
 
+  /** Copies the set from a local osu!stable Songs folder; any failure falls back to the API and mirrors. */
+  private async resolveLocal(checksum: string): Promise<ResolvedBeatmap | null> {
+    const local = await this.localSongs?.lookup(checksum).catch(() => null);
+    if (!local) return null;
+    const metadata: BeatmapMetadata = {
+      id: local.beatmap_id ?? 0, beatmapsetId: local.beatmapset_id ?? 0, checksum,
+      title: local.title ?? undefined, artist: local.artist ?? undefined, version: local.version ?? undefined,
+      ...(local.length_ms !== null ? { totalLength: Math.ceil(local.length_ms / 1000) } : {}),
+    };
+    if ((metadata.totalLength ?? 0) > MAX_BEATMAP_SECONDS) {
+      throw new AppError('RENDER_FAILED', 'Beatmap duration exceeds the 15 minute limit.', 422);
+    }
+    const token = randomUUID();
+    const copying = path.join(this.paths.temp, `local-${token}.copying`);
+    const destination = path.join(this.paths.songs, `${metadata.beatmapsetId > 0 ? metadata.beatmapsetId : 'local'}-${token}`);
+    try {
+      await copySetFolder(local.set_dir, copying, { maxEntries: this.limits.maxEntries, maxExtractedBytes: this.limits.maxExtractedBytes });
+      await installExtracted(copying, destination);
+      if (!await findMatchingOsu(destination, checksum)) throw new Error('copied set does not contain the replay beatmap');
+      const cache = await this.saveCacheRecord(metadata, checksum, destination);
+      log('info', 'local_beatmap_used', { component: 'resolver', beatmapsetId: metadata.beatmapsetId });
+      return { metadata, cache };
+    } catch (error) {
+      await rm(destination, { recursive: true, force: true });
+      log('warn', 'local_beatmap_failed', {
+        component: 'resolver', detail: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    } finally {
+      await rm(copying, { recursive: true, force: true });
+    }
+  }
+
   private async saveCacheRecord(metadata: BeatmapMetadata, checksum: string, mapPath: string): Promise<BeatmapRow> {
     const cache: BeatmapRow = {
       checksum,
-      beatmap_id: metadata.id,
-      beatmapset_id: metadata.beatmapsetId,
+      beatmap_id: Math.max(0, metadata.id),
+      beatmapset_id: Math.max(0, metadata.beatmapsetId),
+      title: metadata.title ?? null, artist: metadata.artist ?? null, version: metadata.version ?? null,
       map_path: mapPath, size_bytes: await directorySize(mapPath),
       created_at: Date.now(),
       last_used_at: Date.now(),

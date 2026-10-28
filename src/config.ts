@@ -9,6 +9,8 @@ const GIB = 1024 ** 3;
 const SERVICE_ROOT = path.resolve(process.env.SERVICE_ROOT ?? process.cwd());
 const ENV_FILE = path.join(SERVICE_ROOT, '.env');
 const SETTINGS_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const HOUR_MS = 60 * 60 * 1000;
+const RETENTION_HOURS = Object.freeze({ fallback: 24, min: 1, max: 720 });
 
 if (existsSync(ENV_FILE)) loadEnvFile(ENV_FILE);
 
@@ -17,6 +19,7 @@ const DANSER_DIR = rootPath(env('DANSER_DIR') ?? 'danser');
 const DANSER_BIN = env('DANSER_BIN');
 const RENDER_ENCODER = (env('RENDER_ENCODER') ?? 'auto').toLowerCase();
 const DANSER_SETTINGS_NAME = env('DANSER_SETTINGS_NAME') ?? 'service';
+const RETENTION_MS = parseRetentionHours(env('VIDEO_RETENTION_HOURS')) * HOUR_MS;
 
 encoderCandidates(RENDER_ENCODER);
 if (!SETTINGS_NAME_PATTERN.test(DANSER_SETTINGS_NAME)) {
@@ -33,8 +36,9 @@ export const limits = Object.freeze({
   maxQueue: Number(process.env.MAX_QUEUE ?? 20),
   maxOutstandingPerClient: 3,
   maxRenderMinutes: 30,
-  replayRetentionMs: 24 * 60 * 60 * 1000,
-  videoRetentionMs: 24 * 60 * 60 * 1000,
+  /** VIDEO_RETENTION_HOURS: how long finished renders keep their video, replay and log. */
+  replayRetentionMs: RETENTION_MS,
+  videoRetentionMs: RETENTION_MS,
 });
 
 export const settings = Object.freeze({
@@ -78,6 +82,12 @@ export function getPaths(): Paths {
 export async function ensureDirectories(paths: Paths): Promise<void> {
   await Promise.all(Object.values(paths).filter((value) => value !== paths.db && !value.endsWith('.json'))
     .map((directory) => mkdir(directory, { recursive: true })));
+}
+
+/** VIDEO_RETENTION_HOURS: whole hours, default 24, clamped to 1..720 (30 days). */
+export function parseRetentionHours(value: string | undefined): number {
+  if (value === undefined || !/^\s*-?\d+\s*$/.test(value)) return RETENTION_HOURS.fallback;
+  return Math.min(RETENTION_HOURS.max, Math.max(RETENTION_HOURS.min, Number(value)));
 }
 
 function env(name: string): string | undefined {
