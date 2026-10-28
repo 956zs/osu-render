@@ -185,3 +185,13 @@ test('motion respects prefers-reduced-motion and focus stays visible', async () 
   assert.match(css, /:focus-visible \{ outline: 2px solid/);
   assert.doesNotMatch(css, /:focus-visible \{ outline: none/);
 });
+
+test('theme values live in :root custom properties and the stylesheet avoids decorative effects', async () => {
+  const { css } = await page();
+  const root = /^:root \{[\s\S]*?\n\}/m.exec(css);
+  assert.ok(root, ':root token block is missing');
+  const rules = css.replace(root[0], '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.deepEqual(rules.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/gi) ?? [], [], 'colours outside :root must use var(--color-*)');
+  assert.doesNotMatch(css, /gradient\(|backdrop-filter|filter:\s*blur|text-shadow|background-clip:\s*text|999px/);
+  assert.doesNotMatch(css, /url\(/, 'no decorative background images');
+});

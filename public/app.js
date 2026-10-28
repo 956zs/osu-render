@@ -617,8 +617,6 @@ function renderSkins() {
     const entry = element('li', 'skin-item card');
     const selected = skinSelect.value === name;
     entry.dataset.selected = String(selected);
-    const swatch = element('span', 'skin-swatch', name === 'default' ? 'd!' : name.slice(0, 2));
-    swatch.setAttribute('aria-hidden', 'true');
     const label = element('span', 'skin-name', name === 'default' ? t('settings.skin.default') : name);
     label.title = label.textContent;
     const action = button(selected ? t('skins.inUse') : t('skins.use'), selected ? 'btn btn-ghost btn-small' : 'btn btn-secondary btn-small', () => {
@@ -626,7 +624,7 @@ function renderSkins() {
       showSkin({ key: 'skins.selected', vars: { name: label.textContent } }, 'ok');
     });
     action.setAttribute('aria-pressed', String(selected));
-    entry.append(swatch, label, action);
+    entry.append(label, action);
     return entry;
   }));
 }
