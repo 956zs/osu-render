@@ -1,12 +1,21 @@
 {
   "app": {
     "title": "osu! Render",
-    "eyebrow": "danser-go render service",
-    "heading": "Turn replays into videos",
-    "subtitle": "Upload an .osr replay and the service finds the beatmap, queues the render and outputs an MP4."
+    "tagline": "danser-go replay renderer"
+  },
+  "nav": {
+    "skip": "Skip to content",
+    "label": "Sections",
+    "render": "Render",
+    "history": "History",
+    "skins": "Skins",
+    "diagnostics": "Diagnostics"
   },
   "header": {
     "language": "Language"
+  },
+  "common": {
+    "close": "Close"
   },
   "renderer": {
     "label": "Renderer status:",
@@ -31,21 +40,65 @@
     "encoder_unavailable": "Configured encoder unavailable",
     "storage_low": "Low disk space"
   },
+  "update": {
+    "available": "osu-render {version} is available (you have {current}).",
+    "apply": "Update now",
+    "notes": "What's new",
+    "gitHint": "To update a source install, run git pull, npm ci and npm run build, then restart osu-render.",
+    "confirm": "Download osu-render {version} and restart? Your settings and files are kept, and this page reloads by itself.",
+    "downloading": "Downloading and checking the update. This can take a few minutes…",
+    "restarting": "Installing the update and restarting. This page reloads by itself.",
+    "done": "Updated to osu-render {version}.",
+    "notInstalled": "The update wasn't installed, so you're still on {version}. Details are in data\\update\\apply-update.log.",
+    "timeout": "osu-render didn't come back. Check the osu-render window, then reload this page."
+  },
   "upload": {
-    "title": "Upload a replay",
-    "hint": "One render at a time",
-    "token": "Service token",
-    "tokenPlaceholder": "Leave empty if auth is disabled",
     "drop": "Drop an .osr replay here",
     "browse": "or click to choose a file",
-    "limits": "Max 5 MiB · osu!standard only"
+    "limits": "Max 5 MiB · osu!standard only",
+    "token": "Service token",
+    "tokenPlaceholder": "Required by this server"
+  },
+  "quick": {
+    "title": "Quick settings",
+    "hint": "Applied to your next render only.",
+    "manageSkins": "Manage",
+    "more": "More settings"
+  },
+  "presets": {
+    "label": "Presets",
+    "choose": "Load a preset…",
+    "save": "Save as preset",
+    "delete": "Delete preset",
+    "reset": "Reset to defaults",
+    "namePrompt": "Name this preset:",
+    "saved": "Saved preset \"{name}\".",
+    "applied": "Loaded preset \"{name}\".",
+    "deleted": "Deleted preset \"{name}\".",
+    "resetDone": "Settings reset to the defaults.",
+    "confirmDelete": "Delete the preset \"{name}\"?",
+    "storageFailed": "This browser blocks local storage, so presets can't be saved."
   },
   "job": {
+    "steps": {
+      "uploaded": "Uploaded",
+      "resolving": "Finding beatmap",
+      "downloading": "Downloading",
+      "queued": "Queued",
+      "rendering": "Rendering",
+      "completed": "Done"
+    },
     "progress": "Render progress",
     "download": "Download MP4",
+    "retry": "Try again",
     "cancel": "Cancel render",
-    "uploadFailed": "Upload failed.",
-    "mapResolving": "finding beatmap"
+    "another": "Render another replay",
+    "untitled": "Your replay",
+    "by": "played by {player}",
+    "speed": "{speed}× speed",
+    "eta": "{eta} left",
+    "cancelled": "This render was cancelled.",
+    "uploadFailed": "Upload failed. Check your connection and try again."
   },
   "status": {
     "uploaded": "Uploaded",
@@ -86,12 +139,13 @@
     "UPDATE_FAILED": "The update couldn't be downloaded or verified. Nothing was changed. Try again later."
   },
   "settings": {
-    "title": "Custom render settings",
-    "hint": "Applied to this render only; the server's base settings never change",
-    "badge": "Optional · {n} options",
+    "title": "All render settings",
+    "hint": "Applied to this render only; the server's base settings never change.",
+    "search": "Filter settings",
+    "searchPlaceholder": "Search settings…",
+    "noMatch": "No settings match \"{query}\".",
     "footer": "FPS, video encoder and motion blur are fixed by the server to keep renders reliable.",
     "output": {
-      "legend": "Output video",
       "resolution": "Resolution"
     },
     "playback": {
@@ -120,19 +174,13 @@
       "glow": "Trail glow",
       "ripples": "Click ripples",
       "smoke": "Cursor smoke",
-      "skinColors": "Use Skin colors",
+      "skinColors": "Use skin colors",
       "beatmapColors": "Use beatmap colors"
     },
     "skin": {
-      "legend": "Skin",
       "select": "Skin",
       "default": "Default (danser)",
-      "cursor": "Use the skin's cursor",
-      "upload": "Upload .osk",
-      "uploading": "Uploading and installing the skin…",
-      "installed": "Installed \"{name}\" and selected it.",
-      "failed": "Couldn't upload the skin. Check your connection and try again.",
-      "hint": "Uploaded skins are saved on this server and can be picked for any render."
+      "cursor": "Use the skin's cursor"
     },
     "hud": {
       "legend": "HUD",
@@ -157,6 +205,35 @@
       "ticks": "Slider ticks"
     }
   },
+  "history": {
+    "title": "History",
+    "hint": "Your recent renders on this server. Videos are deleted automatically after a while.",
+    "refresh": "Refresh",
+    "empty": "No renders yet. Upload a replay to start.",
+    "emptyAction": "Render a replay",
+    "failed": "Couldn't load the history.",
+    "unknownMap": "Unknown beatmap",
+    "created": "Started",
+    "encoder": "Output",
+    "renderTime": "Render time",
+    "deleted": "Files deleted",
+    "expires": "Files kept until {time}",
+    "preview": "Preview",
+    "download": "Download",
+    "deleteFiles": "Delete files",
+    "confirmDelete": "Delete the video, replay and log of this render? This can't be undone."
+  },
+  "skins": {
+    "title": "Skins",
+    "hint": "Uploaded skins are saved on this server and can be picked for any render.",
+    "drop": "Drop an .osk skin here",
+    "uploading": "Uploading and installing the skin…",
+    "installed": "Installed \"{name}\". It will be used for your next render.",
+    "failed": "Couldn't upload the skin. Check your connection and try again.",
+    "use": "Use for next render",
+    "inUse": "Selected",
+    "selected": "\"{name}\" will be used for your next render."
+  },
   "diagnostics": {
     "title": "Diagnostics",
     "hint": "Helps track down GPU and renderer problems",
@@ -175,36 +252,29 @@
     "copyManual": "The browser blocked the clipboard. Select the text below and copy it.",
     "opened": "GitHub issue opened in a new tab.",
     "openAgain": "Report ready. Click “Open GitHub issue” again.",
-    "needsToken": "This server requires a service token. Enter it in step 01 and try again.",
+    "needsToken": "This server requires a service token. Enter it in Quick settings on the Render tab, then try again.",
     "failed": "Couldn't get the diagnostics report. Try again.",
     "noIssueLink": "The report doesn't include a valid GitHub issue link.",
     "sending": "Sending the report to the developer…",
-    "sent": "Report sent to the developer. Thanks!"
-  },
-  "update": {
-    "available": "osu-render {version} is available (you have {current}).",
-    "apply": "Update now",
-    "notes": "What's new",
-    "gitHint": "To update a source install, run git pull, npm ci and npm run build, then restart osu-render.",
-    "confirm": "Download osu-render {version} and restart? Your settings and files are kept, and this page reloads by itself.",
-    "downloading": "Downloading and checking the update. This can take a few minutes…",
-    "restarting": "Installing the update and restarting. This page reloads by itself.",
-    "done": "Updated to osu-render {version}.",
-    "notInstalled": "The update wasn't installed, so you're still on {version}. Details are in data\\update\\apply-update.log.",
-    "timeout": "osu-render didn't come back. Check the osu-render window, then reload this page."
-  },
-  "history": {
-    "title": "History",
-    "hint": "Your recent renders on this server. Videos are deleted automatically after a while.",
-    "refresh": "Refresh",
-    "empty": "No renders yet. Upload a replay to start.",
-    "failed": "Couldn't load the history.",
-    "unknownMap": "Unknown beatmap",
-    "took": "rendered in {duration}",
-    "deleted": "Files deleted",
-    "expires": "Files kept until {time}",
-    "download": "Download",
-    "deleteFiles": "Delete files",
-    "confirmDelete": "Delete the video, replay and log of this render? This can't be undone."
+    "sent": "Report sent to the developer. Thanks!",
+    "report": "Diagnostics report",
+    "renderer": {
+      "title": "Renderer",
+      "status": "Status",
+      "ok": "Ready",
+      "degraded": "Degraded",
+      "encoder": "Video encoder",
+      "display": "Display",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "platform": "Platform",
+      "queue": "Queued renders",
+      "disk": "Free disk space",
+      "reason": "Problem",
+      "probes": "Encoder self-tests",
+      "probesHint": "Shown after you download or copy the report, which runs the self-tests.",
+      "probeOk": "Works",
+      "probeFailed": "Failed"
+    }
   }
 }

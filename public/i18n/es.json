@@ -1,12 +1,21 @@
 {
   "app": {
     "title": "osu! Render",
-    "eyebrow": "servicio de render con danser-go",
-    "heading": "Convierte tus replays en video",
-    "subtitle": "Sube un replay .osr y el servicio busca el mapa, pone el render en cola y genera un MP4."
+    "tagline": "renderizador de replays con danser-go"
+  },
+  "nav": {
+    "skip": "Saltar al contenido",
+    "label": "Secciones",
+    "render": "Renderizar",
+    "history": "Historial",
+    "skins": "Skins",
+    "diagnostics": "Diagnóstico"
   },
   "header": {
     "language": "Idioma"
+  },
+  "common": {
+    "close": "Cerrar"
   },
   "renderer": {
     "label": "Estado del renderizador:",
@@ -31,21 +40,65 @@
     "encoder_unavailable": "El codificador configurado no está disponible",
     "storage_low": "Poco espacio en disco"
   },
+  "update": {
+    "available": "Ya está disponible osu-render {version} (tienes la {current}).",
+    "apply": "Actualizar ahora",
+    "notes": "Novedades",
+    "gitHint": "Para actualizar una instalación desde el código fuente, ejecuta git pull, npm ci y npm run build, y reinicia osu-render.",
+    "confirm": "¿Descargar osu-render {version} y reiniciar? Tu configuración y tus archivos se conservan, y esta página se recarga sola.",
+    "downloading": "Descargando y verificando la actualización. Puede tardar unos minutos…",
+    "restarting": "Instalando la actualización y reiniciando. Esta página se recarga sola.",
+    "done": "Actualizado a osu-render {version}.",
+    "notInstalled": "La actualización no se instaló, sigues en la {version}. Los detalles están en data\\update\\apply-update.log.",
+    "timeout": "osu-render no volvió a iniciarse. Revisa la ventana de osu-render y luego recarga esta página."
+  },
   "upload": {
-    "title": "Sube un replay",
-    "hint": "Se procesa un render a la vez",
-    "token": "Token del servicio",
-    "tokenPlaceholder": "Déjalo vacío si no hay autenticación",
     "drop": "Arrastra aquí un replay .osr",
     "browse": "o haz clic para elegir un archivo",
-    "limits": "Máx. 5 MiB · solo osu!standard"
+    "limits": "Máx. 5 MiB · solo osu!standard",
+    "token": "Token del servicio",
+    "tokenPlaceholder": "Este servidor lo requiere"
+  },
+  "quick": {
+    "title": "Ajustes rápidos",
+    "hint": "Se aplican solo a tu próximo render.",
+    "manageSkins": "Gestionar",
+    "more": "Más ajustes"
+  },
+  "presets": {
+    "label": "Preajustes",
+    "choose": "Cargar un preajuste…",
+    "save": "Guardar como preajuste",
+    "delete": "Borrar preajuste",
+    "reset": "Restablecer",
+    "namePrompt": "Nombre del preajuste:",
+    "saved": "Preajuste \"{name}\" guardado.",
+    "applied": "Preajuste \"{name}\" cargado.",
+    "deleted": "Preajuste \"{name}\" borrado.",
+    "resetDone": "Ajustes restablecidos a los valores predeterminados.",
+    "confirmDelete": "¿Borrar el preajuste \"{name}\"?",
+    "storageFailed": "Este navegador bloquea el almacenamiento local, así que no se pueden guardar preajustes."
   },
   "job": {
+    "steps": {
+      "uploaded": "Subido",
+      "resolving": "Buscando el mapa",
+      "downloading": "Descargando",
+      "queued": "En cola",
+      "rendering": "Renderizando",
+      "completed": "Listo"
+    },
     "progress": "Progreso del render",
     "download": "Descargar MP4",
+    "retry": "Reintentar",
     "cancel": "Cancelar render",
-    "uploadFailed": "No se pudo subir el replay.",
-    "mapResolving": "buscando el mapa"
+    "another": "Renderizar otro replay",
+    "untitled": "Tu replay",
+    "by": "jugado por {player}",
+    "speed": "velocidad {speed}×",
+    "eta": "faltan {eta}",
+    "cancelled": "Este render fue cancelado.",
+    "uploadFailed": "No se pudo subir. Revisa tu conexión e inténtalo de nuevo."
   },
   "status": {
     "uploaded": "Subido",
@@ -86,12 +139,13 @@
     "UPDATE_FAILED": "No se pudo descargar o verificar la actualización. No se cambió nada. Inténtalo más tarde."
   },
   "settings": {
-    "title": "Ajustes de render personalizados",
-    "hint": "Se aplican solo a este render; la configuración base del servidor no cambia",
-    "badge": "Opcional · {n} opciones",
+    "title": "Todos los ajustes de render",
+    "hint": "Se aplican solo a este render; la configuración base del servidor no cambia.",
+    "search": "Filtrar ajustes",
+    "searchPlaceholder": "Buscar ajustes…",
+    "noMatch": "Ningún ajuste coincide con \"{query}\".",
     "footer": "El servidor fija los FPS, el codificador de video y el motion blur para evitar renders fallidos.",
     "output": {
-      "legend": "Video de salida",
       "resolution": "Resolución"
     },
     "playback": {
@@ -120,19 +174,13 @@
       "glow": "Brillo del rastro",
       "ripples": "Ondas al hacer clic",
       "smoke": "Humo del cursor",
-      "skinColors": "Usar colores del Skin",
+      "skinColors": "Usar colores del skin",
       "beatmapColors": "Usar colores del mapa"
     },
     "skin": {
-      "legend": "Skin",
       "select": "Skin",
       "default": "Predeterminado (danser)",
-      "cursor": "Usar el cursor del skin",
-      "upload": "Subir .osk",
-      "uploading": "Subiendo e instalando el skin…",
-      "installed": "Se instaló \"{name}\" y quedó seleccionado.",
-      "failed": "No se pudo subir el skin. Revisa tu conexión e inténtalo de nuevo.",
-      "hint": "Los skins que subas se guardan en este servidor y puedes elegirlos en cualquier render."
+      "cursor": "Usar el cursor del skin"
     },
     "hud": {
       "legend": "HUD",
@@ -157,6 +205,35 @@
       "ticks": "Ticks del Slider"
     }
   },
+  "history": {
+    "title": "Historial",
+    "hint": "Tus renders recientes en este servidor. Los videos se borran automáticamente después de un tiempo.",
+    "refresh": "Actualizar",
+    "empty": "Todavía no hay renders. Sube un replay para empezar.",
+    "emptyAction": "Renderizar un replay",
+    "failed": "No se pudo cargar el historial.",
+    "unknownMap": "Mapa desconocido",
+    "created": "Inicio",
+    "encoder": "Salida",
+    "renderTime": "Tiempo de render",
+    "deleted": "Archivos borrados",
+    "expires": "Archivos guardados hasta {time}",
+    "preview": "Vista previa",
+    "download": "Descargar",
+    "deleteFiles": "Borrar archivos",
+    "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer."
+  },
+  "skins": {
+    "title": "Skins",
+    "hint": "Los skins que subas se guardan en este servidor y puedes elegirlos en cualquier render.",
+    "drop": "Arrastra aquí un skin .osk",
+    "uploading": "Subiendo e instalando el skin…",
+    "installed": "\"{name}\" instalado. Se usará en tu próximo render.",
+    "failed": "No se pudo subir el skin. Revisa tu conexión e inténtalo de nuevo.",
+    "use": "Usar en el próximo render",
+    "inUse": "Seleccionado",
+    "selected": "\"{name}\" se usará en tu próximo render."
+  },
   "diagnostics": {
     "title": "Diagnóstico",
     "hint": "Ayuda a encontrar problemas de GPU y del renderizador",
@@ -175,36 +252,29 @@
     "copyManual": "El navegador bloqueó el portapapeles. Selecciona el texto de abajo y cópialo.",
     "opened": "Se abrió el issue de GitHub en una pestaña nueva.",
     "openAgain": "El reporte está listo. Haz clic de nuevo en “Abrir issue en GitHub”.",
-    "needsToken": "Este servidor requiere un token del servicio. Ingrésalo en el paso 01 e inténtalo de nuevo.",
+    "needsToken": "Este servidor requiere un token del servicio. Ingrésalo en los ajustes rápidos de la pestaña Renderizar e inténtalo de nuevo.",
     "failed": "No se pudo obtener el reporte de diagnóstico. Inténtalo de nuevo.",
     "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub.",
     "sending": "Enviando el reporte al desarrollador…",
-    "sent": "Reporte enviado al desarrollador. ¡Gracias!"
-  },
-  "update": {
-    "available": "Ya está disponible osu-render {version} (tienes la {current}).",
-    "apply": "Actualizar ahora",
-    "notes": "Novedades",
-    "gitHint": "Para actualizar una instalación desde el código fuente, ejecuta git pull, npm ci y npm run build, y reinicia osu-render.",
-    "confirm": "¿Descargar osu-render {version} y reiniciar? Tu configuración y tus archivos se conservan, y esta página se recarga sola.",
-    "downloading": "Descargando y verificando la actualización. Puede tardar unos minutos…",
-    "restarting": "Instalando la actualización y reiniciando. Esta página se recarga sola.",
-    "done": "Actualizado a osu-render {version}.",
-    "notInstalled": "La actualización no se instaló, sigues en la {version}. Los detalles están en data\\update\\apply-update.log.",
-    "timeout": "osu-render no volvió a iniciarse. Revisa la ventana de osu-render y luego recarga esta página."
-  },
-  "history": {
-    "title": "Historial",
-    "hint": "Tus renders recientes en este servidor. Los videos se borran automáticamente después de un tiempo.",
-    "refresh": "Actualizar",
-    "empty": "Todavía no hay renders. Sube un replay para empezar.",
-    "failed": "No se pudo cargar el historial.",
-    "unknownMap": "Mapa desconocido",
-    "took": "renderizado en {duration}",
-    "deleted": "Archivos borrados",
-    "expires": "Archivos guardados hasta {time}",
-    "download": "Descargar",
-    "deleteFiles": "Borrar archivos",
-    "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer."
+    "sent": "Reporte enviado al desarrollador. ¡Gracias!",
+    "report": "Informe de diagnóstico",
+    "renderer": {
+      "title": "Renderizador",
+      "status": "Estado",
+      "ok": "Listo",
+      "degraded": "Degradado",
+      "encoder": "Codificador de video",
+      "display": "Pantalla",
+      "available": "Disponible",
+      "unavailable": "No disponible",
+      "platform": "Plataforma",
+      "queue": "Renders en cola",
+      "disk": "Espacio libre en disco",
+      "reason": "Problema",
+      "probes": "Autopruebas del codificador",
+      "probesHint": "Aparecen después de descargar o copiar el informe, que ejecuta las autopruebas.",
+      "probeOk": "Funciona",
+      "probeFailed": "Falló"
+    }
   }
 }
