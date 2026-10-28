@@ -68,6 +68,7 @@ jobs:
           Copy-Item config/defaults.json "$stage/config/"
           Copy-Item package.json, package-lock.json, .env.example, LICENSE "$stage/"
           Copy-Item README*.md "$stage/"
+          Copy-Item -Recurse docs "$stage/docs"
           Copy-Item packaging/windows/start.bat, packaging/windows/doctor.bat, packaging/THIRD_PARTY_NOTICES.txt "$stage/"
           Copy-Item packaging/windows/setup.ps1, packaging/windows/open-browser.ps1 "$stage/scripts/windows/"
           Push-Location $stage

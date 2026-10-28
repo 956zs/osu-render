@@ -34,7 +34,7 @@
   "upload": {
     "title": "上傳 replay",
     "hint": "目前一次處理一個 render",
-    "token": "Service token",
+    "token": "服務 Token",
     "tokenPlaceholder": "未啟用驗證可留空",
     "drop": "拖入 .osr replay",
     "browse": "或點擊選擇檔案",
