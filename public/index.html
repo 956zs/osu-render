@@ -2,851 +2,287 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#1a1630">
   <title data-i18n="app.title">osu! Render</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --bg: #080b12; --panel: rgba(18, 23, 35, .86); --panel-strong: #151b29;
-      --line: rgba(147, 164, 190, .16); --line-strong: rgba(147, 164, 190, .3);
-      --text: #f5f7fb; --muted: #98a5b9; --pink: #ff66aa; --pink-soft: rgba(255, 102, 170, .14);
-      --blue: #79b8ff; --danger: #ff8c9f; --ok: #7ee2a8; --warn: #ffc46b; --shadow: 0 24px 80px rgba(0, 0, 0, .32);
-      background: var(--bg); color: var(--text);
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background:
-      radial-gradient(circle at 12% 12%, rgba(121, 184, 255, .11), transparent 32rem),
-      radial-gradient(circle at 88% 8%, rgba(255, 102, 170, .1), transparent 30rem), var(--bg); }
-    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; background-image:
-      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 32px 32px; }
-    main { position: relative; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 54px 0 72px; }
-    .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-bottom: 30px; }
-    .hero-mark { width: 56px; height: 56px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 18px;
-      color: #fff; font-size: 28px; font-weight: 850; background: linear-gradient(145deg, var(--pink), #b760ff); box-shadow: 0 12px 32px rgba(255, 102, 170, .25); }
-    .hero-copy { min-width: 0; flex: 1 1 320px; }
-    .hero-tools { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
-    .eyebrow { margin: 0 0 5px; color: var(--pink); font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.45rem); line-height: 1.08; letter-spacing: -.035em; }
-    .subtitle { margin: 8px 0 0; color: var(--muted); font-size: .98rem; }
-    .status-chip { max-width: 440px; margin: 0; padding: 7px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; border: 1px solid var(--line);
-      border-radius: 14px; background: var(--panel); color: var(--text); font-size: .76rem; font-weight: 800; line-height: 1.4; }
-    .status-chip::before { content: ""; width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(126, 226, 168, .14); }
-    .status-chip[data-state=degraded] { border-color: rgba(255, 196, 107, .35); }
-    .status-chip[data-state=degraded]::before { background: var(--warn); box-shadow: 0 0 0 3px rgba(255, 196, 107, .14); }
-    .chip-reason { padding-left: 8px; border-left: 1px solid var(--line-strong); color: var(--warn); font-weight: 600; }
-    .lang-select { min-width: 0; margin: 0; padding: 7px 10px; border-radius: 14px; background: var(--panel-strong); font-size: .78rem; font-weight: 700; }
-    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-    .layout { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(560px, 1.35fr); grid-template-rows: auto 1fr; gap: 22px; align-items: start; }
-    .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
-    .upload-card { position: sticky; top: 24px; grid-column: 1; grid-row: 1 / span 2; padding: 22px; }
-    .panel-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .step { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 11px; color: var(--pink); background: var(--pink-soft); font-size: .75rem; font-weight: 850; }
-    .panel-heading h2 { margin: 0; font-size: 1.05rem; }
-    .panel-heading p { margin: 3px 0 0; color: var(--muted); font-size: .82rem; }
-    .token-field { display: grid; gap: 7px; margin-bottom: 16px; color: var(--muted); font-size: .78rem; font-weight: 700; }
-    input[type=password] { width: 100%; padding: 12px 13px; color: var(--text); background: rgba(7, 10, 17, .7); border: 1px solid var(--line); border-radius: 11px; outline: none; transition: .18s ease; }
-    input[type=password]:focus { border-color: rgba(121, 184, 255, .65); box-shadow: 0 0 0 3px rgba(121, 184, 255, .1); }
-    input[type=file] { display: none; }
-    .drop { min-height: 250px; padding: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center;
-      border: 1px dashed var(--line-strong); border-radius: 16px; cursor: pointer; background: rgba(7, 10, 17, .45); transition: transform .18s ease, border-color .18s ease, background .18s ease; }
-    .drop:hover, .drop.drag { border-color: var(--pink); background: var(--pink-soft); transform: translateY(-2px); }
-    .drop-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 7px; border-radius: 17px; color: var(--pink); background: var(--pink-soft); font-size: 1.5rem; }
-    .drop strong { font-size: 1rem; }
-    .drop-copy { color: var(--muted); font-size: .83rem; line-height: 1.6; }
-    .drop-copy span { display: block; }
-    .settings-card { grid-column: 2; grid-row: 1; overflow: clip; }
-    summary { min-height: 88px; padding: 20px 22px; display: flex; align-items: center; gap: 14px; cursor: pointer; list-style: none; user-select: none; }
-    summary::-webkit-details-marker { display: none; }
-    .summary-copy { min-width: 0; flex: 1; }
-    .summary-copy strong { display: block; font-size: 1.02rem; }
-    .summary-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: .78rem; font-weight: 500; }
-    .badge { padding: 5px 9px; border-radius: 999px; color: var(--blue); background: rgba(121, 184, 255, .1); font-size: .7rem; font-weight: 800; white-space: nowrap; }
-    .chevron { width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); border-radius: 9px; background: rgba(255,255,255,.04); transition: transform .2s ease; }
-    details[open] .chevron { transform: rotate(180deg); }
-    .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 14px 14px; }
-    fieldset { min-width: 0; margin: 0; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 10, 17, .42); }
-    fieldset:nth-child(-n+3) { grid-column: 1 / -1; }
-    legend { padding: 0 7px; color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .04em; }
-    .setting { min-width: 0; min-height: 30px; display: flex; align-items: center; gap: 9px; color: #dce2ec; font-size: .84rem; }
-    .setting.range { grid-column: 1 / -1; display: grid; grid-template-columns: 108px minmax(100px, 1fr) 42px; gap: 10px; }
-    input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; margin: 0; accent-color: var(--pink); }
-    input[type=range] { width: 100%; accent-color: var(--pink); }
-    output { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
-    select { min-width: 92px; margin-left: auto; padding: 7px 9px; color: var(--text); background: #0c111c; border: 1px solid var(--line-strong); border-radius: 8px; outline: none; }
-    .settings-foot { margin: 0 14px 14px; padding: 11px 13px; display: flex; gap: 9px; color: var(--muted); background: rgba(121, 184, 255, .06); border-radius: 11px; font-size: .76rem; line-height: 1.5; }
-    .settings-foot::before { content: "i"; width: 18px; height: 18px; flex: 0 0 auto; display: grid; place-items: center; color: var(--blue); border: 1px solid rgba(121,184,255,.35); border-radius: 50%; font-size: .68rem; font-weight: 850; }
-    .diag-card { grid-column: 2; grid-row: 2; padding: 22px; }
-    .history-card { grid-column: 1 / -1; grid-row: 3; padding: 22px; }
-    .history-card .panel-heading { flex-wrap: wrap; }
-    .history-card .panel-heading > div { flex: 1 1 200px; }
-    .history-list { margin: 0; padding: 0; display: grid; gap: 10px; list-style: none; }
-    .history-item { padding: 13px 15px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; border: 1px solid var(--line); border-radius: 13px; background: rgba(7, 10, 17, .5); }
-    .history-item strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
-    .history-state { justify-self: end; color: var(--muted); font-size: .76rem; font-weight: 800; }
-    .history-state[data-status=completed] { color: var(--ok); }
-    .history-state[data-status=failed] { color: var(--danger); }
-    .history-meta, .history-files { grid-column: 1; margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
-    .history-files[data-tone=error] { color: var(--danger); }
-    .history-actions { grid-column: 2; grid-row: 2 / span 2; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-    .history-actions button { margin: 0; padding: 7px 11px; font-size: .78rem; }
-    .history-empty { margin: 0; color: var(--muted); font-size: .82rem; }
-    .diag-list { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; color: var(--muted); font-size: .82rem; line-height: 1.55; }
-    .diag-list li { display: flex; gap: 10px; }
-    .diag-list li::before { content: ""; width: 6px; height: 6px; margin-top: .58em; flex: 0 0 auto; border-radius: 50%; background: var(--pink); }
-    .diag-actions { margin-top: 8px; display: flex; flex-wrap: wrap; }
-    .diag-status { min-height: 1.4em; margin: 12px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
-    .diag-status[data-tone=ok] { color: var(--ok); }
-    .diag-status[data-tone=error] { color: var(--danger); }
-    .setting.wide { grid-column: 1 / -1; }
-    .setting #skin { max-width: 65%; text-overflow: ellipsis; }
-    .skin-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-    .skin-actions button { margin: 0; }
-    .skin-actions .diag-status { margin: 0; flex: 1 1 160px; }
-    .skin-hint { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
-    .diag-summary { width: 100%; min-height: 140px; margin-top: 10px; padding: 11px 12px; resize: vertical; color: var(--text); background: rgba(7, 10, 17, .7);
-      border: 1px solid var(--line); border-radius: 11px; font: .76rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .clipboard-scratch { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; }
-    .job { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 10, 17, .66); }
-    #state { font-weight: 800; }
-    .meta { min-height: 20px; margin: 7px 0 12px; color: var(--muted); font-size: .82rem; }
-    progress { width: 100%; height: 9px; overflow: hidden; border: 0; border-radius: 999px; background: #090d16; }
-    progress::-webkit-progress-bar { background: #090d16; }
-    progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
-    progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
-    button { margin: 8px 8px 0 0; padding: 10px 13px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; color: #120914; background: var(--pink); font: inherit; font-size: .84rem; font-weight: 800; }
-    button.secondary { color: var(--text); background: transparent; border-color: var(--line-strong); }
-    button.secondary:hover { background: rgba(255, 255, 255, .04); }
-    button[aria-disabled=true] { cursor: progress; opacity: .55; }
-    #cancel { color: var(--muted); background: transparent; border-color: var(--line-strong); }
-    .error { margin: 10px 0 0; color: var(--danger); font-size: .82rem; }
-    .update-banner { margin-bottom: 22px; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; border: 1px solid rgba(121, 184, 255, .35);
-      border-radius: 14px; background: rgba(121, 184, 255, .08); font-size: .86rem; line-height: 1.5; }
-    .update-banner[data-tone=ok] { border-color: rgba(126, 226, 168, .4); background: rgba(126, 226, 168, .08); }
-    .update-banner[data-tone=error] { border-color: rgba(255, 140, 159, .4); background: rgba(255, 140, 159, .08); }
-    .update-text { min-width: 0; flex: 1 1 320px; margin: 0; }
-    .update-text span { color: var(--muted); }
-    .update-banner[data-tone=error] .update-text span { color: var(--danger); }
-    .update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; }
-    .update-actions button { margin: 0; }
-    .update-actions a { color: var(--blue); font-size: .82rem; font-weight: 700; }
-    [hidden] { display: none !important; }
-    :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-    @media (max-width: 940px) {
-      main { width: min(720px, calc(100% - 32px)); padding-top: 34px; }
-      .layout { grid-template-columns: 1fr; grid-template-rows: none; }
-      .upload-card, .settings-card, .diag-card, .history-card { grid-column: auto; grid-row: auto; }
-      .settings-card { order: -1; }
-      .upload-card { position: static; }
-    }
-    @media (max-width: 620px) {
-      main { width: min(100% - 24px, 520px); padding: 24px 0 40px; }
-      .hero { align-items: flex-start; gap: 14px 18px; margin-bottom: 20px; }
-      .hero-mark { width: 46px; height: 46px; border-radius: 14px; font-size: 23px; }
-      .hero-copy { flex-basis: 0; }
-      .hero-tools { width: 100%; margin-left: 0; justify-content: space-between; }
-      .status-chip { max-width: calc(100% - 120px); }
-      .subtitle { font-size: .85rem; }
-      .panel { border-radius: 16px; }
-      summary { min-height: 76px; padding: 16px; }
-      .summary-copy small { display: none; }
-      .settings { grid-template-columns: 1fr; padding: 0 10px 10px; }
-      fieldset, fieldset:nth-child(-n+3) { grid-column: 1; grid-template-columns: 1fr; padding: 14px; }
-      .setting.range { grid-column: 1; grid-template-columns: 98px minmax(80px, 1fr) 38px; }
-      .upload-card, .diag-card, .history-card { padding: 16px; }
-      .history-item { grid-template-columns: 1fr; }
-      .history-state { justify-self: start; }
-      .history-actions { grid-column: 1; grid-row: auto; justify-content: flex-start; }
-      .drop { min-height: 210px; }
-      .badge { display: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/app.js"></script>
 </head>
 <body>
-<main>
+<a class="skip-link" href="#main" data-i18n="nav.skip">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#/render" aria-label="osu! Render">
+      <span class="brand-mark" aria-hidden="true">o!</span>
+      <span class="brand-text"><strong data-i18n="app.title">osu! Render</strong><small data-i18n="app.tagline">danser-go replay renderer</small></span>
+    </a>
+    <nav class="tabs" id="tabs" aria-label="Sections" data-i18n-aria-label="nav.label">
+      <a class="tab" href="#/render" data-route="render">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>
+        <span data-i18n="nav.render">Render</span>
+      </a>
+      <a class="tab" href="#/history" data-route="history">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span data-i18n="nav.history">History</span>
+      </a>
+      <a class="tab" href="#/skins" data-route="skins">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.6 0-1.3-1-1.6-1-2.6 0-.9.7-1.3 1.6-1.3H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>
+        <span data-i18n="nav.skins">Skins</span>
+      </a>
+      <a class="tab" href="#/diagnostics" data-route="diagnostics">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+        <span data-i18n="nav.diagnostics">Diagnostics</span>
+      </a>
+    </nav>
+    <div class="topbar-tools">
+      <p class="status-chip" id="rendererStatus" role="status" aria-live="polite" hidden><span class="sr-only" data-i18n="renderer.label">Renderer status:</span> <span class="chip-dot" aria-hidden="true"></span><span id="rendererLabel"></span><span class="chip-reason" id="rendererReason" hidden></span></p>
+      <label class="lang"><span class="sr-only" data-i18n="header.language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="zh-TW" lang="zh-TW">繁體中文</option><option value="es" lang="es">Español</option></select></label>
+    </div>
+  </div>
   <section class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
     <p class="update-text"><strong id="updateTitle"></strong> <span id="updateDetail"></span></p>
     <div class="update-actions">
-      <button type="button" id="updateApply" hidden data-i18n="update.apply">Update now</button>
-      <a id="updateNotes" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
+      <button type="button" id="updateApply" class="btn btn-primary btn-small" hidden data-i18n="update.apply">Update now</button>
+      <a id="updateNotes" class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
     </div>
   </section>
-  <header class="hero">
-    <div class="hero-mark" aria-hidden="true">o!</div>
-    <div class="hero-copy">
-      <p class="eyebrow" data-i18n="app.eyebrow">danser-go render service</p>
-      <h1 data-i18n="app.heading">Turn replays into videos</h1>
-      <p class="subtitle" data-i18n="app.subtitle">Upload an .osr replay and the service finds the beatmap, queues the render and outputs an MP4.</p>
-    </div>
-    <div class="hero-tools">
-      <p class="status-chip" id="rendererStatus" role="status" aria-live="polite" hidden><span class="sr-only" data-i18n="renderer.label">Renderer status:</span> <span id="rendererLabel"></span> <span class="chip-reason" id="rendererReason" hidden></span></p>
-      <label><span class="sr-only" data-i18n="header.language">Language</span><select id="language" class="lang-select"><option value="en" lang="en">English</option><option value="zh-TW" lang="zh-TW">繁體中文</option><option value="es" lang="es">Español</option></select></label>
-    </div>
-  </header>
-  <div class="layout">
-    <section class="panel upload-card">
-      <div class="panel-heading">
-        <span class="step">01</span>
-        <div><h2 data-i18n="upload.title">Upload a replay</h2><p data-i18n="upload.hint">One render at a time</p></div>
+</header>
+
+<main id="main">
+  <section class="view view-render" id="view-render" data-view="render" aria-labelledby="renderTitle">
+    <h1 class="sr-only" id="renderTitle" tabindex="-1" data-i18n="nav.render">Render</h1>
+    <div class="render-grid">
+      <div class="render-main">
+        <label class="dropzone card" id="drop">
+          <input id="file" type="file" accept=".osr" class="sr-only">
+          <span class="drop-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-5 5m5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>
+          <strong class="drop-title" data-i18n="upload.drop">Drop an .osr replay here</strong>
+          <span class="drop-browse" data-i18n="upload.browse">or click to choose a file</span>
+          <span class="drop-limits" data-i18n="upload.limits">Max 5 MiB · osu!standard only</span>
+        </label>
+
+        <section class="job card" id="job" hidden aria-labelledby="jobTitle">
+          <div class="job-head">
+            <div class="job-cover" aria-hidden="true"><span>o!</span></div>
+            <div class="job-heading">
+              <h2 class="job-title" id="jobTitle" tabindex="-1"></h2>
+              <p class="job-sub" id="jobSub"></p>
+            </div>
+          </div>
+          <ol class="stepper" id="steps">
+            <li data-step="uploaded"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.uploaded">Uploaded</span></li>
+            <li data-step="resolving"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.resolving">Finding beatmap</span></li>
+            <li data-step="downloading"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.downloading">Downloading</span></li>
+            <li data-step="queued"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.queued">Queued</span></li>
+            <li data-step="rendering"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.rendering">Rendering</span></li>
+            <li data-step="completed"><span class="step-dot" aria-hidden="true"></span><span class="step-label" data-i18n="job.steps.completed">Done</span></li>
+          </ol>
+          <p class="job-status" id="jobStatus" role="status" aria-live="polite"></p>
+          <div class="progress" id="progressBox">
+            <div class="progress-track" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Render progress" data-i18n-aria-label="job.progress"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="progress-meta">
+              <strong class="progress-percent" id="progressPercent">0%</strong>
+              <span id="progressSpeed"></span>
+              <span id="progressEta"></span>
+            </div>
+          </div>
+          <div class="job-error" id="jobError" role="alert" hidden>
+            <p id="jobErrorText"></p>
+          </div>
+          <div class="job-result" id="jobResult" hidden>
+            <video class="preview-video" id="jobVideo" controls preload="metadata" playsinline></video>
+          </div>
+          <div class="job-actions">
+            <button type="button" id="download" class="btn btn-primary" hidden data-i18n="job.download">Download MP4</button>
+            <button type="button" id="retry" class="btn btn-primary" hidden data-i18n="job.retry">Try again</button>
+            <button type="button" id="cancel" class="btn btn-danger" hidden data-i18n="job.cancel">Cancel render</button>
+            <button type="button" id="another" class="btn btn-ghost" hidden data-i18n="job.another">Render another replay</button>
+          </div>
+        </section>
       </div>
-      <label class="token-field"><span data-i18n="upload.token">Service token</span>
-        <input id="token" type="password" autocomplete="current-password" placeholder="Leave empty if auth is disabled" data-i18n-placeholder="upload.tokenPlaceholder">
-      </label>
-      <label class="drop" id="drop">
-        <input id="file" type="file" accept=".osr">
-        <span class="drop-icon" aria-hidden="true">↑</span>
-        <strong data-i18n="upload.drop">Drop an .osr replay here</strong>
-        <span class="drop-copy"><span data-i18n="upload.browse">or click to choose a file</span><span data-i18n="upload.limits">Max 5 MiB · osu!standard only</span></span>
-      </label>
-      <section class="job" id="job" hidden>
-        <div id="state"></div><div class="meta" id="meta"></div>
-        <progress id="progress" value="0" max="100" aria-label="Render progress" data-i18n-aria-label="job.progress"></progress>
-        <p id="error" class="error"></p>
-        <button type="button" id="download" hidden data-i18n="job.download">Download MP4</button>
-        <button type="button" id="cancel" hidden data-i18n="job.cancel">Cancel render</button>
-      </section>
-    </section>
-  <details class="panel settings-card" id="settingsPanel">
-    <summary>
-      <span class="step">02</span>
-      <span class="summary-copy"><strong data-i18n="settings.title">Custom render settings</strong><small data-i18n="settings.hint">Applied to this render only; the server's base settings never change</small></span>
-      <span class="badge" id="settingsCount" data-i18n="settings.badge" data-i18n-n="38">Optional · 38 options</span>
-      <span class="chevron" aria-hidden="true">⌄</span>
-    </summary>
-    <div class="settings">
-      <fieldset>
-        <legend data-i18n="settings.output.legend">Output video</legend>
-        <label class="setting"><span data-i18n="settings.output.resolution">Resolution</span><select id="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.playback.legend">Playback &amp; volume</legend>
-        <label class="setting"><input id="skipIntro" type="checkbox" checked><span data-i18n="settings.playback.skipIntro">Skip intro automatically</span></label>
-        <label class="setting range"><span data-i18n="settings.playback.masterVolume">Master volume</span><input id="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue">50%</output></label>
-        <label class="setting range"><span data-i18n="settings.playback.musicVolume">Music volume</span><input id="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue">50%</output></label>
-        <label class="setting range"><span data-i18n="settings.playback.sampleVolume">Hitsound volume</span><input id="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue">50%</output></label>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.background.legend">Background &amp; playfield</legend>
-        <label class="setting range"><span data-i18n="settings.background.dim">Background dim</span><input id="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue">30%</output></label>
-        <label class="setting range"><span data-i18n="settings.background.blur">Background blur</span><input id="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue">0%</output></label>
-        <label class="setting range"><span data-i18n="settings.background.playfieldScale">Playfield scale</span><input id="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue">100%</output></label>
-        <label class="setting"><input id="loadVideos" type="checkbox" checked><span data-i18n="settings.background.videos">Background video</span></label>
-        <label class="setting"><input id="loadStoryboards" type="checkbox" checked><span data-i18n="settings.background.storyboards">Storyboard</span></label>
-        <label class="setting"><input id="backgroundParallax" type="checkbox" checked><span data-i18n="settings.background.parallax">Background parallax</span></label>
-        <label class="setting"><input id="bloom" type="checkbox" checked><span data-i18n="settings.background.bloom">Bloom</span></label>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
-        <label class="setting range"><span data-i18n="settings.cursor.size">Cursor size</span><input id="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue">12</output></label>
-        <label class="setting"><span data-i18n="settings.cursor.trailStyle">Trail style</span><select id="cursorTrailStyle"><option value="1" data-i18n="settings.cursor.trailOption" data-i18n-n="1">Style 1</option><option value="2" data-i18n="settings.cursor.trailOption" data-i18n-n="2">Style 2</option><option value="3" data-i18n="settings.cursor.trailOption" data-i18n-n="3">Style 3</option><option value="4" data-i18n="settings.cursor.trailOption" data-i18n-n="4">Style 4</option></select></label>
-        <label class="setting"><input id="cursorRainbow" type="checkbox"><span data-i18n="settings.cursor.rainbow">Rainbow cursor</span></label>
-        <label class="setting"><input id="cursorGlow" type="checkbox" checked><span data-i18n="settings.cursor.glow">Trail glow</span></label>
-        <label class="setting"><input id="cursorRipples" type="checkbox"><span data-i18n="settings.cursor.ripples">Click ripples</span></label>
-        <label class="setting"><input id="cursorSmoke" type="checkbox" checked><span data-i18n="settings.cursor.smoke">Cursor smoke</span></label>
-        <label class="setting"><input id="useSkinColors" type="checkbox" checked><span data-i18n="settings.cursor.skinColors">Use Skin colors</span></label>
-        <label class="setting"><input id="useBeatmapColors" type="checkbox" checked><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span></label>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.skin.legend">Skin</legend>
-        <label class="setting wide"><span data-i18n="settings.skin.select">Skin</span><select id="skin"><option value="default" selected data-i18n="settings.skin.default">Default (danser)</option></select></label>
-        <label class="setting wide"><input id="useSkinCursor" type="checkbox"><span data-i18n="settings.skin.cursor">Use the skin's cursor</span></label>
-        <div class="skin-actions">
-          <input id="skinFile" type="file" accept=".osk" hidden>
-          <button type="button" id="skinUpload" class="secondary" data-i18n="settings.skin.upload">Upload .osk</button>
-          <p class="diag-status" id="skinStatus" role="status" aria-live="polite"></p>
+
+      <aside class="quick card" aria-labelledby="quickTitle">
+        <div class="card-head">
+          <h2 id="quickTitle" data-i18n="quick.title">Quick settings</h2>
+          <p class="card-hint" data-i18n="quick.hint">Applied to your next render only.</p>
         </div>
-        <p class="skin-hint" data-i18n="settings.skin.hint">Uploaded skins are saved on this server and can be picked for any render.</p>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.hud.legend">HUD</legend>
-        <label class="setting"><input id="showScore" type="checkbox" checked><span data-i18n="settings.hud.score">Score &amp; accuracy</span></label>
-        <label class="setting"><input id="showHpBar" type="checkbox" checked><span data-i18n="settings.hud.hpBar">HP bar</span></label>
-        <label class="setting"><input id="showComboCounter" type="checkbox" checked><span data-i18n="settings.hud.combo">Combo</span></label>
-        <label class="setting"><input id="showHitErrorMeter" type="checkbox" checked><span data-i18n="settings.hud.hitError">Hit error meter</span></label>
-        <label class="setting"><input id="showPpCounter" type="checkbox" checked><span data-i18n="settings.hud.pp">PP counter</span></label>
-        <label class="setting"><input id="showHitCounter" type="checkbox" checked><span data-i18n="settings.hud.hitCounter">Hit counter</span></label>
-        <label class="setting"><input id="showStrainGraph" type="checkbox" checked><span data-i18n="settings.hud.strainGraph">Strain graph</span></label>
-        <label class="setting"><input id="showKeyOverlay" type="checkbox" checked><span data-i18n="settings.hud.keyOverlay">Key overlay</span></label>
-        <label class="setting"><input id="showScoreboard" type="checkbox" checked><span data-i18n="settings.hud.scoreboard">Leaderboard</span></label>
-        <label class="setting"><input id="showMods" type="checkbox" checked><span data-i18n="settings.hud.mods">Mods</span></label>
-        <label class="setting"><input id="showResultsScreen" type="checkbox" checked><span data-i18n="settings.hud.results">Results screen</span></label>
-      </fieldset>
-      <fieldset>
-        <legend data-i18n="settings.objects.legend">Hit objects</legend>
-        <label class="setting"><input id="showApproachCircles" type="checkbox" checked><span data-i18n="settings.objects.approach">Approach circles</span></label>
-        <label class="setting"><input id="showComboNumbers" type="checkbox" checked><span data-i18n="settings.objects.comboNumbers">Combo numbers</span></label>
-        <label class="setting"><input id="showSliderEndCircles" type="checkbox" checked><span data-i18n="settings.objects.sliderEnds">Slider end circles</span></label>
-        <label class="setting"><input id="showSliderFollowCircle" type="checkbox" checked><span data-i18n="settings.objects.followCircle">Slider follow circle</span></label>
-        <label class="setting"><input id="showSliderScorePoints" type="checkbox" checked><span data-i18n="settings.objects.ticks">Slider ticks</span></label>
-      </fieldset>
+        <label class="field token-field" id="tokenField" hidden><span data-i18n="upload.token">Service token</span>
+          <input id="token" type="password" autocomplete="current-password" placeholder="Required by this server" data-i18n-placeholder="upload.tokenPlaceholder">
+        </label>
+        <div class="field skin-field">
+          <label for="skin" data-i18n="settings.skin.select">Skin</label>
+          <div class="field-row">
+            <select id="skin" data-option="skin"><option value="default" selected data-i18n="settings.skin.default">Default (danser)</option></select>
+            <a class="btn btn-ghost btn-small" href="#/skins" data-i18n="quick.manageSkins">Manage</a>
+          </div>
+        </div>
+        <label class="field"><span data-i18n="settings.output.resolution">Resolution</span><select id="resolution" data-option="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
+        <label class="field range-field"><span data-i18n="settings.background.dim">Background dim</span><input id="backgroundDim" data-option="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue" for="backgroundDim">30%</output></label>
+        <div class="toggles">
+          <label class="toggle"><input id="skipIntro" data-option="skipIntro" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.playback.skipIntro">Skip intro automatically</span></label>
+          <label class="toggle"><input id="cursorGlow" data-option="cursorGlow" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.glow">Trail glow</span></label>
+          <label class="toggle"><input id="showResultsScreen" data-option="showResultsScreen" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.results">Results screen</span></label>
+        </div>
+        <button type="button" id="moreSettings" class="btn btn-secondary btn-block">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10m4 0h2M4 12h4m4 0h8M4 18h12m4 0h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span data-i18n="quick.more">More settings</span>
+        </button>
+        <div class="presets">
+          <label class="field"><span data-i18n="presets.label">Presets</span>
+            <select id="presetSelect"><option value="" data-i18n="presets.choose">Load a preset…</option></select>
+          </label>
+          <div class="preset-actions">
+            <button type="button" id="presetSave" class="btn btn-ghost btn-small" data-i18n="presets.save">Save as preset</button>
+            <button type="button" id="presetDelete" class="btn btn-ghost btn-small" disabled data-i18n="presets.delete">Delete preset</button>
+            <button type="button" id="presetReset" class="btn btn-ghost btn-small" data-i18n="presets.reset">Reset to defaults</button>
+          </div>
+          <p class="note" id="presetStatus" role="status" aria-live="polite"></p>
+        </div>
+      </aside>
     </div>
-    <p class="settings-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
-  </details>
-    <section class="panel diag-card" id="diagnostics" aria-labelledby="diagnosticsTitle">
-      <div class="panel-heading">
-        <span class="step">03</span>
-        <div><h2 id="diagnosticsTitle" data-i18n="diagnostics.title">Diagnostics</h2><p data-i18n="diagnostics.hint">Helps track down GPU and renderer problems</p></div>
+
+    <dialog class="drawer" id="settingsDrawer" aria-labelledby="drawerTitle">
+      <div class="drawer-head">
+        <div>
+          <h2 id="drawerTitle" data-i18n="settings.title">All render settings</h2>
+          <p class="card-hint" data-i18n="settings.hint">Applied to this render only; the server's base settings never change.</p>
+        </div>
+        <button type="button" id="drawerClose" class="btn btn-icon-only" aria-label="Close" data-i18n-aria-label="common.close"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <ul class="diag-list">
-        <li data-i18n="diagnostics.includes">Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.</li>
-        <li data-i18n="diagnostics.excludes">Never includes tokens, secrets, IP addresses or player names.</li>
-        <li id="diagPrivacy" data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
-        <li id="diagAutoSend" hidden data-i18n="diagnostics.autoSend">This server sends a redacted report to the developer after every finished render.</li>
-      </ul>
-      <div class="diag-actions">
-        <button type="button" id="diagSend" hidden data-i18n="diagnostics.send">Send to developer</button>
-        <button type="button" id="diagDownload" data-i18n="diagnostics.download">Download report</button>
-        <button type="button" id="diagCopy" class="secondary" data-i18n="diagnostics.copy">Copy summary</button>
-        <button type="button" id="diagIssue" class="secondary" data-i18n="diagnostics.issue">Open GitHub issue</button>
+      <label class="field search-field"><span class="sr-only" data-i18n="settings.search">Filter settings</span>
+        <input id="settingsSearch" type="search" autocomplete="off" placeholder="Search settings…" data-i18n-placeholder="settings.searchPlaceholder">
+      </label>
+      <div class="drawer-body" id="settingsGroups">
+        <fieldset>
+          <legend data-i18n="settings.playback.legend">Playback &amp; volume</legend>
+          <label class="setting range-field"><span data-i18n="settings.playback.masterVolume">Master volume</span><input id="masterVolume" data-option="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue" for="masterVolume">50%</output></label>
+          <label class="setting range-field"><span data-i18n="settings.playback.musicVolume">Music volume</span><input id="musicVolume" data-option="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue" for="musicVolume">50%</output></label>
+          <label class="setting range-field"><span data-i18n="settings.playback.sampleVolume">Hitsound volume</span><input id="sampleVolume" data-option="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue" for="sampleVolume">50%</output></label>
+        </fieldset>
+        <fieldset>
+          <legend data-i18n="settings.background.legend">Background &amp; playfield</legend>
+          <label class="setting range-field"><span data-i18n="settings.background.blur">Background blur</span><input id="backgroundBlur" data-option="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue" for="backgroundBlur">0%</output></label>
+          <label class="setting range-field"><span data-i18n="settings.background.playfieldScale">Playfield scale</span><input id="playfieldScale" data-option="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue" for="playfieldScale">100%</output></label>
+          <label class="setting toggle"><input id="loadVideos" data-option="loadVideos" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.videos">Background video</span></label>
+          <label class="setting toggle"><input id="loadStoryboards" data-option="loadStoryboards" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.storyboards">Storyboard</span></label>
+          <label class="setting toggle"><input id="backgroundParallax" data-option="backgroundParallax" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.parallax">Background parallax</span></label>
+          <label class="setting toggle"><input id="bloom" data-option="bloom" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.background.bloom">Bloom</span></label>
+        </fieldset>
+        <fieldset>
+          <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
+          <label class="setting range-field"><span data-i18n="settings.cursor.size">Cursor size</span><input id="cursorSize" data-option="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue" for="cursorSize">12</output></label>
+          <label class="setting"><span data-i18n="settings.cursor.trailStyle">Trail style</span><select id="cursorTrailStyle" data-option="cursorTrailStyle" data-type="number"><option value="1" selected data-i18n="settings.cursor.trailOption" data-i18n-n="1">Style 1</option><option value="2" data-i18n="settings.cursor.trailOption" data-i18n-n="2">Style 2</option><option value="3" data-i18n="settings.cursor.trailOption" data-i18n-n="3">Style 3</option><option value="4" data-i18n="settings.cursor.trailOption" data-i18n-n="4">Style 4</option></select></label>
+          <label class="setting toggle"><input id="cursorRainbow" data-option="cursorRainbow" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.rainbow">Rainbow cursor</span></label>
+          <label class="setting toggle"><input id="cursorRipples" data-option="cursorRipples" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.ripples">Click ripples</span></label>
+          <label class="setting toggle"><input id="cursorSmoke" data-option="cursorSmoke" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.smoke">Cursor smoke</span></label>
+          <label class="setting toggle"><input id="useSkinColors" data-option="useSkinColors" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.skinColors">Use skin colors</span></label>
+          <label class="setting toggle"><input id="useBeatmapColors" data-option="useBeatmapColors" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span></label>
+          <label class="setting toggle"><input id="useSkinCursor" data-option="useSkinCursor" type="checkbox"><span class="switch" aria-hidden="true"></span><span data-i18n="settings.skin.cursor">Use the skin's cursor</span></label>
+        </fieldset>
+        <fieldset>
+          <legend data-i18n="settings.hud.legend">HUD</legend>
+          <label class="setting toggle"><input id="showScore" data-option="showScore" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.score">Score &amp; accuracy</span></label>
+          <label class="setting toggle"><input id="showHpBar" data-option="showHpBar" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hpBar">HP bar</span></label>
+          <label class="setting toggle"><input id="showComboCounter" data-option="showComboCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.combo">Combo</span></label>
+          <label class="setting toggle"><input id="showHitErrorMeter" data-option="showHitErrorMeter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hitError">Hit error meter</span></label>
+          <label class="setting toggle"><input id="showPpCounter" data-option="showPpCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.pp">PP counter</span></label>
+          <label class="setting toggle"><input id="showHitCounter" data-option="showHitCounter" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.hitCounter">Hit counter</span></label>
+          <label class="setting toggle"><input id="showStrainGraph" data-option="showStrainGraph" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.strainGraph">Strain graph</span></label>
+          <label class="setting toggle"><input id="showKeyOverlay" data-option="showKeyOverlay" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.keyOverlay">Key overlay</span></label>
+          <label class="setting toggle"><input id="showScoreboard" data-option="showScoreboard" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.scoreboard">Leaderboard</span></label>
+          <label class="setting toggle"><input id="showMods" data-option="showMods" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.hud.mods">Mods</span></label>
+        </fieldset>
+        <fieldset>
+          <legend data-i18n="settings.objects.legend">Hit objects</legend>
+          <label class="setting toggle"><input id="showApproachCircles" data-option="showApproachCircles" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.approach">Approach circles</span></label>
+          <label class="setting toggle"><input id="showComboNumbers" data-option="showComboNumbers" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.comboNumbers">Combo numbers</span></label>
+          <label class="setting toggle"><input id="showSliderEndCircles" data-option="showSliderEndCircles" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.sliderEnds">Slider end circles</span></label>
+          <label class="setting toggle"><input id="showSliderFollowCircle" data-option="showSliderFollowCircle" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.followCircle">Slider follow circle</span></label>
+          <label class="setting toggle"><input id="showSliderScorePoints" data-option="showSliderScorePoints" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span data-i18n="settings.objects.ticks">Slider ticks</span></label>
+        </fieldset>
+        <p class="note" id="settingsNoMatch" hidden></p>
       </div>
-      <p class="diag-status" id="diagStatus" role="status" aria-live="polite"></p>
-      <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
-    </section>
-    <section class="panel history-card" id="history" aria-labelledby="historyTitle">
-      <div class="panel-heading">
-        <span class="step">04</span>
-        <div><h2 id="historyTitle" data-i18n="history.title">History</h2><p data-i18n="history.hint">Your recent renders on this server. Videos are deleted automatically after a while.</p></div>
-        <button type="button" id="historyRefresh" class="secondary" data-i18n="history.refresh">Refresh</button>
+      <p class="drawer-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
+    </dialog>
+  </section>
+
+  <section class="view" id="view-history" data-view="history" aria-labelledby="historyTitle" hidden>
+    <div class="view-head">
+      <div>
+        <h1 id="historyTitle" tabindex="-1" data-i18n="history.title">History</h1>
+        <p class="card-hint" data-i18n="history.hint">Your recent renders on this server. Videos are deleted automatically after a while.</p>
       </div>
-      <p class="diag-status" id="historyStatus" role="status" aria-live="polite"></p>
-      <p class="history-empty" id="historyEmpty" hidden data-i18n="history.empty">No renders yet. Upload a replay to start.</p>
-      <ul class="history-list" id="historyList"></ul>
-    </section>
-  </div>
+      <button type="button" id="historyRefresh" class="btn btn-secondary" data-i18n="history.refresh">Refresh</button>
+    </div>
+    <p class="note" id="historyStatus" role="status" aria-live="polite"></p>
+    <div class="empty card" id="historyEmpty" hidden>
+      <svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <p data-i18n="history.empty">No renders yet. Upload a replay to start.</p>
+      <a class="btn btn-primary" href="#/render" data-i18n="history.emptyAction">Render a replay</a>
+    </div>
+    <ul class="history-list" id="historyList"></ul>
+  </section>
+
+  <section class="view" id="view-skins" data-view="skins" aria-labelledby="skinsTitle" hidden>
+    <div class="view-head">
+      <div>
+        <h1 id="skinsTitle" tabindex="-1" data-i18n="skins.title">Skins</h1>
+        <p class="card-hint" data-i18n="skins.hint">Uploaded skins are saved on this server and can be picked for any render.</p>
+      </div>
+    </div>
+    <label class="dropzone dropzone-small card" id="skinDrop">
+      <input id="skinFile" type="file" accept=".osk" class="sr-only">
+      <span class="drop-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0-5 5m5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>
+      <strong class="drop-title" data-i18n="skins.drop">Drop an .osk skin here</strong>
+      <span class="drop-browse" data-i18n="upload.browse">or click to choose a file</span>
+    </label>
+    <p class="note" id="skinStatus" role="status" aria-live="polite"></p>
+    <ul class="skin-list" id="skinList"></ul>
+  </section>
+
+  <section class="view" id="view-diagnostics" data-view="diagnostics" aria-labelledby="diagnosticsTitle" hidden>
+    <div class="view-head">
+      <div>
+        <h1 id="diagnosticsTitle" tabindex="-1" data-i18n="diagnostics.title">Diagnostics</h1>
+        <p class="card-hint" data-i18n="diagnostics.hint">Helps track down GPU and renderer problems</p>
+      </div>
+    </div>
+    <div class="diag-grid">
+      <section class="card" aria-labelledby="rendererTitle">
+        <div class="card-head"><h2 id="rendererTitle" data-i18n="diagnostics.renderer.title">Renderer</h2></div>
+        <dl class="facts" id="rendererFacts"></dl>
+        <h3 class="sub-title" data-i18n="diagnostics.renderer.probes">Encoder self-tests</h3>
+        <p class="note" id="probesEmpty" data-i18n="diagnostics.renderer.probesHint">Shown after you download or copy the report, which runs the self-tests.</p>
+        <ul class="probe-list" id="probeList"></ul>
+      </section>
+      <section class="card diag-card" id="diagnostics" aria-labelledby="reportTitle">
+        <div class="card-head"><h2 id="reportTitle" data-i18n="diagnostics.report">Diagnostics report</h2></div>
+        <ul class="diag-list">
+          <li data-i18n="diagnostics.includes">Includes your OS, GPU model and driver, encoder self-tests, danser and ffmpeg info, and recent render results and logs, with home folder paths redacted.</li>
+          <li data-i18n="diagnostics.excludes">Never includes tokens, secrets, IP addresses or player names.</li>
+          <li id="diagPrivacy" data-i18n="diagnostics.privacy">Nothing is sent automatically. You choose whether to share it.</li>
+          <li id="diagAutoSend" hidden data-i18n="diagnostics.autoSend">This server sends a redacted report to the developer after every finished render.</li>
+        </ul>
+        <div class="diag-actions">
+          <button type="button" id="diagSend" class="btn btn-primary" hidden data-i18n="diagnostics.send">Send to developer</button>
+          <button type="button" id="diagDownload" class="btn btn-primary" data-i18n="diagnostics.download">Download report</button>
+          <button type="button" id="diagCopy" class="btn btn-secondary" data-i18n="diagnostics.copy">Copy summary</button>
+          <button type="button" id="diagIssue" class="btn btn-secondary" data-i18n="diagnostics.issue">Open GitHub issue</button>
+        </div>
+        <p class="note" id="diagStatus" role="status" aria-live="polite"></p>
+        <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
+      </section>
+    </div>
+  </section>
 </main>
-<script type="module">
-const drop = document.querySelector('#drop');
-const input = document.querySelector('#file');
-const job = document.querySelector('#job');
-const state = document.querySelector('#state');
-const meta = document.querySelector('#meta');
-const progress = document.querySelector('#progress');
-const error = document.querySelector('#error');
-const download = document.querySelector('#download');
-const cancel = document.querySelector('#cancel');
-const token = document.querySelector('#token');
-const settingsPanel = document.querySelector('#settingsPanel');
-const settingsCount = document.querySelector('#settingsCount');
-const historyList = document.querySelector('#historyList');
-const historyEmpty = document.querySelector('#historyEmpty');
-const historyStatus = document.querySelector('#historyStatus');
-const historyRefresh = document.querySelector('#historyRefresh');
-const languageSelect = document.querySelector('#language');
-const rendererStatus = document.querySelector('#rendererStatus');
-const rendererLabel = document.querySelector('#rendererLabel');
-const rendererReason = document.querySelector('#rendererReason');
-const diagnosticsCard = document.querySelector('#diagnostics');
-const diagDownload = document.querySelector('#diagDownload');
-const diagCopy = document.querySelector('#diagCopy');
-const diagIssue = document.querySelector('#diagIssue');
-const diagStatus = document.querySelector('#diagStatus');
-const diagSummary = document.querySelector('#diagSummary');
-const diagSend = document.querySelector('#diagSend');
-const diagPrivacy = document.querySelector('#diagPrivacy');
-const diagAutoSend = document.querySelector('#diagAutoSend');
-const updateBanner = document.querySelector('#updateBanner');
-const updateTitle = document.querySelector('#updateTitle');
-const updateDetail = document.querySelector('#updateDetail');
-const updateApply = document.querySelector('#updateApply');
-const updateNotes = document.querySelector('#updateNotes');
-const skinSelect = document.querySelector('#skin');
-const skinFile = document.querySelector('#skinFile');
-const skinUpload = document.querySelector('#skinUpload');
-const skinStatus = document.querySelector('#skinStatus');
-const LANGUAGES = [...languageSelect.options].map((option) => option.value);
-const FALLBACK_LANGUAGE = 'en';
-const LANGUAGE_STORAGE_KEY = 'language';
-const HEALTH_REFRESH_MS = 30_000;
-const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
-const HISTORY_LIMIT = 20;
-const ISSUE_URL_PREFIX = 'https://github.com/';
-const UPDATE_STORAGE_KEY = 'updateTarget';
-const UPDATE_POLL_MS = 2000;
-const UPDATE_RESTART_TIMEOUT_MS = 10 * 60_000;
-const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv'], [/^libx264$/, 'x264']];
-const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
-let timer;
-let messages = null;
-let languageRequest = 0;
-let currentJob = null;
-let uploadError = null;
-let requestError = null;
-let health = null;
-let diagnosticsReport = null;
-let diagnosticsMessage = null;
-let diagnosticsBusy = false;
-let update = null;
-let updateMessage = null;
-let updateBusy = false;
-let skinMessage = null;
-let historyItems = null;
-let historyMessage = null;
-let skinBusy = false;
 
-settingsPanel.open = window.matchMedia('(min-width: 941px)').matches;
-settingsCount.dataset.i18nN = String(Object.keys(renderOptions()).length);
-token.value = sessionStorage.getItem('serviceToken') ?? '';
-token.addEventListener('change', () => { sessionStorage.setItem('serviceToken', token.value); loadSkins(); loadHistory(); });
-for (const id of ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale', 'cursorSize']) {
-  const control = document.querySelector(`#${id}`); const output = document.querySelector(`#${id}Value`);
-  control.addEventListener('input', () => { output.value = `${control.value}${id === 'cursorSize' ? '' : '%'}`; });
-}
-drop.addEventListener('dragover', (event) => { event.preventDefault(); drop.classList.add('drag'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
-drop.addEventListener('drop', (event) => { event.preventDefault(); drop.classList.remove('drag'); upload(event.dataTransfer.files[0]); });
-input.addEventListener('change', () => upload(input.files[0]));
-cancel.addEventListener('click', async () => { if (window.jobId) await api(`/api/renders/${window.jobId}`, { method: 'DELETE' }); });
-download.addEventListener('click', async () => {
-  const response = await api(`/api/renders/${window.jobId}/video`);
-  if (!response.ok) { requestError = (await readJson(response))?.error ?? { key: 'errors.RENDER_FAILED' }; renderJob(); return; }
-  saveBlob(await response.blob(), `${window.jobId}.mp4`);
-});
-skinUpload.addEventListener('click', () => { if (!skinBusy) skinFile.click(); });
-skinFile.addEventListener('change', () => { const file = skinFile.files[0]; skinFile.value = ''; uploadSkin(file); });
-languageSelect.addEventListener('change', () => {
-  try { localStorage.setItem(LANGUAGE_STORAGE_KEY, languageSelect.value); } catch { /* storage disabled: choice lasts for this page */ }
-  setLanguage(languageSelect.value);
-});
-diagDownload.addEventListener('click', async () => {
-  const report = await fetchDiagnostics();
-  if (!report) return;
-  saveBlob(new Blob([`${JSON.stringify(report, null, 2)}\n`], { type: 'application/json' }), `osu-render-diagnostics-${fileTimestamp(new Date())}.json`);
-  showDiagnostics('diagnostics.downloaded', 'ok');
-});
-diagCopy.addEventListener('click', async () => {
-  const report = diagnosticsReport ?? await fetchDiagnostics();
-  if (!report) return;
-  const body = report.issue?.body;
-  if (typeof body !== 'string' || !body) { showDiagnostics('diagnostics.failed', 'error'); return; }
-  if (await copyText(body)) { diagSummary.hidden = true; showDiagnostics('diagnostics.copied', 'ok'); return; }
-  diagSummary.value = body; diagSummary.hidden = false; diagSummary.focus(); diagSummary.select();
-  showDiagnostics('diagnostics.copyManual', 'error');
-});
-diagIssue.addEventListener('click', async () => {
-  let report = diagnosticsReport;
-  if (!report) {
-    report = await fetchDiagnostics();
-    if (!report) return;
-    // Popup blockers drop window.open once the click's user activation has expired (slow self-tests).
-    if (navigator.userActivation && !navigator.userActivation.isActive) { showDiagnostics('diagnostics.openAgain', 'info'); return; }
-  }
-  const url = report.issue?.url;
-  if (typeof url !== 'string' || !url.startsWith(ISSUE_URL_PREFIX)) { showDiagnostics('diagnostics.noIssueLink', 'error'); return; }
-  window.open(url, '_blank', 'noopener');
-  showDiagnostics('diagnostics.opened', 'ok');
-});
-diagSend.addEventListener('click', async () => {
-  if (diagnosticsBusy) return;
-  setDiagnosticsBusy(true); showDiagnostics('diagnostics.sending', 'info');
-  try {
-    const response = await api('/api/diagnostics/send', { method: 'POST' });
-    const data = await readJson(response);
-    if (response.status === 401 || data?.error?.code === 'UNAUTHORIZED') { showDiagnostics('diagnostics.needsToken', 'error'); return; }
-    if (response.ok && data?.sent === true) { showDiagnostics('diagnostics.sent', 'ok'); return; }
-    showDiagnostics(data?.error?.code === 'REPORT_WEBHOOK_DISABLED' ? 'errors.REPORT_WEBHOOK_DISABLED' : 'errors.REPORT_SEND_FAILED', 'error');
-  } catch {
-    showDiagnostics('errors.REPORT_SEND_FAILED', 'error');
-  } finally { setDiagnosticsBusy(false); }
-});
-
-languageSelect.value = detectLanguage();
-setLanguage(languageSelect.value);
-loadHealth();
-setInterval(loadHealth, HEALTH_REFRESH_MS);
-loadUpdate();
-updateApply.addEventListener('click', applyUpdate);
-loadSkins();
-loadHistory();
-historyRefresh.addEventListener('click', () => loadHistory());
-
-async function upload(file) {
-  if (!file) return;
-  const form = new FormData();
-  form.append('options', JSON.stringify(renderOptions()));
-  form.append('replay', file);
-  job.hidden = false;
-  let response;
-  try { response = await api('/api/renders', { method: 'POST', body: form }); } catch { response = null; }
-  const data = response ? await readJson(response) : null;
-  if (!response?.ok || typeof data?.id !== 'string') { uploadError = data?.error ?? { key: 'job.uploadFailed' }; renderJob(); return; }
-  uploadError = null; requestError = null; currentJob = null; loadHistory();
-  window.jobId = data.id; clearInterval(timer); poll(); timer = setInterval(poll, 1500);
-}
-function renderOptions() {
-  const checked = (id) => document.querySelector(`#${id}`).checked;
-  const number = (id) => Number(document.querySelector(`#${id}`).value);
-  return {
-    resolution: document.querySelector('#resolution').value,
-    skin: skinSelect.value, useSkinCursor: checked('useSkinCursor'),
-    skipIntro: checked('skipIntro'), masterVolume: number('masterVolume'),
-    musicVolume: number('musicVolume'), sampleVolume: number('sampleVolume'),
-    backgroundDim: number('backgroundDim'), backgroundBlur: number('backgroundBlur'),
-    playfieldScale: number('playfieldScale'), loadVideos: checked('loadVideos'),
-    loadStoryboards: checked('loadStoryboards'), backgroundParallax: checked('backgroundParallax'),
-    bloom: checked('bloom'), cursorSize: number('cursorSize'), cursorTrailStyle: number('cursorTrailStyle'),
-    cursorRainbow: checked('cursorRainbow'), cursorGlow: checked('cursorGlow'),
-    cursorRipples: checked('cursorRipples'), cursorSmoke: checked('cursorSmoke'),
-    useSkinColors: checked('useSkinColors'), useBeatmapColors: checked('useBeatmapColors'),
-    showScore: checked('showScore'), showHpBar: checked('showHpBar'),
-    showComboCounter: checked('showComboCounter'),
-    showHitErrorMeter: checked('showHitErrorMeter'), showPpCounter: checked('showPpCounter'),
-    showHitCounter: checked('showHitCounter'), showStrainGraph: checked('showStrainGraph'),
-    showKeyOverlay: checked('showKeyOverlay'), showScoreboard: checked('showScoreboard'),
-    showMods: checked('showMods'), showResultsScreen: checked('showResultsScreen'),
-    showApproachCircles: checked('showApproachCircles'), showComboNumbers: checked('showComboNumbers'),
-    showSliderEndCircles: checked('showSliderEndCircles'),
-    showSliderFollowCircle: checked('showSliderFollowCircle'),
-    showSliderScorePoints: checked('showSliderScorePoints'),
-  };
-}
-async function poll() {
-  const jobId = window.jobId;
-  let response;
-  try { response = await api(`/api/renders/${jobId}`); } catch { return; }
-  const data = await readJson(response);
-  if (jobId !== window.jobId) return;
-  if (!response.ok || typeof data?.status !== 'string') {
-    requestError = data?.error ?? { key: 'errors.INTERNAL_ERROR' }; renderJob();
-    if (response.status === 404) clearInterval(timer);
-    return;
-  }
-  currentJob = data; requestError = null; renderJob();
-  if (TERMINAL_STATUSES.includes(data.status)) { clearInterval(timer); loadHealth(); loadHistory(); }
-}
-function renderJob() {
-  if (currentJob) {
-    const data = currentJob;
-    state.textContent = t(`status.${data.status}`, { position: data.queuePosition ?? '?', progress: Math.round(Number(data.progress) || 0) }, data.status);
-    progress.value = data.progress ?? 0;
-    meta.textContent = data.player ? `${data.player} · ${data.beatmap?.id ?? t('job.mapResolving')}` : '';
-    download.hidden = data.status !== 'completed'; cancel.hidden = TERMINAL_STATUSES.includes(data.status);
-  }
-  error.textContent = errorText(currentJob?.error) || errorText(uploadError) || errorText(requestError);
-}
-function errorText(problem) {
-  if (!problem) return '';
-  if (problem.key) return t(problem.key, problem.vars);
-  return t(`errors.${problem.code}`, {}, problem.message ?? String(problem.code ?? ''));
-}
-async function readJson(response) {
-  try { return await response.json(); } catch { return null; }
-}
-function api(url, options = {}) {
-  const headers = new Headers(options.headers); if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
-  return fetch(url, { ...options, headers });
-}
-async function loadHistory(message = null) {
-  try {
-    const response = await api(`/api/renders?limit=${HISTORY_LIMIT}`, { cache: 'no-store' });
-    const data = await readJson(response);
-    if (response.status === 401 || data?.error?.code === 'UNAUTHORIZED') { historyItems = null; historyMessage = { key: 'diagnostics.needsToken' }; }
-    else if (!response.ok || !Array.isArray(data?.renders)) historyMessage = { key: 'history.failed' };
-    else { historyItems = data.renders; historyMessage = message; }
-  } catch { historyMessage = { key: 'history.failed' }; }
-  renderHistory();
-}
-function renderHistory() {
-  historyStatus.textContent = historyMessage ? errorText(historyMessage) : '';
-  historyStatus.dataset.tone = historyMessage ? 'error' : '';
-  historyEmpty.hidden = !(Array.isArray(historyItems) && historyItems.length === 0);
-  historyList.replaceChildren(...(historyItems ?? []).map(historyEntry));
-}
-function historyEntry(item) {
-  const entry = document.createElement('li');
-  entry.className = 'history-item';
-  const title = document.createElement('strong');
-  title.textContent = mapLabel(item.beatmap);
-  title.title = title.textContent;
-  const state = document.createElement('span');
-  state.className = 'history-state'; state.dataset.status = item.status;
-  state.textContent = t(`status.${item.status}`, { position: '?', progress: Math.round(Number(item.progress) || 0) }, item.status);
-  const meta = document.createElement('p');
-  meta.className = 'history-meta';
-  meta.textContent = [
-    formatTime(item.createdAt), item.player, item.mods, item.resolution, encoderLabel(item.encoder),
-    item.renderMs ? t('history.took', { duration: formatDuration(item.renderMs) }) : null,
-  ].filter(Boolean).join(' · ');
-  const files = document.createElement('p');
-  files.className = 'history-files';
-  if (item.error) { files.textContent = errorText(item.error); files.dataset.tone = 'error'; }
-  else if (item.filesDeleted) files.textContent = t('history.deleted');
-  else if (TERMINAL_STATUSES.includes(item.status) && item.expiresAt) files.textContent = t('history.expires', { time: formatTime(item.expiresAt) });
-  const actions = document.createElement('div');
-  actions.className = 'history-actions';
-  if (item.videoAvailable) actions.append(historyButton(t('history.download'), '', () => downloadHistoryVideo(item.id)));
-  if (TERMINAL_STATUSES.includes(item.status) && !item.filesDeleted) {
-    actions.append(historyButton(t('history.deleteFiles'), 'secondary', () => deleteHistoryFiles(item.id)));
-  }
-  entry.append(title, state, meta, files, actions);
-  return entry;
-}
-function historyButton(text, className, onClick) {
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = className; button.textContent = text;
-  button.addEventListener('click', onClick);
-  return button;
-}
-function mapLabel(beatmap) {
-  if (!beatmap?.title) return beatmap?.id ? `#${beatmap.id}` : t('history.unknownMap');
-  const name = beatmap.artist ? `${beatmap.artist} - ${beatmap.title}` : beatmap.title;
-  return beatmap.version ? `${name} [${beatmap.version}]` : name;
-}
-function formatTime(value) {
-  return typeof value === 'number' ? new Date(value).toLocaleString(document.documentElement.lang || undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
-}
-function formatDuration(ms) {
-  const seconds = Math.max(1, Math.round(ms / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-}
-async function downloadHistoryVideo(id) {
-  let response;
-  try { response = await api(`/api/renders/${id}/video`); } catch { response = null; }
-  if (!response?.ok) { await loadHistory((response && (await readJson(response))?.error) ?? { key: 'errors.RENDER_FAILED' }); return; }
-  saveBlob(await response.blob(), `${id}.mp4`);
-}
-async function deleteHistoryFiles(id) {
-  if (!window.confirm(t('history.confirmDelete'))) return;
-  let response;
-  try { response = await api(`/api/renders/${id}/files`, { method: 'DELETE' }); } catch { response = null; }
-  await loadHistory(response?.ok ? null : (response && (await readJson(response))?.error) ?? { key: 'history.failed' });
-}
-function saveBlob(blob, filename) {
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = filename; link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
-
-function detectLanguage() {
-  let stored = null;
-  try { stored = localStorage.getItem(LANGUAGE_STORAGE_KEY); } catch { /* storage disabled */ }
-  if (LANGUAGES.includes(stored)) return stored;
-  for (const tag of navigator.languages?.length ? navigator.languages : [navigator.language ?? '']) {
-    const lower = tag.toLowerCase();
-    if (lower.startsWith('zh')) return 'zh-TW';
-    if (lower.startsWith('es')) return 'es';
-    if (lower.startsWith('en')) return 'en';
-  }
-  return FALLBACK_LANGUAGE;
-}
-async function setLanguage(language) {
-  const request = ++languageRequest;
-  let loaded = await loadMessages(language);
-  if (!loaded && language !== FALLBACK_LANGUAGE) loaded = await loadMessages(FALLBACK_LANGUAGE);
-  if (request !== languageRequest || !loaded) return; // superseded, or nothing loaded: keep the text already on screen
-  messages = loaded.messages;
-  document.documentElement.lang = loaded.language;
-  applyTranslations(); renderHealth(); renderJob(); renderDiagnosticsStatus(); renderSkinStatus(); renderHistory(); renderUpdate();
-}
-async function loadMessages(language) {
-  try {
-    const response = await fetch(`/i18n/${encodeURIComponent(language)}.json`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data && typeof data === 'object' && !Array.isArray(data) ? { language, messages: data } : null;
-  } catch { return null; }
-}
-function lookup(key) {
-  let node = messages;
-  for (const part of key.split('.')) {
-    if (node === null || typeof node !== 'object' || !Object.hasOwn(node, part)) return undefined;
-    node = node[part];
-  }
-  return typeof node === 'string' ? node : undefined;
-}
-function format(text, vars) {
-  return text.replace(/\{(\w+)\}/g, (match, name) => (vars[name] === undefined ? match : String(vars[name])));
-}
-function t(key, vars = {}, fallback = key) {
-  const text = lookup(key);
-  return text === undefined ? fallback : format(text, vars);
-}
-function applyTranslations() {
-  for (const element of document.querySelectorAll('[data-i18n]')) {
-    const text = lookup(element.dataset.i18n);
-    if (text !== undefined) element.textContent = format(text, { n: element.dataset.i18nN });
-  }
-  for (const attribute of I18N_ATTRIBUTES) {
-    for (const element of document.querySelectorAll(`[data-i18n-${attribute}]`)) {
-      const text = lookup(element.getAttribute(`data-i18n-${attribute}`));
-      if (text !== undefined) element.setAttribute(attribute, text);
-    }
-  }
-}
-
-async function loadHealth() {
-  try {
-    const response = await fetch('/health', { cache: 'no-store' });
-    const data = await response.json();
-    if (data?.status !== 'ok' && data?.status !== 'degraded') return;
-    health = data; renderHealth();
-  } catch { /* informational only: keep the last known state */ }
-}
-function encoderLabel(encoder) {
-  if (typeof encoder !== 'string' || encoder === 'unknown') return t('encoder.unknown');
-  const family = ENCODER_FAMILIES.find(([pattern]) => pattern.test(encoder))?.[1];
-  return family ? t(`encoder.${family}`, {}, encoder) : encoder;
-}
-function renderHealth() {
-  if (!health) return;
-  const kind = health.encoderKind ?? (health.encoder === 'libx264' ? 'software' : health.encoder === 'unknown' ? 'none' : 'hardware');
-  rendererLabel.textContent = kind === 'hardware' || kind === 'software'
-    ? t('renderer.chip', { kind: t(`renderer.kind.${kind}`), encoder: encoderLabel(health.encoder) })
-    : t('renderer.none');
-  const reason = health.status === 'degraded' && typeof health.reason === 'string' ? t(`reason.${health.reason}`, {}, health.reason) : '';
-  rendererReason.textContent = reason; rendererReason.hidden = !reason;
-  rendererStatus.dataset.state = health.status;
-  rendererStatus.hidden = false;
-  const reporting = health.reportWebhook === true;
-  diagSend.hidden = !reporting; diagAutoSend.hidden = !reporting; diagPrivacy.hidden = reporting;
-  diagDownload.classList.toggle('secondary', reporting);
-}
-
-async function fetchDiagnostics() {
-  if (diagnosticsBusy) return null;
-  setDiagnosticsBusy(true); showDiagnostics('diagnostics.loading', 'info');
-  try {
-    const response = await api('/api/diagnostics', { cache: 'no-store' });
-    const report = await readJson(response);
-    if (response.status === 401 || report?.error?.code === 'UNAUTHORIZED') { showDiagnostics('diagnostics.needsToken', 'error'); return null; }
-    if (!response.ok) { showDiagnostics('diagnostics.failed', 'error'); return null; }
-    if (!report || typeof report !== 'object' || Array.isArray(report)) { showDiagnostics('diagnostics.failed', 'error'); return null; }
-    diagnosticsReport = report; showDiagnostics(null);
-    return report;
-  } catch {
-    showDiagnostics('diagnostics.failed', 'error'); return null;
-  } finally { setDiagnosticsBusy(false); }
-}
-function setDiagnosticsBusy(busy) {
-  diagnosticsBusy = busy;
-  diagnosticsCard.setAttribute('aria-busy', String(busy));
-  for (const button of [diagSend, diagDownload, diagCopy, diagIssue]) button.setAttribute('aria-disabled', String(busy));
-}
-function showDiagnostics(key, tone) {
-  diagnosticsMessage = key ? { key, tone } : null; renderDiagnosticsStatus();
-}
-function renderDiagnosticsStatus() {
-  diagStatus.textContent = diagnosticsMessage ? t(diagnosticsMessage.key) : '';
-  diagStatus.dataset.tone = diagnosticsMessage?.tone ?? '';
-}
-async function loadSkins(selected = skinSelect.value) {
-  let names = [];
-  try {
-    const response = await api('/api/skins', { cache: 'no-store' });
-    const data = await readJson(response);
-    if (response.ok && Array.isArray(data?.skins)) names = data.skins.map((skin) => skin?.name).filter((name) => typeof name === 'string');
-  } catch { /* keep the built-in default only */ }
-  names = ['default', ...names.filter((name) => name !== 'default')];
-  skinSelect.replaceChildren(...names.map((name) => {
-    const option = document.createElement('option');
-    option.value = name;
-    if (name === 'default') { option.dataset.i18n = 'settings.skin.default'; option.textContent = t('settings.skin.default', {}, 'Default (danser)'); } else option.textContent = name;
-    return option;
-  }));
-  skinSelect.value = names.includes(selected) ? selected : 'default';
-}
-async function uploadSkin(file) {
-  if (!file || skinBusy) return;
-  if (!file.name.toLowerCase().endsWith('.osk')) { showSkin({ code: 'SKIN_INVALID' }, 'error'); return; }
-  setSkinBusy(true); showSkin({ key: 'settings.skin.uploading' }, 'info');
-  try {
-    const form = new FormData();
-    form.append('skin', file);
-    const response = await api('/api/skins', { method: 'POST', body: form });
-    const data = await readJson(response);
-    if (!response.ok || typeof data?.name !== 'string') { showSkin(data?.error ?? { key: 'settings.skin.failed' }, 'error'); return; }
-    await loadSkins(data.name);
-    showSkin({ key: 'settings.skin.installed', vars: { name: data.name } }, 'ok');
-  } catch {
-    showSkin({ key: 'settings.skin.failed' }, 'error');
-  } finally { setSkinBusy(false); }
-}
-function setSkinBusy(busy) {
-  skinBusy = busy;
-  skinUpload.setAttribute('aria-disabled', String(busy));
-}
-function showSkin(problem, tone) {
-  skinMessage = { problem, tone }; renderSkinStatus();
-}
-function renderSkinStatus() {
-  skinStatus.textContent = skinMessage ? errorText(skinMessage.problem) : '';
-  skinStatus.dataset.tone = skinMessage?.tone ?? '';
-}
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch { /* insecure context or denied: try the legacy path */ }
-  const scratch = document.createElement('textarea');
-  scratch.value = text; scratch.readOnly = true; scratch.className = 'clipboard-scratch';
-  document.body.append(scratch); scratch.select();
-  try { return document.execCommand('copy'); } catch { return false; } finally { scratch.remove(); }
-}
-
-async function loadUpdate() {
-  try {
-    const response = await api('/api/update', { cache: 'no-store' });
-    const data = response.ok ? await readJson(response) : null;
-    if (typeof data?.current !== 'string') return;
-    update = data;
-  } catch { return; } // informational only
-  let target = null;
-  try { target = sessionStorage.getItem(UPDATE_STORAGE_KEY); sessionStorage.removeItem(UPDATE_STORAGE_KEY); } catch { /* storage disabled */ }
-  if (target) {
-    updateMessage = update.current === target
-      ? { key: 'update.done', vars: { version: target }, tone: 'ok' }
-      : { key: 'update.notInstalled', vars: { version: update.current }, tone: 'error' };
-  }
-  renderUpdate();
-}
-function renderUpdate() {
-  const available = update?.available === true && typeof update.latest === 'string';
-  updateBanner.hidden = !available && !updateMessage;
-  if (updateBanner.hidden) return;
-  updateBanner.dataset.tone = updateMessage?.tone ?? 'info';
-  updateBanner.setAttribute('aria-busy', String(updateBusy));
-  updateTitle.textContent = available ? t('update.available', { version: update.latest, current: update.current }) : '';
-  if (updateMessage?.problem) updateDetail.textContent = errorText(updateMessage.problem);
-  else if (updateMessage) updateDetail.textContent = t(updateMessage.key, updateMessage.vars);
-  else updateDetail.textContent = update.portable ? '' : t('update.gitHint');
-  updateApply.hidden = !available || update.portable !== true;
-  updateApply.setAttribute('aria-disabled', String(updateBusy));
-  const notesUrl = typeof update?.notesUrl === 'string' && update.notesUrl.startsWith(ISSUE_URL_PREFIX) ? update.notesUrl : null;
-  updateNotes.hidden = !available || !notesUrl;
-  if (notesUrl) updateNotes.href = notesUrl;
-}
-async function applyUpdate() {
-  if (updateBusy || update?.available !== true) return;
-  if (!window.confirm(t('update.confirm', { version: update.latest }))) return;
-  updateBusy = true; updateMessage = { key: 'update.downloading', vars: {}, tone: 'info' }; renderUpdate();
-  let response = null;
-  let data = null;
-  try { response = await api('/api/update/apply', { method: 'POST' }); data = await readJson(response); } catch { /* reported below */ }
-  if (!response?.ok || data?.applying !== true || typeof data.version !== 'string') {
-    updateBusy = false; updateMessage = { problem: data?.error ?? { code: 'UPDATE_FAILED' }, tone: 'error' }; renderUpdate();
-    return;
-  }
-  try { sessionStorage.setItem(UPDATE_STORAGE_KEY, data.version); } catch { /* the reload just skips the result message */ }
-  updateMessage = { key: 'update.restarting', vars: { version: data.version }, tone: 'info' }; renderUpdate();
-  await waitForRestart(data.version);
-}
-// The server exits, start.bat installs the files and starts it again: reload once it answers as the new version
-// (or answers again after having been down, so the page can show that the update was rolled back).
-async function waitForRestart(version) {
-  const deadline = Date.now() + UPDATE_RESTART_TIMEOUT_MS;
-  let wentDown = false;
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, UPDATE_POLL_MS));
-    let up = false;
-    try { up = (await fetch('/health', { cache: 'no-store' })).ok; } catch { /* still restarting */ }
-    if (!up) { wentDown = true; continue; }
-    let current = null;
-    try { current = (await readJson(await api('/api/update', { cache: 'no-store' })))?.current ?? null; } catch { /* retry */ }
-    if (wentDown || current === version) { window.location.reload(); return; }
-  }
-  updateBusy = false; updateMessage = { key: 'update.timeout', vars: {}, tone: 'error' }; renderUpdate();
-}
-function fileTimestamp(date) {
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
-}
-</script>
+<dialog class="modal" id="previewDialog" aria-labelledby="previewTitle">
+  <div class="drawer-head">
+    <h2 id="previewTitle"></h2>
+    <button type="button" id="previewClose" class="btn btn-icon-only" aria-label="Close" data-i18n-aria-label="common.close"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <video class="preview-video" id="previewVideo" controls preload="metadata" playsinline></video>
+</dialog>
 </body>
 </html>

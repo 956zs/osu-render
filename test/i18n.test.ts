@@ -49,10 +49,8 @@ function decodeEntities(text: string): string {
 }
 
 async function pageParts(): Promise<{ markup: string; script: string }> {
-  const html = await readFile('public/index.html', 'utf8');
-  const scriptStart = html.indexOf('<script type="module">');
-  assert.ok(scriptStart > 0, 'index.html must contain the module script');
-  return { markup: html.slice(0, scriptStart), script: html.slice(scriptStart) };
+  const [markup, script] = await Promise.all([readFile('public/index.html', 'utf8'), readFile('public/app.js', 'utf8')]);
+  return { markup, script };
 }
 
 // Collects every start tag that carries a data-i18n* attribute. Elements with data-i18n must hold
@@ -146,13 +144,13 @@ test('script references only existing keys and every key is used', async () => {
   const english = await loadLocale('en');
   const { markup, script } = await pageParts();
   const staticKeys = [
-    ...[...script.matchAll(/\b(?:t|showDiagnostics)\('([a-z][\w.]*)'/g)].map((match) => match[1]),
+    ...[...script.matchAll(/\b(?:t|showDiagnostics|showPreset)\('([a-z][\w.]*)'/g)].map((match) => match[1]),
     ...[...script.matchAll(/\bkey: '([a-z][\w.]*)'/g)].map((match) => match[1]),
   ];
   assert.ok(staticKeys.length > 10);
   assert.deepEqual(staticKeys.filter((key) => !english.has(key)), []);
   const dynamicPrefixes = [...script.matchAll(/\bt\(`([a-z][\w.]*)\.\$\{/g)].map((match) => `${match[1]}.`);
-  assert.deepEqual([...new Set(dynamicPrefixes)].sort(), ['encoder.', 'errors.', 'reason.', 'renderer.kind.', 'status.']);
+  assert.deepEqual([...new Set(dynamicPrefixes)].sort(), ['encoder.', 'errors.', 'job.steps.', 'reason.', 'renderer.kind.', 'status.']);
   const markupKeys = [...markup.matchAll(/\sdata-i18n(?:-[a-z-]+)?="([a-z][\w.]*)"/g)].map((match) => match[1]);
   const used = new Set([...staticKeys, ...markupKeys]);
   const unused = [...english.keys()].filter((key) => !used.has(key) && !dynamicPrefixes.some((prefix) => key.startsWith(prefix)));
