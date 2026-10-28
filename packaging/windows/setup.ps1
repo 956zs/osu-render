@@ -36,10 +36,17 @@ function Read-WebhookUrl([string]$preset, [bool]$prompt) {
   }
   if (-not $prompt) { return '' }
   while ($true) {
-    $secure = Read-Host "Developer report webhook URL (leave empty to skip, input hidden)" -AsSecureString
-    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr).Trim() }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    if ([Console]::IsInputRedirected) {
+      # Read-Host -AsSecureString reads the console, not redirected input, and would wait forever (piped input, CI).
+      $value = [Console]::In.ReadLine()
+      if ($null -eq $value) { $value = '' }
+      $value = $value.Trim()
+    } else {
+      $secure = Read-Host "Developer report webhook URL (leave empty to skip, input hidden)" -AsSecureString
+      $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+      try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr).Trim() }
+      finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    }
     if ($value -eq '' -or (Test-WebhookUrl $value)) { return $value }
     Write-Host "That is not a Discord webhook URL. It looks like https://discord.com/api/webhooks/<numbers>/<token>. Paste it again, or press Enter to skip." -ForegroundColor Yellow
   }
