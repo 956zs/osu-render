@@ -1,6 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { EncoderSetting } from './encoders.js';
+import { renameWithRetry } from './platform.js';
 import type { Paths } from './types.js';
 
 type Section = Record<string, unknown>;
@@ -48,7 +49,7 @@ export async function writeDanserSettings(options: DanserSettingsOptions): Promi
   const temporary = `${paths.danserSettings}.part`;
   await mkdir(path.dirname(paths.danserSettings), { recursive: true });
   await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-  await rename(temporary, paths.danserSettings);
+  await renameWithRetry(temporary, paths.danserSettings);
 }
 
 async function readBaseSettings(baseSettingsPath: string): Promise<Section> {

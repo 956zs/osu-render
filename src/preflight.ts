@@ -8,6 +8,7 @@ import {
   SUPPORTED_ENCODERS, encoderCandidates, encoderKind, isAutoEncoder, isHardwareEncoder,
   type EncoderSetting, type VideoEncoder,
 } from './encoders.js';
+import { log } from './logger.js';
 import { libraryEnvironment, redactText, resolveDanserTools, type DanserTools } from './platform.js';
 import type { EncoderProbe, HealthSnapshot, PreflightReason, PreflightResult } from './types.js';
 
@@ -57,16 +58,23 @@ export class PreflightState {
 
   async refreshIfNeeded(force = false): Promise<PreflightResult> {
     const elapsed = Date.now() - this.checkedAt;
-    const interval = this.result.reason === 'hardware_encoder_unavailable'
-      ? this.softwareFallbackRetryMs : this.retryIntervalMs;
+    const slow = this.result.reason === 'hardware_encoder_unavailable' || this.result.reason === 'encoder_unavailable';
+    const interval = slow ? this.softwareFallbackRetryMs : this.retryIntervalMs;
     if (!force && (!this.result.reason || elapsed < interval)) return this.result;
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = this.service.run()
       .then(async (result) => {
-        const encoderChanged = result.encoder !== this.result.encoder;
+        if (result.encoder !== this.result.encoder && this.onChange) {
+          try { await this.onChange(result); } catch (error) {
+            this.checkedAt = Date.now();
+            log('error', 'preflight_change_failed', {
+              component: 'preflight', encoder: result.encoder, message: redactText(error instanceof Error ? error.message : String(error)),
+            });
+            return this.result;
+          }
+        }
         this.result = result;
         this.checkedAt = Date.now();
-        if (encoderChanged && this.onChange) await this.onChange(result);
         return result;
       })
       .finally(() => { this.refreshPromise = undefined; });

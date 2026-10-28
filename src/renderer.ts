@@ -1,10 +1,12 @@
 import { execFile, spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
-import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { appConfig } from './app-config.js';
 import { AppError } from './errors.js';
-import { libraryEnvironment, redactText, resolveDanserTools, terminateProcessTree, type DanserTools } from './platform.js';
+import {
+  libraryEnvironment, redactText, renameWithRetry, resolveDanserTools, terminateProcessTree, type DanserTools,
+} from './platform.js';
 import type { Paths, RenderRow } from './types.js';
 import { buildDanserPatch, parseRenderOptions } from './render-options.js';
 
@@ -54,9 +56,9 @@ export class DanserRenderer {
     try {
       await this.runDanser(job.id, tools, args, onProgress);
       await access(danserOutput);
-      await rename(danserOutput, partOutput);
+      await renameWithRetry(danserOutput, partOutput);
       await this.validateVideo(tools, partOutput);
-      await rename(partOutput, finalOutput);
+      await renameWithRetry(partOutput, finalOutput);
       return finalOutput;
     } catch (error) {
       await this.cleanupOutputs(job.id).catch(() => undefined);
@@ -75,7 +77,7 @@ export class DanserRenderer {
       this.options.terminateGraceMs ?? TERMINATE_GRACE_MS);
     await exited;
     clearTimeout(force);
-    await this.cleanupOutputs(jobId);
+    await this.cleanupOutputs(jobId).catch(() => undefined);
   }
 
   private async runDanser(

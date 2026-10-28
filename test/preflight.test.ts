@@ -63,7 +63,8 @@ test('software fallback re-probes on the slow interval, other reasons on the fas
     renderer: true, display: true, encoder: 'libx264', reason: 'hardware_encoder_unavailable', probes: [],
   };
   const noDisplay: PreflightResult = { ...fallback, display: false, reason: 'display_unavailable' };
-  for (const [result, expectedCalls] of [[fallback, 1], [noDisplay, 3]] as const) {
+  const broken: PreflightResult = { ...fallback, encoder: 'unknown', reason: 'encoder_unavailable' };
+  for (const [result, expectedCalls] of [[fallback, 1], [broken, 1], [noDisplay, 3]] as const) {
     let calls = 0;
     const state = new PreflightState({ run: async () => { calls += 1; return result; } }, result, {
       retryIntervalMs: 0, softwareFallbackRetryMs: 60_000,
@@ -214,4 +215,22 @@ test('windows tools resolve to .exe files without library paths', async () => {
     assert.equal(calls[0].options.env.LD_LIBRARY_PATH, undefined);
     assert.equal((await service.tools()).danserCli, path.join(directory, 'danser-cli.exe'));
   });
+});
+
+test('a failing settings rewrite keeps the old result without throwing', async () => {
+  const initial: PreflightResult = { renderer: true, display: false, encoder: 'libx264', reason: 'display_unavailable', probes: [] };
+  const ready: PreflightResult = { renderer: true, display: true, encoder: 'h264_qsv', probes: [] };
+  let calls = 0;
+  let attempts = 0;
+  const state = new PreflightState({ run: async () => { calls += 1; return ready; } }, initial, {
+    retryIntervalMs: 60_000,
+    onChange: async () => { attempts += 1; if (attempts === 1) throw new Error('EBUSY'); },
+  });
+  assert.deepEqual(await state.refreshIfNeeded(), initial);
+  assert.equal(state.current(), initial);
+  assert.deepEqual(await state.refreshIfNeeded(), initial);
+  assert.equal(calls, 1);
+  assert.deepEqual(await state.refreshIfNeeded(true), ready);
+  assert.equal(state.current(), ready);
+  assert.equal(attempts, 2);
 });

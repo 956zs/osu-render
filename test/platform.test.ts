@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  executableName, libraryEnvironment, redactText, resolveDanserTools, terminateProcessTree,
+  executableName, libraryEnvironment, redactText, renameWithRetry, resolveDanserTools, terminateProcessTree,
 } from '../src/platform.js';
 
 async function withDanserDir(files: string[], run: (directory: string) => Promise<void>): Promise<void> {
@@ -116,17 +116,17 @@ function fakeSpawner(calls: Array<{ command: string; args: string[] }>, exitCode
   };
 }
 
-test('windows process trees are terminated with taskkill', async () => {
+test('windows process trees are always force-terminated with taskkill', async () => {
   const calls: Array<{ command: string; args: string[] }> = [];
   terminateProcessTree(fakeChild(123), true, 'win32', fakeSpawner(calls));
   terminateProcessTree(fakeChild(124), false, 'win32', fakeSpawner(calls));
   assert.deepEqual(calls, [
     { command: 'taskkill', args: ['/PID', '123', '/T', '/F'] },
-    { command: 'taskkill', args: ['/PID', '124', '/T'] },
+    { command: 'taskkill', args: ['/PID', '124', '/T', '/F'] },
   ]);
 });
 
-test('failed forced taskkill falls back to killing the child', async () => {
+test('failed taskkill falls back to killing the child', async () => {
   const child = fakeChild(125);
   terminateProcessTree(child, true, 'win32', fakeSpawner([], 1));
   await new Promise((resolve) => setImmediate(resolve));
@@ -166,4 +166,38 @@ test('redaction skips filesystem roots and one-letter usernames', () => {
   assert.equal(redactText('/x a b', { home: '/', user: 'a', platform: 'linux' }), '/x a b');
   assert.equal(redactText('C:\\x', { home: 'C:\\', user: '', platform: 'win32' }), 'C:\\x');
   assert.match(redactText(path.join(os.homedir(), 'x')), /^~/);
+});
+
+test('windows DANSER_BIN without an extension gains .exe', async () => {
+  await withDanserDir([], async (directory) => {
+    const bare = path.join(directory, 'danser-cli');
+    assert.equal((await resolveDanserTools(directory, bare, 'win32')).danserCli, `${bare}.exe`);
+    assert.equal((await resolveDanserTools(directory, `${bare}.EXE`, 'win32')).danserCli, `${bare}.EXE`);
+    assert.equal((await resolveDanserTools(directory, bare, 'linux')).danserCli, bare);
+  });
+});
+
+function errno(code: string): NodeJS.ErrnoException {
+  return Object.assign(new Error(code), { code });
+}
+
+test('renameWithRetry retries transient windows lock errors', async () => {
+  const calls: string[] = [];
+  const failures = ['EBUSY', 'EPERM', 'EACCES'];
+  await renameWithRetry('a', 'b', {
+    delayMs: 1,
+    renameFile: async (from, to) => { calls.push(`${from}>${to}`); const code = failures.shift(); if (code) throw errno(code); },
+  });
+  assert.equal(calls.length, 4);
+});
+
+test('renameWithRetry gives up after the attempt limit and on other errors', async () => {
+  let calls = 0;
+  const failing = async () => { calls += 1; throw errno('EBUSY'); };
+  await assert.rejects(renameWithRetry('a', 'b', { attempts: 3, delayMs: 1, renameFile: failing }), { code: 'EBUSY' });
+  assert.equal(calls, 3);
+  calls = 0;
+  const missing = async () => { calls += 1; throw errno('ENOENT'); };
+  await assert.rejects(renameWithRetry('a', 'b', { delayMs: 1, renameFile: missing }), { code: 'ENOENT' });
+  assert.equal(calls, 1);
 });

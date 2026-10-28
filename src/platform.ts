@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, rename, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -36,7 +36,7 @@ export async function resolveDanserTools(
   const ffprobe = await findTool(danserDir, 'ffprobe', platform);
   const libraryDirs = platform === 'win32' ? [] : await existingDirectories([path.join(ffmpegDir, 'lib'), ffmpegDir]);
   return {
-    danserCli: danserBin || path.join(danserDir, executableName('danser-cli', platform)),
+    danserCli: danserBin ? withWindowsExtension(danserBin, platform) : path.join(danserDir, executableName('danser-cli', platform)),
     ffmpeg: ffmpeg.file, ffprobe: ffprobe.file, libraryDirs, layout: ffmpeg.layout,
     offscreenCapable: platform === 'linux' && await hasSdl3(danserDir),
   };
@@ -64,10 +64,32 @@ export function terminateProcessTree(
     child.kill(force ? 'SIGKILL' : 'SIGTERM');
     return;
   }
-  const args = ['/PID', String(child.pid), '/T', ...(force ? ['/F'] : [])];
-  const killer = spawner('taskkill', args, { windowsHide: true, stdio: 'ignore' });
+  const killer = spawner('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
   killer.once('error', () => { child.kill(); });
-  killer.once('exit', (code) => { if (code !== 0 && force) child.kill(); });
+  killer.once('exit', (code) => { if (code !== 0) child.kill(); });
+}
+
+export interface RenameRetryOptions {
+  attempts?: number;
+  delayMs?: number;
+  renameFile?: (from: string, to: string) => Promise<void>;
+}
+
+const RETRYABLE_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+export async function renameWithRetry(from: string, to: string, options: RenameRetryOptions = {}): Promise<void> {
+  const { attempts = 6, delayMs = 100, renameFile = rename } = options;
+  for (let attempt = 1; ; attempt += 1) {
+    try { await renameFile(from, to); return; } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? '';
+      if (attempt >= attempts || !RETRYABLE_RENAME_CODES.has(code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs * 2 ** (attempt - 1), 1000)));
+    }
+  }
+}
+
+function withWindowsExtension(file: string, platform: NodeJS.Platform): string {
+  return platform === 'win32' && !path.extname(file) ? `${file}.exe` : file;
 }
 
 export function redactText(text: string, context: RedactionContext = defaultRedactionContext()): string {
