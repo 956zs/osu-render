@@ -15,14 +15,18 @@ const REPLAY: ReplayMetadata = {
 
 type RenderBehavior = 'ok' | 'fail' | 'timeout' | 'cancel' | 'resolveFail';
 
-async function runJob(behavior: RenderBehavior, reporter: RenderReporter | undefined): Promise<string> {
+type StatsObserver = (phase: 'during' | 'after', stats: ReturnType<RenderQueue['liveStats']>) => void;
+
+async function runJob(behavior: RenderBehavior, reporter: RenderReporter | undefined, observe?: StatsObserver): Promise<string> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-queue-'));
   const database = new RenderDatabase(path.join(directory, 'test.db'));
   const id = `job-${behavior}`;
   let queue!: RenderQueue;
   try {
     const renderer = {
-      render: async () => {
+      render: async (_job: unknown, onProgress: (progress: number, detail: { speed: number | null; eta: string | null }) => void) => {
+        onProgress(40, { speed: 1.5, eta: '0:41' });
+        observe?.('during', queue.liveStats(id));
         if (behavior === 'fail') throw new AppError('RENDER_FAILED', 'danser failed', 500);
         if (behavior === 'timeout') throw new AppError('RENDER_TIMEOUT', 'too slow', 500);
         if (behavior === 'cancel') {
@@ -51,6 +55,7 @@ async function runJob(behavior: RenderBehavior, reporter: RenderReporter | undef
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
+    observe?.('after', queue.liveStats(id));
     return database.getRender(id)?.status ?? 'missing';
   } finally {
     database.close();
@@ -79,4 +84,12 @@ test('a throwing reporter never changes the job result', async () => {
   assert.equal(await runJob('ok', throwing), 'completed');
   assert.equal(await runJob('fail', throwing), 'failed');
   assert.equal(await runJob('ok', undefined), 'completed');
+});
+
+test('queue keeps render speed and ETA only while the render runs', async () => {
+  for (const behavior of ['ok', 'fail', 'cancel'] as const) {
+    const seen: Array<[string, unknown]> = [];
+    await runJob(behavior, undefined, (phase, stats) => seen.push([phase, stats]));
+    assert.deepEqual(seen, [['during', { speed: 1.5, eta: '0:41' }], ['after', undefined]], behavior);
+  }
 });

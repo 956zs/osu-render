@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 import { AppError, publicError } from './errors.js';
 import type { RenderDatabase } from './database.js';
 import type { BeatmapResolver } from './beatmap-resolver.js';
-import type { DanserRenderer } from './renderer.js';
+import type { DanserRenderer, ProgressDetail } from './renderer.js';
 import type { StorageManager } from './storage.js';
 import type { RenderFinishedEvent, RenderReporter, ReplayMetadata, RenderRow } from './types.js';
 import { log } from './logger.js';
@@ -11,6 +11,8 @@ import { limits } from './config.js';
 export class RenderQueue {
   private running = false;
   private currentJobId: string | null = null;
+  /** Speed and ETA of rendering jobs; memory only, dropped when the render ends. */
+  private readonly stats = new Map<string, ProgressDetail>();
 
   constructor(private readonly dependencies: {
     database: RenderDatabase;
@@ -40,6 +42,10 @@ export class RenderQueue {
     void this.prepare(row.id, replay);
   }
 
+  liveStats(id: string): ProgressDetail | undefined {
+    return this.stats.get(id);
+  }
+
   async cancel(id: string): Promise<void> {
     const row = this.database.getRender(id);
     if (!row) throw new AppError('INTERNAL_ERROR', 'Render job was not found.', 404);
@@ -47,6 +53,7 @@ export class RenderQueue {
       throw new AppError('RENDER_FAILED', 'Render job has already finished.', 409);
     }
     this.database.cancel(id);
+    this.stats.delete(id);
     if (row.status === 'rendering') await this.renderer.cancel(id);
     await removeReplay(row);
   }
@@ -72,7 +79,11 @@ export class RenderQueue {
       await this.storage.guardNewRender();
       if (!this.database.markRendering(job.id)) return;
       const output = await this.renderer.render(this.database.getRender(job.id) as RenderRow,
-        (progress) => this.database.setProgress(job.id, progress));
+        (progress, detail) => {
+          this.database.setProgress(job.id, progress);
+          this.stats.set(job.id, detail);
+        });
+      this.stats.delete(job.id);
       if (this.database.getRender(job.id)?.status === 'cancelled') {
         await rm(output, { force: true });
         return;
@@ -85,6 +96,7 @@ export class RenderQueue {
       log('info', 'render_completed', { component: 'worker', jobId: job.id, ...renderStats(this.database.getRender(job.id)) });
       this.report(job.id, 'completed');
     } catch (error) {
+      this.stats.delete(job.id);
       if (this.database.getRender(job.id)?.status === 'cancelled') return;
       const safe = publicError(error);
       this.database.markFailed(job.id, safe.code, safe.publicMessage);
