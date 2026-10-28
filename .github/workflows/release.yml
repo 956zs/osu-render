@@ -282,8 +282,8 @@ jobs:
           Move-Item "$envFile.bak" $envFile
           # The server checks below run without a webhook.
           if ((Invoke-Setup -ClientId 1 -ClientSecret dummy-secret -Force) -ne 0) { throw 'setup.ps1 failed' }
-          $leftover = [string](Get-EnvValue 'REPORT_WEBHOOK_URL') # no output = `$null
-          if ($leftover -ne '') { throw "REPORT_WEBHOOK_URL should be empty, got '$leftover'; .env has: $((Select-String -Path $envFile -Pattern 'WEBHOOK').Line -join ' | ')" }
+          $webhookLines = @(Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^REPORT_WEBHOOK_URL=' })
+          if ($webhookLines.Count -ne 1 -or $webhookLines[0] -ne 'REPORT_WEBHOOK_URL=') { throw "REPORT_WEBHOOK_URL should be empty, .env has: $($webhookLines -join ' | ')" }
           Write-Host '::endgroup::'
 
           function Wait-Health([int]$seconds) {
