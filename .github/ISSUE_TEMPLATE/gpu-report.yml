@@ -1,0 +1,86 @@
+name: GPU / platform report
+description: Share a diagnostics report from your machine (Windows or Linux, NVIDIA / AMD / Intel). · Comparte un reporte de diagnóstico de tu equipo.
+title: "[GPU] "
+labels: ["gpu-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Run `npm run doctor` or use **Diagnostics → Download report** in the web UI, then paste the JSON below. The report never contains your osu! credentials, auth token, IP addresses or player names, but please look it over before posting.
+
+        ¡Gracias por probar! Ejecuta `npm run doctor` o usa **Diagnóstico → Descargar reporte** en la interfaz web y pega el JSON abajo. El reporte nunca incluye tus credenciales de osu!, el token de acceso, direcciones IP ni nombres de jugadores, pero revísalo antes de publicarlo.
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system / Sistema operativo
+      options:
+        - Windows 11
+        - Windows 10
+        - Linux
+        - Other / Otro
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU model / Modelo de GPU
+      description: "List every GPU if you have more than one (e.g. iGPU + dedicated). · Indica todas las GPU si tienes más de una (p. ej. integrada + dedicada)."
+      placeholder: "NVIDIA GeForce RTX 3060 + Intel UHD Graphics 770"
+    validations:
+      required: true
+
+  - type: input
+    id: driver
+    attributes:
+      label: GPU driver version / Versión del controlador de la GPU
+      description: "Windows: Device Manager → Display adapters → Driver, or NVIDIA App / AMD Adrenalin. · Windows: Administrador de dispositivos → Adaptadores de pantalla → Controlador, o NVIDIA App / AMD Adrenalin."
+      placeholder: "581.57"
+    validations:
+      required: false
+
+  - type: input
+    id: danser
+    attributes:
+      label: danser version / Versión de danser
+      placeholder: "0.12.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result / Resultado
+      options:
+        - Doctor only, no render / Solo doctor, sin render
+        - Render succeeded / Render correcto
+        - Render failed / Render fallido
+        - Encoder self-test failed / Falló la autoprueba del codificador
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? / ¿Qué pasó?
+      description: "What you did, what you expected and what you saw (error messages, render time, video quality). · Qué hiciste, qué esperabas y qué viste (mensajes de error, tiempo de render, calidad del video)."
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics JSON / JSON de diagnóstico
+      description: "Paste the whole file from data/diagnostics/doctor-*.json or the web UI download. · Pega el archivo completo de data/diagnostics/doctor-*.json o la descarga de la interfaz web."
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / Notas
+      description: "Anything else: other apps using the GPU, laptop power mode, multiple monitors… · Cualquier otra cosa: otras apps usando la GPU, modo de energía del portátil, varios monitores…"
+    validations:
+      required: false

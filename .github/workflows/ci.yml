@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24]
+        include:
+          - os: ubuntu-latest
+            node: 22
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  danser-smoke:
+    name: danser smoke (${{ matrix.os }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: linux
+          - os: windows-latest
+            asset: win
+    env:
+      DANSER_VERSION: 0.12.1
+      DANSER_DIR: ${{ github.workspace }}/.ci/danser
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache danser
+        id: danser-cache
+        uses: actions/cache@v6
+        with:
+          path: .ci/danser
+          key: danser-${{ env.DANSER_VERSION }}-${{ runner.os }}
+
+      - name: Download danser
+        if: steps.danser-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .ci/danser
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/danser.zip" \
+            "https://github.com/Wieku/danser-go/releases/download/${DANSER_VERSION}/danser-${DANSER_VERSION}-${{ matrix.asset }}.zip"
+
+      - name: Extract danser (Linux)
+        if: steps.danser-cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: unzip -q "$RUNNER_TEMP/danser.zip" -d .ci/danser
+
+      - name: Extract danser (Windows)
+        if: steps.danser-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: Expand-Archive -Path "$env:RUNNER_TEMP/danser.zip" -DestinationPath .ci/danser -Force
+
+      - name: Mark danser binaries executable
+        if: runner.os == 'Linux'
+        run: chmod +x .ci/danser/danser .ci/danser/danser-cli .ci/danser/ffmpeg/bin/*
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Run doctor
+        run: |
+          status=0
+          npm run --silent doctor -- --json > report.json || status=$?
+          echo "doctor exit code: $status"
+
+      - name: Check doctor report
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const report = JSON.parse(fs.readFileSync("report.json", "utf8"));
+            const files = report.danser?.files ?? {};
+            const probes = report.encoderProbes ?? [];
+            const failures = [];
+            for (const key of ["danserCli", "ffmpeg", "ffprobe"]) {
+              if (files[key] !== true) failures.push(`danser.files.${key} is ${files[key]}`);
+            }
+            const x264 = probes.find((probe) => probe.encoder === "libx264");
+            if (x264?.ok !== true) failures.push(`libx264 self-test failed: ${x264?.error ?? "probe missing"}`);
+            console.log("preflight:", JSON.stringify(report.preflight));
+            for (const probe of probes) console.log(`probe ${probe.encoder}: ${probe.ok ? "ok" : "failed"}`);
+            if (failures.length > 0) {
+              for (const failure of failures) console.error(`::error::${failure}`);
+              process.exit(1);
+            }
+          '
+
+      - name: Upload doctor report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: doctor-report-${{ runner.os }}
+          path: report.json
+          if-no-files-found: warn

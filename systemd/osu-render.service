@@ -1,23 +1,47 @@
+# Example systemd --user unit for osu-render.
+#
+# Assumes the repository is at ~/osu-render (built with `npm ci && npm run build`)
+# and danser-go is extracted to ~/danser. Adjust the paths below if yours differ.
+# The service reads ~/osu-render/.env by itself (WorkingDirectory), so no
+# EnvironmentFile= line is needed.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp systemd/osu-render.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now osu-render.service
+#   journalctl --user -u osu-render.service -f
+
 [Unit]
-Description=osu! danser render service
-PartOf=graphical-session.target
+Description=osu! replay render service (danser-go)
 After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/services/osu-render
-EnvironmentFile=%h/services/osu-render/.env
-Environment=DISPLAY=:1
-Environment=WAYLAND_DISPLAY=wayland-1
-Environment=XDG_RUNTIME_DIR=/run/user/%U
-ExecStart=%h/.local/share/fnm/aliases/default/bin/node %h/services/osu-render/dist/src/main.js
+WorkingDirectory=%h/osu-render
+# Absolute path to node. With nvm/fnm/volta use the output of `command -v node`.
+ExecStart=/usr/bin/node %h/osu-render/dist/src/main.js
+
+# Only needed for danser 0.11 on Linux, which opens a hidden window on your
+# desktop. danser 0.12+ renders offscreen and needs no display.
+# The values must match your graphical session: run `echo $DISPLAY $WAYLAND_DISPLAY`
+# in a terminal on that desktop. Most desktops already export them to systemd --user.
+# With danser 0.11 you may also want PartOf=graphical-session.target in [Unit]
+# and WantedBy=graphical-session.target in [Install].
+#Environment=DISPLAY=:0
+#Environment=WAYLAND_DISPLAY=wayland-1
+#Environment=XDG_RUNTIME_DIR=/run/user/%U
+
 Restart=on-failure
 RestartSec=5
+
+# Hardening. danser writes settings/, logs and its database inside its own
+# directory, so that directory must stay writable.
 UMask=0077
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/services/osu-render/data %h/Downloads/danser-0.11.0-linux
+ReadWritePaths=%h/osu-render/data %h/danser
 
 [Install]
 WantedBy=default.target
