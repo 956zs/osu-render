@@ -1,18 +1,28 @@
 import { constants } from 'node:fs';
 import { access } from 'node:fs/promises';
-import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 import { promisify } from 'node:util';
-import type { HealthSnapshot, Paths } from './types.js';
+import { appConfig } from './app-config.js';
+import {
+  SUPPORTED_ENCODERS, encoderCandidates, encoderKind, isAutoEncoder, isHardwareEncoder,
+  type EncoderSetting, type VideoEncoder,
+} from './encoders.js';
+import { libraryEnvironment, redactText, resolveDanserTools, type DanserTools } from './platform.js';
+import type { EncoderProbe, HealthSnapshot, PreflightReason, PreflightResult } from './types.js';
+
+export type { EncoderProbe, PreflightReason, PreflightResult } from './types.js';
+export { libraryEnvironment } from './platform.js';
 
 const execFileAsync = promisify(execFile);
+const PROBE_ERROR_CHARS = 1500;
 
-export interface PreflightResult {
-  renderer: boolean;
-  display: boolean;
-  encoder: 'h264_qsv' | 'libx264' | 'unknown';
-  reason?: string;
+export interface CommandOptions {
+  env: NodeJS.ProcessEnv;
+  timeoutMs: number;
 }
+
+export type CommandRunner = (file: string, args: string[], options: CommandOptions) => Promise<{ stdout: string; stderr: string }>;
 
 export interface PreflightRunner {
   run(): Promise<PreflightResult>;
@@ -20,15 +30,15 @@ export interface PreflightRunner {
 
 export interface PreflightStateOptions {
   retryIntervalMs?: number;
+  softwareFallbackRetryMs?: number;
   onChange?: (result: PreflightResult) => Promise<void>;
 }
-
-export const PREFLIGHT_RETRY_INTERVAL_MS = 5_000;
 
 export class PreflightState {
   private checkedAt = 0;
   private refreshPromise: Promise<PreflightResult> | undefined;
   private readonly retryIntervalMs: number;
+  private readonly softwareFallbackRetryMs: number;
   private readonly onChange: ((result: PreflightResult) => Promise<void>) | undefined;
 
   constructor(
@@ -36,7 +46,8 @@ export class PreflightState {
     private result: PreflightResult,
     options: PreflightStateOptions = {},
   ) {
-    this.retryIntervalMs = options.retryIntervalMs ?? PREFLIGHT_RETRY_INTERVAL_MS;
+    this.retryIntervalMs = options.retryIntervalMs ?? appConfig.preflight.retryIntervalMs;
+    this.softwareFallbackRetryMs = options.softwareFallbackRetryMs ?? appConfig.preflight.softwareFallbackRetryMs;
     this.onChange = options.onChange;
   }
 
@@ -46,7 +57,9 @@ export class PreflightState {
 
   async refreshIfNeeded(force = false): Promise<PreflightResult> {
     const elapsed = Date.now() - this.checkedAt;
-    if (!force && (!this.result.reason || elapsed < this.retryIntervalMs)) return this.result;
+    const interval = this.result.reason === 'hardware_encoder_unavailable'
+      ? this.softwareFallbackRetryMs : this.retryIntervalMs;
+    if (!force && (!this.result.reason || elapsed < interval)) return this.result;
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = this.service.run()
       .then(async (result) => {
@@ -65,17 +78,57 @@ export function isPreflightReady(result: PreflightResult): boolean {
   return result.renderer && result.display && result.encoder !== 'unknown';
 }
 
+export interface PreflightServiceOptions {
+  danserDir: string;
+  danserBin?: string;
+  renderEncoder?: string;
+  platform?: NodeJS.Platform;
+  env?: NodeJS.ProcessEnv;
+  runCommand?: CommandRunner;
+}
+
 export class PreflightService {
-  constructor(private readonly danserBin: string, private readonly danserDir: string, private readonly paths: Paths) {}
+  private readonly platform: NodeJS.Platform;
+  private readonly env: NodeJS.ProcessEnv;
+  private readonly renderEncoder: string;
+  private readonly runCommand: CommandRunner;
+  private readonly candidates: VideoEncoder[];
+
+  constructor(private readonly options: PreflightServiceOptions) {
+    this.platform = options.platform ?? process.platform;
+    this.env = options.env ?? process.env;
+    this.renderEncoder = options.renderEncoder ?? 'auto';
+    this.runCommand = options.runCommand ?? runCommand;
+    this.candidates = encoderCandidates(this.renderEncoder, this.platform);
+  }
+
+  tools(): Promise<DanserTools> {
+    return resolveDanserTools(this.options.danserDir, this.options.danserBin, this.platform);
+  }
 
   async run(): Promise<PreflightResult> {
-    const renderer = await this.rendererAvailable();
-    const display = await this.displayAvailable();
-    const qsv = await this.encoderAvailable('h264_qsv');
-    if (renderer && display && qsv) return { renderer, display, encoder: 'h264_qsv' };
-    const software = await this.encoderAvailable('libx264');
-    const reason = !renderer ? 'renderer_unavailable' : !display ? 'display_unavailable' : 'qsv_unavailable';
-    return { renderer, display, encoder: software ? 'libx264' : 'unknown', reason };
+    const tools = await this.tools();
+    const renderer = await this.rendererAvailable(tools);
+    const { display, detail } = await this.displayStatus(tools);
+    const probes: EncoderProbe[] = [];
+    for (const candidate of this.candidates) {
+      const probe = await this.probe(tools, candidate);
+      probes.push(probe);
+      if (probe.ok) break;
+    }
+    const encoder: EncoderSetting = probes.find((probe) => probe.ok)?.encoder ?? 'unknown';
+    const reason = !renderer ? 'renderer_unavailable' : !display ? 'display_unavailable' : this.encoderReason(encoder);
+    return {
+      renderer, display, encoder, probes,
+      ...(reason ? { reason } : {}), ...(detail ? { displayDetail: detail } : {}),
+    };
+  }
+
+  async probeAll(): Promise<EncoderProbe[]> {
+    const tools = await this.tools();
+    const probes: EncoderProbe[] = [];
+    for (const encoder of SUPPORTED_ENCODERS) probes.push(await this.probe(tools, encoder));
+    return probes;
   }
 
   async health(base: PreflightResult, queue: number, freeDiskBytes: number, hardMinimum: number): Promise<HealthSnapshot> {
@@ -83,38 +136,67 @@ export class PreflightService {
     const degraded = storageLow || Boolean(base.reason) || base.encoder === 'unknown';
     return {
       status: degraded ? 'degraded' : 'ok', renderer: base.renderer, display: base.display,
-      encoder: base.encoder, queue, freeDiskBytes,
+      encoder: base.encoder, encoderKind: encoderKind(base.encoder), platform: this.platform,
+      queue, freeDiskBytes,
       reason: storageLow ? 'storage_low' : base.reason,
     };
   }
 
-  private async rendererAvailable(): Promise<boolean> {
-    try { await access(this.danserBin, constants.X_OK); return true; } catch { return false; }
+  private encoderReason(encoder: EncoderSetting): PreflightReason | undefined {
+    if (encoder === 'unknown') return 'encoder_unavailable';
+    if (!isAutoEncoder(this.renderEncoder)) return encoder === this.candidates[0] ? undefined : 'encoder_unavailable';
+    return !isHardwareEncoder(encoder) && this.candidates.some(isHardwareEncoder) ? 'hardware_encoder_unavailable' : undefined;
   }
 
-  private async displayAvailable(): Promise<boolean> {
-    if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return false;
+  private async rendererAvailable(tools: DanserTools): Promise<boolean> {
+    try { await access(tools.danserCli, constants.X_OK); return true; } catch { return false; }
+  }
+
+  private async displayStatus(tools: DanserTools): Promise<{ display: boolean; detail?: string }> {
+    if (this.platform === 'win32') return { display: true, detail: 'win32 interactive session required' };
+    if (tools.offscreenCapable) return { display: true, detail: 'offscreen (danser ≥0.12)' };
+    if (!this.env.DISPLAY && !this.env.WAYLAND_DISPLAY) return { display: false, detail: 'DISPLAY and WAYLAND_DISPLAY are not set' };
     try {
-      const { stdout } = await execFileAsync('glxinfo', ['-B'], { timeout: 10_000, maxBuffer: 1024 * 1024 });
-      return stdout.includes('Accelerated: yes') && stdout.includes('OpenGL');
-    } catch { return false; }
+      const { stdout } = await this.runCommand('glxinfo', ['-B'], { env: this.env, timeoutMs: 10_000 });
+      if (stdout.includes('Accelerated: yes') && stdout.includes('OpenGL')) return { display: true };
+      return { display: false, detail: 'OpenGL is not hardware accelerated' };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { display: true, detail: 'glxinfo not installed' };
+      return { display: false, detail: failureText(error) };
+    }
   }
 
-  private async encoderAvailable(encoder: 'h264_qsv' | 'libx264'): Promise<boolean> {
-    const ffmpegDir = path.join(this.danserDir, 'ffmpeg');
-    const ffmpeg = path.join(ffmpegDir, 'ffmpeg');
+  private async probe(tools: DanserTools, encoder: VideoEncoder): Promise<EncoderProbe> {
+    const { width, height, timeoutMs } = appConfig.encoders.selfTest;
     const args = [
-      '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=128x128:r=1',
-      '-frames:v', '1', '-vf', 'format=nv12', '-c:v', encoder, '-f', 'null', '-',
+      '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', `color=c=black:s=${width}x${height}:r=1`,
+      '-frames:v', '1', '-an', '-vf', 'format=nv12', '-c:v', encoder, '-f', 'null', '-',
     ];
+    const started = performance.now();
     try {
-      await execFileAsync(ffmpeg, args, { timeout: 20_000, env: libraryEnvironment(ffmpegDir), maxBuffer: 1024 * 1024 });
-      return true;
-    } catch { return false; }
+      await this.runCommand(tools.ffmpeg, args, {
+        env: libraryEnvironment(tools.libraryDirs, this.env, this.platform), timeoutMs,
+      });
+      return { encoder, ok: true, durationMs: elapsedSince(started) };
+    } catch (error) {
+      return { encoder, ok: false, durationMs: elapsedSince(started), error: failureText(error) };
+    }
   }
 }
 
-export function libraryEnvironment(ffmpegDir: string): NodeJS.ProcessEnv {
-  const current = process.env.LD_LIBRARY_PATH;
-  return { ...process.env, LD_LIBRARY_PATH: current ? `${ffmpegDir}:${current}` : ffmpegDir };
+async function runCommand(file: string, args: string[], options: CommandOptions): Promise<{ stdout: string; stderr: string }> {
+  return execFileAsync(file, args, {
+    env: options.env, timeout: options.timeoutMs, maxBuffer: 1024 * 1024, windowsHide: true,
+  });
+}
+
+function failureText(error: unknown): string {
+  const failure = error as { stderr?: unknown; killed?: boolean; signal?: string; message?: string };
+  const stderr = typeof failure.stderr === 'string' ? failure.stderr.trim() : '';
+  const text = stderr || (failure.killed ? `timed out (${failure.signal ?? 'killed'})` : String(failure.message ?? error));
+  return redactText(text).slice(-PROBE_ERROR_CHARS);
+}
+
+function elapsedSince(started: number): number {
+  return Math.round(performance.now() - started);
 }

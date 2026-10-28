@@ -1,0 +1,19 @@
+{
+  "encoders": {
+    "autoOrder": {
+      "win32": ["h264_nvenc", "h264_amf", "h264_qsv", "libx264"],
+      "linux": ["h264_nvenc", "h264_qsv", "h264_amf", "libx264"],
+      "default": ["libx264"]
+    },
+    "selfTest": { "width": 240, "height": 144, "timeoutMs": 20000 }
+  },
+  "preflight": { "retryIntervalMs": 5000, "softwareFallbackRetryMs": 300000 },
+  "diagnostics": {
+    "logTailBytes": 65536,
+    "reportLogTailBytes": 4096,
+    "recentRenders": 20,
+    "issueUrl": "https://github.com/956zs/osu-render/issues/new",
+    "issueTemplate": "gpu-report.yml"
+  },
+  "i18n": { "languages": ["en", "zh-TW", "es"], "fallback": "en" }
+}

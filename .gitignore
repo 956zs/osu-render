@@ -7,5 +7,10 @@ data/temp/*
 data/videos/*
 data/songs/*
 data/logs/*
+data/diagnostics/*
+data/skins/*
 !data/*/.gitkeep
 plans/
+config/local.json
+danser/
+.ci/

@@ -15,7 +15,11 @@ test('compiled service starts with the public UI available', async () => {
       ...process.env,
       DATA_DIR: dataDirectory,
       DANSER_DIR: path.join(dataDirectory, 'danser'),
-      DANSER_BIN: path.join(dataDirectory, 'danser', 'danser-cli'),
+      DANSER_BIN: '',
+      DANSER_BASE_SETTINGS: '',
+      DANSER_SKINS_DIR: '',
+      DANSER_SETTINGS_NAME: '',
+      RENDER_ENCODER: 'libx264',
       PORT: '0',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -23,6 +27,10 @@ test('compiled service starts with the public UI available', async () => {
   try {
     const output = await waitForStartup(child);
     assert.match(output, /"event":"service_started"/);
+    const preflight = JSON.parse(output.split(/\r?\n/).find((line) => line.includes('"event":"preflight_completed"')) ?? '{}');
+    assert.equal(preflight.platform, process.platform);
+    assert.equal(preflight.renderEncoder, 'libx264');
+    assert.equal(preflight.renderer, false);
   } finally {
     child.kill('SIGTERM');
     await waitForExit(child);

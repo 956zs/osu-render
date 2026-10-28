@@ -11,14 +11,24 @@ import { RenderQueue } from './queue.js';
 import { createHttpServer } from './http.js';
 import { startCleanupScheduler } from './cleanup.js';
 import { log } from './logger.js';
+import { encoderKind, type EncoderSetting } from './encoders.js';
 
 const paths = getPaths();
 await ensureDirectories(paths);
 const database = new RenderDatabase(paths.db);
 const storage = new StorageManager(paths, database, limits.softMinFreeBytes, limits.hardMinFreeBytes);
-const preflight = new PreflightService(settings.danserBin, settings.danserDir, paths);
+const preflight = new PreflightService({
+  danserDir: settings.danserDir, danserBin: settings.danserBin, renderEncoder: settings.renderEncoder,
+});
 const preflightResult = await preflight.run();
-const writeSettings = (encoder: 'h264_qsv' | 'libx264' | 'unknown'): Promise<void> => writeDanserSettings({
+const tools = await preflight.tools();
+log(preflightResult.reason ? 'warn' : 'info', 'preflight_completed', {
+  component: 'preflight', platform: process.platform, renderEncoder: settings.renderEncoder,
+  encoder: preflightResult.encoder, encoderKind: encoderKind(preflightResult.encoder), reason: preflightResult.reason,
+  renderer: preflightResult.renderer, display: preflightResult.display, displayDetail: preflightResult.displayDetail,
+  layout: tools.layout, offscreenCapable: tools.offscreenCapable, probes: preflightResult.probes,
+});
+const writeSettings = (encoder: EncoderSetting): Promise<void> => writeDanserSettings({
   paths, encoder, baseSettingsPath: settings.danserBaseSettings, skinsDir: settings.danserSkinsDir,
 });
 await writeSettings(preflightResult.encoder);
@@ -33,7 +43,7 @@ const resolver = new BeatmapResolver(paths, database, osuApi, mirrors, {
   maxEntries: limits.maxArchiveEntries,
 });
 const renderer = new DanserRenderer({
-  danserBin: settings.danserBin, danserDir: settings.danserDir, paths,
+  danserBin: settings.danserBin, danserDir: settings.danserDir, settingsName: settings.danserSettingsName, paths,
   timeoutMs: limits.maxRenderMinutes * 60 * 1000,
 });
 const queue = new RenderQueue({ database, resolver, renderer, storage });
@@ -50,6 +60,7 @@ await app.listen({ host: settings.host, port: settings.port });
 log('info', 'service_started', {
   component: 'server', host: settings.host, port: settings.port,
   renderer: preflightResult.renderer, display: preflightResult.display, encoder: preflightResult.encoder,
+  encoderKind: encoderKind(preflightResult.encoder), platform: process.platform, layout: tools.layout,
   freeDiskBytes: await storage.freeBytes(),
 });
 

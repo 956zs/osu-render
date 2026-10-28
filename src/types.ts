@@ -1,3 +1,5 @@
+import type { EncoderKind, EncoderSetting, VideoEncoder } from './encoders.js';
+
 export const JOB_STATUSES = [
   'uploaded', 'resolving', 'downloading', 'queued', 'rendering',
   'finalizing', 'completed', 'failed', 'cancelled',
@@ -76,13 +78,36 @@ export interface Paths {
   skins: string;
   danserOutput: string;
   danserSettings: string;
+  logs: string;
+  diagnostics: string;
+}
+
+export interface EncoderProbe {
+  encoder: VideoEncoder;
+  ok: boolean;
+  durationMs: number;
+  error?: string;
+}
+
+export type PreflightReason =
+  | 'renderer_unavailable' | 'display_unavailable' | 'hardware_encoder_unavailable' | 'encoder_unavailable';
+
+export interface PreflightResult {
+  renderer: boolean;
+  display: boolean;
+  encoder: EncoderSetting;
+  reason?: PreflightReason;
+  probes: EncoderProbe[];
+  displayDetail?: string;
 }
 
 export interface HealthSnapshot {
   status: 'ok' | 'degraded';
   renderer: boolean;
   display: boolean;
-  encoder: 'h264_qsv' | 'libx264' | 'unknown';
+  encoder: EncoderSetting;
+  encoderKind: EncoderKind;
+  platform: NodeJS.Platform;
   queue: number;
   freeDiskBytes: number;
   reason?: string;

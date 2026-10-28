@@ -42,12 +42,23 @@ function openEntry(zip: ZipFile, entry: Entry): Promise<NodeJS.ReadableStream> {
   });
 }
 
-function safeRelativePath(fileName: string): string {
-  if (fileName.includes('\0') || fileName.includes('\\')) throw new Error('invalid archive path');
-  if (path.posix.isAbsolute(fileName) || /^[a-zA-Z]:/.test(fileName)) throw new Error('absolute archive path');
-  const normalized = path.posix.normalize(fileName);
-  if (normalized === '..' || normalized.startsWith('../')) throw new Error('archive path traversal');
-  return normalized;
+const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9\u00b9\u00b2\u00b3]|lpt[1-9\u00b9\u00b2\u00b3]|conin\$|conout\$)$/i;
+const MAX_SEGMENT_LENGTH = 255;
+
+type EntryKind = 'file' | 'directory';
+
+export function validateArchiveEntryName(fileName: string): string {
+  if (fileName === '') throw new Error('empty archive path');
+  if (/[\u0000-\u001f\\:<>"|?*]/.test(fileName)) throw new Error('invalid character in archive path');
+  if (fileName.startsWith('/')) throw new Error('absolute archive path');
+  const segments = (fileName.endsWith('/') ? fileName.slice(0, -1) : fileName).split('/');
+  for (const segment of segments) {
+    if (segment === '' || segment === '.' || segment === '..') throw new Error('invalid archive path segment');
+    if (segment.length > MAX_SEGMENT_LENGTH) throw new Error('archive path segment is too long');
+    if (/[. ]$/.test(segment)) throw new Error('archive path segment ends with a dot or space');
+    if (RESERVED_NAMES.test(segment.split('.')[0].trimEnd())) throw new Error('reserved name in archive path');
+  }
+  return segments.join('/');
 }
 
 function assertRegularEntry(entry: Entry): void {
@@ -58,9 +69,24 @@ function assertRegularEntry(entry: Entry): void {
   }
 }
 
+function recordEntry(seen: Map<string, EntryKind>, relative: string, kind: EntryKind): void {
+  const segments = relative.toLowerCase().split('/');
+  for (let index = 1; index <= segments.length; index += 1) {
+    const key = segments.slice(0, index).join('/');
+    const current = index === segments.length ? kind : 'directory';
+    const previous = seen.get(key);
+    if (previous && (previous === 'file' || current === 'file')) throw new Error('duplicate archive entry');
+    seen.set(key, current);
+  }
+}
+
+function isInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
 async function assertInsideRoot(root: string, target: string): Promise<void> {
-  const parent = await realpath(path.dirname(target));
-  if (parent !== root && !parent.startsWith(`${root}${path.sep}`)) throw new Error('archive escaped extraction root');
+  if (!isInside(root, await realpath(path.dirname(target)))) throw new Error('archive escaped extraction root');
 }
 
 export async function extractOsz(input: string, output: string, limits: ArchiveLimits): Promise<void> {
@@ -68,6 +94,7 @@ export async function extractOsz(input: string, output: string, limits: ArchiveL
   await mkdir(output, { recursive: true });
   const root = await realpath(output);
   const zip = await openZip(input);
+  const seen = new Map<string, EntryKind>();
   let entries = 0;
   let extractedBytes = 0;
   try {
@@ -78,10 +105,12 @@ export async function extractOsz(input: string, output: string, limits: ArchiveL
         throw new Error('archive exceeds extraction limits');
       }
       assertRegularEntry(entry);
-      const relative = safeRelativePath(entry.fileName);
-      const target = path.resolve(output, relative);
-      if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw new Error('archive path traversal');
-      if (entry.fileName.endsWith('/')) { await mkdir(target, { recursive: true }); continue; }
+      const relative = validateArchiveEntryName(entry.fileName);
+      const kind = entry.fileName.endsWith('/') ? 'directory' : 'file';
+      recordEntry(seen, relative, kind);
+      const target = path.join(root, ...relative.split('/'));
+      if (!isInside(root, target)) throw new Error('archive path traversal');
+      if (kind === 'directory') { await mkdir(target, { recursive: true }); continue; }
       await mkdir(path.dirname(target), { recursive: true });
       await assertInsideRoot(root, target);
       await pipeline(await openEntry(zip, entry), createWriteStream(target, { flags: 'wx', mode: 0o644 }));

@@ -1,16 +1,21 @@
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { EncoderSetting } from './encoders.js';
 import type { Paths } from './types.js';
 
+type Section = Record<string, unknown>;
+
 interface DanserSettings {
-  General: Record<string, unknown>;
-  Graphics: Record<string, unknown>;
-  Skin: Record<string, unknown>;
-  Recording: Record<string, unknown> & { MotionBlur?: Record<string, unknown> };
+  [key: string]: unknown;
+  General: Section;
+  Graphics: Section;
+  Skin: Section;
+  Recording: Section;
 }
 
 interface DanserSettingsOptions {
   paths: Paths;
-  encoder: 'h264_qsv' | 'libx264' | 'unknown';
+  encoder: EncoderSetting;
   baseSettingsPath: string;
   skinsDir: string;
 }
@@ -18,7 +23,11 @@ interface DanserSettingsOptions {
 export async function writeDanserSettings(options: DanserSettingsOptions): Promise<void> {
   const { paths, encoder, baseSettingsPath, skinsDir } = options;
   if (encoder === 'unknown') return;
-  const config = JSON.parse(await readFile(baseSettingsPath, 'utf8')) as DanserSettings;
+  const base = await readBaseSettings(baseSettingsPath);
+  const config: DanserSettings = {
+    ...base, General: section(base.General), Graphics: section(base.Graphics),
+    Skin: section(base.Skin), Recording: section(base.Recording),
+  };
   config.General.OsuSongsDir = paths.songs;
   config.General.OsuSkinsDir = skinsDir;
   config.General.OsuReplaysDir = paths.replays;
@@ -35,8 +44,28 @@ export async function writeDanserSettings(options: DanserSettingsOptions): Promi
   config.Recording.OutputDir = paths.danserOutput;
   config.Recording.Container = 'mp4';
   config.Recording.ShowFFmpegLogs = true;
-  if (config.Recording.MotionBlur) config.Recording.MotionBlur.Enabled = false;
+  if (isSection(config.Recording.MotionBlur)) config.Recording.MotionBlur.Enabled = false;
   const temporary = `${paths.danserSettings}.part`;
+  await mkdir(path.dirname(paths.danserSettings), { recursive: true });
   await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   await rename(temporary, paths.danserSettings);
+}
+
+async function readBaseSettings(baseSettingsPath: string): Promise<Section> {
+  let text: string;
+  try { text = await readFile(baseSettingsPath, 'utf8'); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    throw error;
+  }
+  const parsed: unknown = JSON.parse(text);
+  if (!isSection(parsed)) throw new Error(`danser base settings must be a JSON object: ${path.basename(baseSettingsPath)}`);
+  return parsed;
+}
+
+function section(value: unknown): Section {
+  return isSection(value) ? { ...value } : {};
+}
+
+function isSection(value: unknown): value is Section {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
