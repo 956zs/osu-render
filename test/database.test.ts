@@ -57,3 +57,48 @@ test('does not bypass an older resolving job', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('lists recent renders newest first and opens read-only', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-db-'));
+  const file = path.join(directory, 'test.db');
+  const database = new RenderDatabase(file);
+  try {
+    for (const id of ['one', 'two', 'three']) {
+      database.createRender({ id, replayPath: `/${id}.osr`, clientKey: 'k', encoder: 'libx264' });
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    assert.deepEqual(database.recentRenders(2).map((row) => row.id), ['three', 'two']);
+    assert.equal(database.recentRenders(10).length, 3);
+    assert.deepEqual(database.recentRenders(0), []);
+    assert.deepEqual(database.recentRenders(-1), []);
+    const reader = new RenderDatabase(file, { readonly: true });
+    try {
+      assert.equal(reader.recentRenders(1)[0]?.id, 'three');
+      assert.throws(() => reader.createRender({ id: 'x', replayPath: '/x.osr', clientKey: 'k', encoder: 'libx264' }));
+    } finally {
+      reader.close();
+    }
+    assert.throws(() => new RenderDatabase(path.join(directory, 'missing.db'), { readonly: true }));
+  } finally {
+    database.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('failed and cancelled renders expire so their files and logs get cleaned', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-db-'));
+  const database = new RenderDatabase(path.join(directory, 'test.db'));
+  try {
+    database.createRender({ id: 'failed', replayPath: '/failed.osr', clientKey: 'one', encoder: 'libx264' });
+    database.createRender({ id: 'cancelled', replayPath: '/cancelled.osr', clientKey: 'one', encoder: 'libx264' });
+    database.markFailed('failed', 'RENDER_FAILED', 'boom');
+    database.cancel('cancelled');
+    assert.ok((database.getRender('failed')?.expires_at ?? 0) > Date.now());
+    assert.ok((database.getRender('cancelled')?.expires_at ?? 0) > Date.now());
+    const later = Date.now() + 48 * 60 * 60 * 1000;
+    assert.deepEqual(database.expiredRenders(later).map((row) => row.id).sort(), ['cancelled', 'failed']);
+  } finally {
+    database.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

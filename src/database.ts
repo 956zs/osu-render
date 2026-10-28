@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import type { BeatmapRow, JobStatus, RenderRow, ReplayMetadata } from './types.js';
 import { DEFAULT_RENDER_OPTIONS, RESOLUTION_DIMENSIONS, type RenderOptions } from './render-options.js';
+import { limits } from './config.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS renders (
@@ -46,7 +47,12 @@ const ACTIVE_STATUSES = "'uploaded','resolving','downloading','queued','renderin
 export class RenderDatabase {
   readonly db: Database.Database;
 
-  constructor(databasePath: string) {
+  constructor(databasePath: string, options: { readonly?: boolean } = {}) {
+    if (options.readonly) {
+      this.db = new Database(databasePath, { readonly: true, fileMustExist: true });
+      this.db.pragma('busy_timeout = 2000');
+      return;
+    }
     this.db = new Database(databasePath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
@@ -150,13 +156,16 @@ export class RenderDatabase {
   }
 
   markFailed(id: string, code: string, message: string): void {
+    const now = Date.now();
     this.db.prepare(`UPDATE renders SET status = 'failed', error_code = ?, error_message = ?,
-      completed_at = ?, updated_at = ? WHERE id = ?`).run(code, message, Date.now(), Date.now(), id);
+      completed_at = ?, updated_at = ?, expires_at = ? WHERE id = ?`)
+      .run(code, message, now, now, now + limits.videoRetentionMs, id);
   }
 
   cancel(id: string): void {
-    this.db.prepare(`UPDATE renders SET status = 'cancelled', completed_at = ?, updated_at = ?
-      WHERE id = ? AND status NOT IN ('completed','failed','cancelled')`).run(Date.now(), Date.now(), id);
+    const now = Date.now();
+    this.db.prepare(`UPDATE renders SET status = 'cancelled', completed_at = ?, updated_at = ?, expires_at = ?
+      WHERE id = ? AND status NOT IN ('completed','failed','cancelled')`).run(now, now, now + limits.videoRetentionMs, id);
   }
 
   queuePosition(id: string): number | null {
@@ -216,6 +225,11 @@ export class RenderDatabase {
   expiredRenders(now: number): RenderRow[] {
     return this.db.prepare(`SELECT * FROM renders WHERE expires_at IS NOT NULL AND expires_at < ?
       AND status IN ('completed','failed','cancelled')`).all(now) as RenderRow[];
+  }
+
+  recentRenders(limit: number): RenderRow[] {
+    if (!Number.isSafeInteger(limit) || limit <= 0) return [];
+    return this.db.prepare('SELECT * FROM renders ORDER BY created_at DESC, rowid DESC LIMIT ?').all(limit) as RenderRow[];
   }
 
   close(): void {
