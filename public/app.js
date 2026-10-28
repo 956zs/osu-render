@@ -615,6 +615,7 @@ function historyEntry(item) {
   const facts = [
     relativeTime(item.createdAt), item.resolution, encoderLabel(item.encoder),
     item.error ? errorText(item.error) : item.renderMs ? t('history.renderTime', { duration: formatDuration(item.renderMs) }) : null,
+    item.videoAvailable && typeof item.videoBytes === 'number' ? formatSize(item.videoBytes) : null,
   ];
   if (item.player || item.mods) facts.splice(1, 0, [item.player, item.mods].filter(Boolean).join(' · '));
   meta.append(...facts.filter(Boolean).map((text) => element('span', '', text)));

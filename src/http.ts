@@ -136,7 +136,7 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   }
   app.post('/api/renders', async (request) => createRender(request, dependencies));
   app.get('/api/renders', async (request, reply) => reply.header('Cache-Control', 'no-store')
-    .send(listHistory(request, deps)));
+    .send(await listHistory(request, deps)));
   app.get('/api/renders/:id', async (request, reply) => getRender(request, reply, deps));
   app.get('/api/renders/:id/video', async (request, reply) => getVideo(request, reply, deps));
   app.delete('/api/renders/:id', async (request, reply) => cancelRender(request, reply, dependencies));
@@ -230,7 +230,7 @@ async function getRender(request: FastifyRequest, _reply: FastifyReply, dependen
     ...serializeRender(row, dependencies.database.queuePosition(id)),
     speed: stats?.speed ?? null, eta: stats?.eta ?? null,
     previewUrl: available ? dependencies.previewSigner.url(row.id) : null,
-    videoBytes: available && row.video_path ? await stat(row.video_path).then((info) => info.size, () => null) : null,
+    videoBytes: available ? await videoBytes(row) : null,
   };
 }
 
@@ -265,15 +265,17 @@ async function cancelRender(request: FastifyRequest, _reply: FastifyReply, depen
   return { id, status: 'cancelled' };
 }
 
-function listHistory(request: FastifyRequest, dependencies: SignedDependencies): object {
+async function listHistory(request: FastifyRequest, dependencies: SignedDependencies): Promise<object> {
   const { defaultLimit, maxLimit } = appConfig.history;
   const raw = (request.query as { limit?: unknown }).limit;
   const requested = typeof raw === 'string' && /^\d{1,6}$/.test(raw) ? Number(raw) : defaultLimit;
   const limit = Math.min(maxLimit, Math.max(1, requested));
   return {
-    renders: dependencies.database.rendersForClient(clientKeyFor(request), limit).map((row) => ({
-      ...serializeHistory(row), previewUrl: videoAvailable(row) ? dependencies.previewSigner.url(row.id) : null,
-    })),
+    renders: await Promise.all(dependencies.database.rendersForClient(clientKeyFor(request), limit).map(async (row) => ({
+      ...serializeHistory(row),
+      previewUrl: videoAvailable(row) ? dependencies.previewSigner.url(row.id) : null,
+      videoBytes: videoAvailable(row) ? await videoBytes(row) : null,
+    }))),
   };
 }
 
@@ -394,6 +396,10 @@ function parseRange(value: string, size: number): { start: number; end: number }
     throw new AppError('RENDER_FAILED', 'Requested range is outside the video.', 416);
   }
   return { start, end };
+}
+
+async function videoBytes(row: RenderRow): Promise<number | null> {
+  return row.video_path ? stat(row.video_path).then((info) => info.size, () => null) : null;
 }
 
 function serializeHistory(row: RenderRow): object {

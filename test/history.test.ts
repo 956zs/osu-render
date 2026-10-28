@@ -120,11 +120,14 @@ test('GET /api/renders returns the requesting client history', async () => {
     assert.equal(done.resolution, '1080p');
     assert.equal(done.encoder, 'h264_nvenc');
     assert.equal(done.videoAvailable, true);
+    assert.equal(typeof done.videoBytes, 'number');
+    assert.ok((done.videoBytes as number) > 0);
     assert.equal(done.filesDeleted, false);
     assert.equal(typeof done.renderMs, 'number');
     assert.equal(typeof done.expiresAt, 'number');
     const queued = renders.find((render) => render.status === 'uploaded') as Record<string, unknown>;
     assert.equal(queued.videoAvailable, false);
+    assert.equal(queued.videoBytes, null);
     assert.equal(queued.beatmap, null);
     const limited = await app.inject({ method: 'GET', url: '/api/renders?limit=1', headers: auth, remoteAddress: ME });
     assert.equal(limited.json().renders.length, 1);
