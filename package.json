@@ -1,12 +1,19 @@
 {
-  "name": "osu-render-service",
+  "name": "osu-render",
+  "version": "0.2.0",
+  "description": "Self-hosted osu! replay (.osr) to MP4 render service powered by danser-go, with NVIDIA/AMD/Intel GPU encoding on Windows and Linux",
   "private": true,
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "tsx src/main.ts",
     "start": "node dist/src/main.js",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "doctor": "node dist/src/doctor.js",
+    "test": "npm run build && node --test \"dist/test/*.test.js\""
   },
   "dependencies": {
     "@fastify/multipart": "^9.2.1",
@@ -20,5 +27,9 @@
     "@types/yauzl": "^3.1.5",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.2": true
   }
 }
