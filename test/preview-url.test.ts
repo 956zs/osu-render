@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { settings } from '../src/config.js';
-import { createHttpServer, type HttpDependencies } from '../src/http.js';
+import { contentDisposition, createHttpServer, type HttpDependencies } from '../src/http.js';
 import { createPreviewSigner, type PreviewSigner } from '../src/preview-url.js';
 import type { PreflightResult, RenderRow } from '../src/types.js';
 
@@ -101,7 +101,7 @@ test('signed video URL streams inline with range support and no Bearer header', 
     const full = await app.inject({ method: 'GET', url });
     assert.equal(full.statusCode, 200);
     assert.equal(full.body, '0123456789');
-    assert.equal(full.headers['content-disposition'], `inline; filename="${ID}.mp4"`);
+    assert.match(String(full.headers['content-disposition']), new RegExp(`^inline; filename="${ID}\\.mp4"; filename\\*=UTF-8''`));
     const part = await app.inject({ method: 'GET', url, headers: { range: 'bytes=2-5' } });
     assert.equal(part.statusCode, 206);
     assert.equal(part.body, '2345');
@@ -138,4 +138,13 @@ test('a signature only unlocks the video route', async () => {
     const response = await app.inject({ method: 'GET', url: `/api/renders/${ID}?exp=${exp}&sig=${sig}` });
     assert.equal(response.statusCode, 401);
   });
+});
+
+test('video downloads are named after the beatmap with an ASCII fallback', () => {
+  const row = { id: ID, beatmap_title: 'Blue Zenith', beatmap_artist: 'xi', beatmap_version: 'FOUR "DIMENSIONS"' } as RenderRow;
+  assert.equal(contentDisposition('attachment', row),
+    `attachment; filename="${ID}.mp4"; filename*=UTF-8''xi%20-%20Blue%20Zenith%20%5BFOUR%20_DIMENSIONS_%5D.mp4`);
+  assert.equal(contentDisposition('inline', { ...row, beatmap_title: '千本桜', beatmap_artist: null, beatmap_version: null }),
+    `inline; filename="${ID}.mp4"; filename*=UTF-8''%E5%8D%83%E6%9C%AC%E6%A1%9C.mp4`);
+  assert.equal(contentDisposition('inline', { ...row, beatmap_title: null }), `inline; filename="${ID}.mp4"`);
 });

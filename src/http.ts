@@ -247,7 +247,7 @@ async function getVideo(request: FastifyRequest, reply: FastifyReply, dependenci
   const size = (await stat(row.video_path)).size;
   const range = request.headers.range;
   reply.type('video/mp4').header('Accept-Ranges', 'bytes')
-    .header('Content-Disposition', `${signed ? 'inline' : 'attachment'}; filename="${row.id}.mp4"`);
+    .header('Content-Disposition', contentDisposition(signed ? 'inline' : 'attachment', row));
   if (!range) return reply.header('Content-Length', size).send(createReadStream(row.video_path));
   const selected = parseRange(range, size);
   return reply.code(206)
@@ -308,6 +308,17 @@ async function loadTranslations(directory: string): Promise<Map<string, string>>
 function isSignedVideoRequest(request: FastifyRequest): boolean {
   return request.method === 'GET' && SIGNED_VIDEO_PATH.test(request.url)
     && (request.query as { sig?: unknown } | undefined)?.sig !== undefined;
+}
+
+/** ASCII fallback is the render id; browsers that read filename* save it as "Artist - Title [Version].mp4". */
+export function contentDisposition(type: 'inline' | 'attachment', row: RenderRow): string {
+  const fallback = `${type}; filename="${row.id}.mp4"`;
+  if (!row.beatmap_title) return fallback;
+  const name = `${row.beatmap_artist ? `${row.beatmap_artist} - ` : ''}${row.beatmap_title}${row.beatmap_version ? ` [${row.beatmap_version}]` : ''}`
+    .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, '_').trim().slice(0, 150);
+  if (!name) return fallback;
+  const encoded = encodeURIComponent(`${name}.mp4`).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${fallback}; filename*=UTF-8''${encoded}`;
 }
 
 function filesDeleted(row: RenderRow, now = Date.now()): boolean {
