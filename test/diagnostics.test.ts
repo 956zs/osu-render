@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  ISSUE_OS_OPTIONS, ISSUE_RESULT_OPTIONS, buildIssueUrl, collectDiagnostics, createScrubber, issueOsOption,
+  ISSUE_OS_OPTIONS, ISSUE_RESULT_OPTIONS, buildIssueUrl, classifyHost, collectDiagnostics, createScrubber, issueOsOption,
   issueResultOption, parseDanserLog, parseFfmpegEncoders, parseLspciName, parseNvidiaProcVersion, parseNvidiaSmi,
   parseWindowsGpuJson, pciVendorName, readLinuxGpus, readLogTail, scrubIpAddresses, scrubPlayerNames, scrubSecrets,
   type DiagnosticsCommandRunner, type DiagnosticsSettings,
@@ -26,6 +26,12 @@ test('scrubIpAddresses replaces IPv4 and IPv6 but keeps versions and times', () 
   assert.equal(scrubIpAddresses(''), '');
 });
 
+test('scrubPlayerNames only matches whole names', () => {
+  assert.equal(scrubPlayerNames('using h264_nvenc for nv', ['nv']), 'using h264_nvenc for <player>');
+  assert.equal(scrubPlayerNames('libx264 x264 amdgpu amd', ['x264', 'amd']), 'libx264 <player> amdgpu <player>');
+  assert.equal(scrubPlayerNames('Ünter Über', ['Über']), 'Ünter <player>');
+});
+
 test('scrubPlayerNames is case-insensitive, escapes regex characters and ignores tiny names', () => {
   assert.equal(scrubPlayerNames('Loading replay by Cookiezi, cookiezi wins', ['Cookiezi']), 'Loading replay by <player>, <player> wins');
   assert.equal(scrubPlayerNames('player [Hd]Rafis (x)', ['[Hd]Rafis (x)']), 'player <player>');
@@ -40,9 +46,22 @@ test('scrubSecrets removes secret values and skips short or empty ones', () => {
 });
 
 test('createScrubber combines secrets, players, data dir, home and IP redaction', () => {
-  const scrub = createScrubber({ playerNames: ['Whitecat'], secrets: ['s3cr3t-value'], dataDir: '/srv/osu/data' });
-  const text = `${os.homedir()}/x /srv/osu/data/replays/a.osr Whitecat 8.8.8.8 s3cr3t-value`;
-  assert.equal(scrub(text), '~/x <data>/replays/a.osr <player> <ip> <secret>');
+  const id = '33333333-3333-4333-8333-333333333333';
+  const scrub = createScrubber({ secrets: ['s3cr3t-value'], dataDir: '/srv/osu/data', renderIds: [id] });
+  const text = `${os.homedir()}/x /srv/osu/data/replays/${id}.osr 8.8.8.8 s3cr3t-value ${id.toUpperCase()}`;
+  assert.equal(scrub(text), '~/x <data>/replays/<render-id>.osr <ip> <secret> <render-id>');
+  assert.equal(createScrubber()('plain'), 'plain');
+});
+
+test('classifyHost never exposes the bind address', () => {
+  assert.equal(classifyHost('127.0.0.1'), 'loopback');
+  assert.equal(classifyHost('localhost'), 'loopback');
+  assert.equal(classifyHost('[::1]'), 'loopback');
+  assert.equal(classifyHost('0.0.0.0'), 'any');
+  assert.equal(classifyHost('::'), 'any');
+  assert.equal(classifyHost(''), 'any');
+  assert.equal(classifyHost('192.168.1.50'), 'other');
+  assert.equal(classifyHost('my-host.lan'), 'other');
 });
 
 test('parseDanserLog extracts version, GL and ffmpeg location and skips extensions', () => {
@@ -229,7 +248,7 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     ].join('\n'));
     const failedId = '11111111-1111-4111-8111-111111111111';
     await writeFile(path.join(logs, `${failedId}.log`),
-      `Loading replay of SecretPlayer from ${os.homedir()}/x.osr\nclient 203.0.113.9 token ${TOKEN}\nnvenc init failed\n`);
+      `Loading replay of SecretPlayer from ${os.homedir()}/x.osr\nout=${failedId}.mp4\nclient 203.0.113.9 token ${TOKEN}\nnvenc init failed\n`);
     const okId = '22222222-2222-4222-8222-222222222222';
     await writeFile(path.join(logs, `${okId}.log`), 'should not be included\n');
 
@@ -289,20 +308,25 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     assert.equal(report.encoderProbes.length, 3);
     assert.equal(report.encoderProbes[1].error, 'Error from <ip>');
     assert.deepEqual(report.config, {
-      host: '<ip>', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: true,
+      host: 'other', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: true,
       mirrors: ['mirror.example.com', 'invalid'],
     });
     assert.deepEqual(report.storage, { freeBytes: 42 });
     assert.equal(report.renders.length, 2);
+    assert.deepEqual(report.renders.map((render) => render.index), [1, 2]);
     assert.equal(report.renders[0].renderMs, 3000);
     assert.equal(report.renders[0].errorCode, 'RENDER_FAILED');
-    assert.match(report.renders[0].logTail ?? '', /Loading replay of <player> from ~\/x\.osr\nclient <ip> token <secret>\nnvenc init failed/);
+    assert.match(report.renders[0].logTail ?? '', /Loading replay of <player> from ~\/x\.osr\nout=<render-id>\.mp4\nclient <ip> token <secret>\nnvenc init failed/);
     assert.equal(report.renders[1].logTail, undefined);
     assert.equal(report.errors.length, 0);
 
     const json = JSON.stringify(report);
-    for (const forbidden of [SECRET, TOKEN, 'SecretPlayer', 'OtherPlayer', '10.1.2.3', '203.0.113.9', '198.51.100.7', '192.168.1.50', '/r.osr', os.homedir()]) {
+    assert.match(report.renders[0].logTail ?? '', /out=<render-id>\.mp4/);
+    for (const forbidden of [failedId, okId, SECRET, TOKEN, 'SecretPlayer', 'OtherPlayer', '10.1.2.3', '203.0.113.9', '198.51.100.7', '192.168.1.50', '/r.osr', os.homedir()]) {
       assert.ok(!json.includes(forbidden), `report must not contain ${forbidden}`);
+    }
+    for (const id of [failedId, okId]) {
+      assert.ok(!report.issue.url.includes(id) && !report.issue.url.includes(encodeURIComponent(id)), 'issue url must not contain render ids');
     }
     assert.ok(!json.includes('client_key') && !json.includes('player_name') && !json.includes('replay_path'));
 
@@ -350,5 +374,70 @@ test('collectDiagnostics tolerates every probe failing', async () => {
       assert.ok(sources.includes(source), `missing error for ${source}: ${sources.join(', ')}`);
     }
     assert.equal(new URL(report.issue.url).searchParams.get('result'), ISSUE_RESULT_OPTIONS.selfTestFailed);
+  });
+});
+
+test('player names matching encoder or GPU words only scrub free text', async () => {
+  await withTempDir(async (directory) => {
+    const logs = path.join(directory, 'logs');
+    await mkdir(logs, { recursive: true });
+    const names = ['nv', 'amd', 'x264', 'intel'];
+    const rows = names.map((name, index) => row({
+      id: `4444444${index}-4444-4444-8444-444444444444`, status: 'failed', player_name: name, encoder: 'h264_nvenc',
+      error_code: 'RENDER_FAILED', created_at: 100 - index,
+    }));
+    for (const [index, name] of names.entries()) {
+      await writeFile(path.join(logs, `${rows[index].id}.log`), `Replay by ${name} loaded\nh264_nvenc libx264 amdgpu\n`);
+    }
+    const report = await collectDiagnostics({
+      preflight: {
+        run: async () => ({ renderer: true, display: true, encoder: 'h264_qsv', probes: [] }),
+        probeAll: async () => [
+          { encoder: 'h264_nvenc' as const, ok: false, durationMs: 1, error: 'nv driver missing for intel' },
+          { encoder: 'libx264' as const, ok: true, durationMs: 1 },
+        ],
+        tools: async () => fakeTools(path.join(directory, 'danser')),
+      },
+      settings: settingsFor(path.join(directory, 'danser')),
+      paths: { data: directory, logs },
+      database: { recentRenders: () => rows },
+      runCommand: async (file) => {
+        if (file === 'powershell') return { stdout: '{"Name":"Intel(R) UHD Graphics","AdapterCompatibility":"Intel Corporation","PNPDeviceID":"PCI\\\\VEN_8086&DEV_4680"}', stderr: '' };
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+      },
+      platform: 'win32',
+    });
+    assert.deepEqual(report.gpus.map((gpu) => [gpu.name, gpu.vendor]), [['Intel(R) UHD Graphics', 'Intel']]);
+    assert.deepEqual(report.encoderProbes.map((probe) => probe.encoder), ['h264_nvenc', 'libx264']);
+    assert.equal(report.encoderProbes[0].error, '<player> driver missing for <player>');
+    assert.equal(report.preflight.encoder, 'h264_qsv');
+    for (const render of report.renders) {
+      assert.equal(render.encoder, 'h264_nvenc');
+      assert.equal(render.status, 'failed');
+      assert.equal(render.logTail, 'Replay by <player> loaded\nh264_nvenc libx264 amdgpu\n');
+    }
+    assert.equal(new URL(report.issue.url).searchParams.get('gpu'), 'Intel(R) UHD Graphics');
+  });
+});
+
+test('skipProbes reports the preflight probes instead of running new ones', async () => {
+  await withTempDir(async (directory) => {
+    const preflightProbes = [{ encoder: 'h264_qsv' as const, ok: true, durationMs: 5 }];
+    const report = await collectDiagnostics({
+      preflight: {
+        run: async () => { throw new Error('unused'); },
+        probeAll: async () => { throw new Error('probeAll must not run during a render'); },
+        tools: async () => fakeTools(path.join(directory, 'danser')),
+      },
+      preflightResult: { renderer: true, display: true, encoder: 'h264_qsv', probes: preflightProbes },
+      settings: settingsFor(path.join(directory, 'danser')),
+      paths: { data: directory, logs: directory },
+      runCommand: async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); },
+      platform: 'darwin',
+      skipProbes: 'render_active',
+    });
+    assert.equal(report.probesSkipped, 'render_active');
+    assert.deepEqual(report.encoderProbes, preflightProbes);
+    assert.ok(!report.errors.some((error) => error.source === 'encoderProbes'));
   });
 });

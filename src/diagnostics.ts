@@ -17,6 +17,8 @@ const FIELD_CHARS = 200;
 const ISSUE_BODY_CHARS = 1500;
 const ISSUE_URL_MAX = 8000;
 const RENDER_ID_PATTERN = /^[A-Za-z0-9-]{1,64}$/;
+/** Report keys holding free text (logs, error output) where player names may appear. */
+const FREE_TEXT_KEYS = new Set(['logTail', 'error', 'displayDetail']);
 const WINDOWS_GPU_COMMAND = 'ConvertTo-Json -Compress @(Get-CimInstance Win32_VideoController'
   + ' | Select-Object Name,AdapterCompatibility,DriverVersion,PNPDeviceID,Status)';
 
@@ -64,6 +66,8 @@ export interface DiagnosticsOptions {
   env?: NodeJS.ProcessEnv;
   sysDrmDir?: string;
   now?: Date;
+  /** Skip the encoder self-tests (e.g. while a render is using the GPU) and report the preflight probes instead. */
+  skipProbes?: 'render_active';
 }
 
 export interface GpuInfo {
@@ -85,7 +89,8 @@ export interface DanserLogSummary {
 }
 
 export interface RenderDiagnostics {
-  id: string;
+  /** 1-based position, newest first; render ids are download/cancel credentials and never leave the service. */
+  index: number;
   status: string;
   encoder: string;
   width: number;
@@ -116,7 +121,8 @@ export interface DiagnosticsReport {
   };
   preflight: PreflightResult;
   encoderProbes: EncoderProbe[];
-  config: { host: string; port: number; renderEncoder: string; oauthConfigured: boolean; authTokenSet: boolean; mirrors: string[] };
+  probesSkipped?: 'render_active';
+  config: { host: HostScope; port: number; renderEncoder: string; oauthConfigured: boolean; authTokenSet: boolean; mirrors: string[] };
   storage: { freeBytes: number | null };
   renders: RenderDiagnostics[];
   errors: Array<{ source: string; error: string }>;
@@ -124,6 +130,7 @@ export interface DiagnosticsReport {
 }
 
 type Errors = DiagnosticsReport['errors'];
+export type HostScope = 'loopback' | 'any' | 'other';
 
 export async function collectDiagnostics(options: DiagnosticsOptions): Promise<DiagnosticsReport> {
   const platform = options.platform ?? process.platform;
@@ -141,7 +148,8 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
   const preflight = options.preflightResult ?? await attempt<PreflightResult>('preflight', {
     renderer: false, display: false, encoder: 'unknown', probes: [], reason: 'renderer_unavailable',
   }, () => options.preflight.run());
-  const encoderProbes = await attempt<EncoderProbe[]>('encoderProbes', [], () => options.preflight.probeAll());
+  const encoderProbes = options.skipProbes ? preflight.probes
+    : await attempt<EncoderProbe[]>('encoderProbes', [], () => options.preflight.probeAll());
   const toolEnv = tools ? libraryEnvironment(tools.libraryDirs, env, platform) : env;
   const rows = await attempt<RenderRow[]>('renders', [],
     async () => options.database?.recentRenders(appConfig.diagnostics.recentRenders) ?? []);
@@ -167,8 +175,9 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     danser,
     preflight,
     encoderProbes,
+    ...(options.skipProbes ? { probesSkipped: options.skipProbes } : {}),
     config: {
-      host: settings.host, port: settings.port, renderEncoder: settings.renderEncoder,
+      host: classifyHost(settings.host), port: settings.port, renderEncoder: settings.renderEncoder,
       oauthConfigured: Boolean(settings.osuClientId && settings.osuClientSecret),
       authTokenSet: Boolean(settings.authToken),
       mirrors: settings.mirrors.map(mirrorHost),
@@ -178,28 +187,36 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     errors,
   };
   const scrub = createScrubber({
-    playerNames, secrets: [settings.authToken, settings.osuClientSecret],
+    secrets: [settings.authToken, settings.osuClientSecret], renderIds: rows.map((row) => row.id),
     dataDir: options.paths.data,
   });
-  const report = sanitizeValue(unsanitized, scrub);
+  const report = sanitizeValue(unsanitized, scrub, (text) => scrubPlayerNames(text, playerNames));
   return { ...report, issue: buildIssue(report) };
 }
 
 // ---------------------------------------------------------------- redaction
 
 export interface ScrubOptions {
-  playerNames?: readonly string[];
   secrets?: readonly string[];
+  renderIds?: readonly string[];
   dataDir?: string;
 }
 
+/** Scrubber applied to every string in the report (player names are handled separately, free text only). */
 export function createScrubber(options: ScrubOptions = {}): (text: string) => string {
   return (text) => {
     let result = scrubSecrets(text, options.secrets ?? []);
+    for (const id of options.renderIds ?? []) result = replaceLiteral(result, id, '<render-id>', true);
     if (options.dataDir) result = replaceLiteral(result, options.dataDir, '<data>', process.platform === 'win32');
-    result = scrubPlayerNames(result, options.playerNames ?? []);
     return scrubIpAddresses(redactText(result));
   };
+}
+
+export function classifyHost(host: string): HostScope {
+  const value = host.trim().toLowerCase().replace(/^\[(.*)\]$/, '$1');
+  if (value === '' || value === '0.0.0.0' || value === '::') return 'any';
+  if (value === 'localhost' || value === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value)) return 'loopback';
+  return 'other';
 }
 
 export function scrubSecrets(text: string, secrets: readonly string[]): string {
@@ -213,7 +230,9 @@ export function scrubSecrets(text: string, secrets: readonly string[]): string {
 export function scrubPlayerNames(text: string, names: readonly string[]): string {
   let result = text;
   const unique = [...new Set(names.map((name) => name.trim()).filter((name) => name.length >= 2))];
-  for (const name of unique.sort((a, b) => b.length - a.length)) result = replaceLiteral(result, name, '<player>', true);
+  for (const name of unique.sort((a, b) => b.length - a.length)) {
+    result = result.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, 'giu'), '<player>');
+  }
   return result;
 }
 
@@ -229,11 +248,12 @@ function replaceLiteral(text: string, needle: string, replacement: string, ignor
   return text.replace(new RegExp(escapeRegExp(needle), ignoreCase ? 'gi' : 'g'), replacement);
 }
 
-function sanitizeValue<T>(value: T, scrub: (text: string) => string): T {
-  if (typeof value === 'string') return scrub(value) as T;
-  if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, scrub)) as T;
+function sanitizeValue<T>(value: T, scrub: (text: string) => string, scrubFreeText: (text: string) => string, key = ''): T {
+  if (typeof value === 'string') return (FREE_TEXT_KEYS.has(key) ? scrubFreeText(scrub(value)) : scrub(value)) as T;
+  if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, scrub, scrubFreeText, key)) as T;
   if (typeof value === 'object' && value !== null) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeValue(item, scrub)])) as T;
+    return Object.fromEntries(Object.entries(value)
+      .map(([name, item]) => [name, sanitizeValue(item, scrub, scrubFreeText, name)])) as T;
   }
   return value;
 }
@@ -477,9 +497,9 @@ export async function readLogTail(file: string, bytes: number): Promise<string |
 
 async function collectRenders(rows: readonly RenderRow[], logsDir: string, errors: Errors): Promise<RenderDiagnostics[]> {
   const renders: RenderDiagnostics[] = [];
-  for (const row of rows) {
+  for (const [position, row] of rows.entries()) {
     const render: RenderDiagnostics = {
-      id: row.id, status: row.status, encoder: row.encoder, width: row.width, height: row.height,
+      index: position + 1, status: row.status, encoder: row.encoder, width: row.width, height: row.height,
       createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at,
       renderMs: row.started_at !== null && row.completed_at !== null ? Math.max(0, row.completed_at - row.started_at) : null,
       errorCode: row.error_code,
@@ -489,7 +509,7 @@ async function collectRenders(rows: readonly RenderRow[], logsDir: string, error
         const tail = await readLogTail(path.join(logsDir, `${row.id}.log`), appConfig.diagnostics.reportLogTailBytes);
         if (tail !== undefined) render.logTail = scrubPlayerNames(tail, row.player_name ? [row.player_name] : []);
       } catch (error) {
-        errors.push({ source: `renders.${row.id}.log`, error: errorText(error) });
+        errors.push({ source: `renders.${position + 1}.log`, error: errorText(error) });
       }
     }
     renders.push(render);

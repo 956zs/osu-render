@@ -19,6 +19,7 @@ import { collectDiagnostics, type DiagnosticsReport } from './diagnostics.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
+const DIAGNOSTICS_CACHE_MS = 30_000;
 const MAX_UPLOADS_PER_WINDOW = 5;
 
 export interface HttpDependencies {
@@ -39,6 +40,7 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   const indexHtml = await readFile(path.resolve(settings.root, 'public/index.html'), 'utf8');
   const translations = await loadTranslations(path.resolve(settings.root, 'public/i18n'));
   let diagnosticsInFlight: Promise<DiagnosticsReport> | undefined;
+  let diagnosticsCache: { at: number; report: DiagnosticsReport } | undefined;
   app.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/api/')) authorize(request);
   });
@@ -61,11 +63,18 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     return reply.type('application/json; charset=utf-8').header('Cache-Control', 'no-cache').send(text);
   });
   app.get('/api/diagnostics', async (_request, reply) => {
-    diagnosticsInFlight ??= collectDiagnostics({
-      preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
-      settings, paths: dependencies.paths, database: dependencies.database, storage: dependencies.storage,
-    }).finally(() => { diagnosticsInFlight = undefined; });
-    return reply.header('Cache-Control', 'no-store').send(await diagnosticsInFlight);
+    if (!diagnosticsCache || Date.now() - diagnosticsCache.at >= DIAGNOSTICS_CACHE_MS) {
+      diagnosticsInFlight ??= collectDiagnostics({
+        preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
+        settings, paths: dependencies.paths, database: dependencies.database, storage: dependencies.storage,
+        ...(renderActive(dependencies.database) ? { skipProbes: 'render_active' as const } : {}),
+      }).then((report) => {
+        diagnosticsCache = { at: Date.now(), report };
+        return report;
+      }).finally(() => { diagnosticsInFlight = undefined; });
+      await diagnosticsInFlight;
+    }
+    return reply.header('Cache-Control', 'no-store').send(diagnosticsCache?.report);
   });
 
   app.post('/api/renders', async (request) => createRender(request, dependencies));
@@ -138,6 +147,11 @@ async function cancelRender(request: FastifyRequest, _reply: FastifyReply, depen
   requireRender(dependencies.database.getRender(id));
   await dependencies.queue.cancel(id);
   return { id, status: 'cancelled' };
+}
+
+/** Encoder self-tests would compete with an active render for the GPU encoder, so diagnostics skip them then. */
+function renderActive(database: RenderDatabase): boolean {
+  return database.db.prepare("SELECT 1 FROM renders WHERE status IN ('rendering','finalizing') LIMIT 1").get() !== undefined;
 }
 
 async function loadTranslations(directory: string): Promise<Map<string, string>> {

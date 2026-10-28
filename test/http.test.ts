@@ -9,11 +9,17 @@ import type { PreflightResult } from '../src/types.js';
 
 const READY: PreflightResult = { renderer: true, display: true, encoder: 'libx264', probes: [] };
 
-async function withServer(run: (app: Awaited<ReturnType<typeof createHttpServer>>, counters: { probeAll: number }) => Promise<void>): Promise<void> {
+async function withServer(
+  run: (app: Awaited<ReturnType<typeof createHttpServer>>, counters: { probeAll: number }) => Promise<void>,
+  rendering = false,
+): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-http-'));
   const counters = { probeAll: 0 };
   const dependencies = {
-    database: { recentRenders: () => [], queuedCount: () => 0 },
+    database: {
+      recentRenders: () => [], queuedCount: () => 0,
+      db: { prepare: () => ({ get: () => (rendering ? { 1: 1 } : undefined) }) },
+    },
     queue: {},
     storage: { freeBytes: async () => 1024 ** 4 },
     preflight: {
@@ -55,7 +61,7 @@ test('serves allowlisted i18n files only', async () => {
   });
 });
 
-test('diagnostics endpoint shares one in-flight collection', async () => {
+test('diagnostics endpoint shares one in-flight collection and caches the report', async () => {
   await withServer(async (app, counters) => {
     const [first, second] = await Promise.all([
       app.inject({ method: 'GET', url: '/api/diagnostics', headers: auth }),
@@ -66,7 +72,20 @@ test('diagnostics endpoint shares one in-flight collection', async () => {
     assert.equal(counters.probeAll, 1);
     assert.equal(first.json().schema, 1);
     assert.equal(first.json().preflight.encoder, 'libx264');
-    await app.inject({ method: 'GET', url: '/api/diagnostics', headers: auth });
-    assert.equal(counters.probeAll, 2);
+    const cached = await app.inject({ method: 'GET', url: '/api/diagnostics', headers: auth });
+    assert.equal(cached.statusCode, 200);
+    assert.equal(cached.json().generatedAt, first.json().generatedAt);
+    assert.equal(counters.probeAll, 1);
+    assert.equal(first.json().probesSkipped, undefined);
   });
+});
+
+test('diagnostics endpoint skips encoder probes while a render is active', async () => {
+  await withServer(async (app, counters) => {
+    const response = await app.inject({ method: 'GET', url: '/api/diagnostics', headers: auth });
+    assert.equal(response.statusCode, 200);
+    assert.equal(counters.probeAll, 0);
+    assert.equal(response.json().probesSkipped, 'render_active');
+    assert.deepEqual(response.json().encoderProbes, []);
+  }, true);
 });
