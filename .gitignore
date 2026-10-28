@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+data/render.db*
+data/replays/*
+data/temp/*
+data/videos/*
+data/songs/*
+data/logs/*
+!data/*/.gitkeep
+plans/

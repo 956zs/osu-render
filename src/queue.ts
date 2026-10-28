@@ -1,0 +1,129 @@
+import { rm } from 'node:fs/promises';
+import { AppError, publicError } from './errors.js';
+import type { RenderDatabase } from './database.js';
+import type { BeatmapResolver } from './beatmap-resolver.js';
+import type { DanserRenderer } from './renderer.js';
+import type { StorageManager } from './storage.js';
+import type { ReplayMetadata, RenderRow } from './types.js';
+import { log } from './logger.js';
+import { limits } from './config.js';
+
+export class RenderQueue {
+  private running = false;
+  private currentJobId: string | null = null;
+
+  constructor(private readonly dependencies: {
+    database: RenderDatabase;
+    resolver: BeatmapResolver;
+    renderer: DanserRenderer;
+    storage: StorageManager;
+  }) {}
+
+  private get database(): RenderDatabase { return this.dependencies.database; }
+  private get resolver(): BeatmapResolver { return this.dependencies.resolver; }
+  private get renderer(): DanserRenderer { return this.dependencies.renderer; }
+  private get storage(): StorageManager { return this.dependencies.storage; }
+
+  start(): void {
+    void this.pump();
+  }
+
+  async enqueue(id: string, replay: ReplayMetadata): Promise<void> {
+    this.database.updateReplay(id, replay);
+    void this.prepare(id, replay);
+  }
+
+  async recover(row: RenderRow): Promise<void> {
+    const replay = await import('./replay.js').then((module) => module.parseReplayFile(row.replay_path));
+    this.database.updateReplay(row.id, replay);
+    void this.prepare(row.id, replay);
+  }
+
+  async cancel(id: string): Promise<void> {
+    const row = this.database.getRender(id);
+    if (!row) throw new AppError('INTERNAL_ERROR', 'Render job was not found.', 404);
+    if (['completed', 'failed', 'cancelled'].includes(row.status)) {
+      throw new AppError('RENDER_FAILED', 'Render job has already finished.', 409);
+    }
+    this.database.cancel(id);
+    if (row.status === 'rendering') await this.renderer.cancel(id);
+    await removeReplay(row);
+  }
+
+  private async pump(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      while (true) {
+        const next = this.database.nextQueued();
+        if (!next) return;
+        await this.process(next);
+      }
+    } finally {
+      this.running = false;
+      this.currentJobId = null;
+    }
+  }
+
+  private async process(job: RenderRow): Promise<void> {
+    this.currentJobId = job.id;
+    try {
+      await this.storage.guardNewRender();
+      if (!this.database.markRendering(job.id)) return;
+      const output = await this.renderer.render(this.database.getRender(job.id) as RenderRow,
+        (progress) => this.database.setProgress(job.id, progress));
+      if (this.database.getRender(job.id)?.status === 'cancelled') {
+        await rm(output, { force: true });
+        return;
+      }
+      this.database.setStatus(job.id, 'finalizing', 100);
+      if (!this.database.markCompleted(job.id, output, Date.now() + limits.videoRetentionMs)) {
+        await rm(output, { force: true });
+        return;
+      }
+      log('info', 'render_completed', { component: 'worker', jobId: job.id });
+    } catch (error) {
+      if (this.database.getRender(job.id)?.status === 'cancelled') return;
+      const safe = publicError(error);
+      this.database.markFailed(job.id, safe.code, safe.publicMessage);
+      await removeReplay(this.database.getRender(job.id));
+      log('error', 'render_failed', {
+        component: 'worker', jobId: job.id, code: safe.code, message: safe.message, ...debugError(error),
+      });
+    }
+  }
+
+  private async prepare(id: string, replay: ReplayMetadata): Promise<void> {
+    try {
+      const resolved = await this.resolver.resolve(replay.beatmapChecksum,
+        () => this.database.setStatus(id, 'downloading'));
+      if (this.database.getRender(id)?.status === 'cancelled') return;
+      this.database.updateBeatmap(id, resolved.metadata.id, resolved.metadata.beatmapsetId);
+      this.database.setStatus(id, 'queued');
+      await this.pump();
+    } catch (error) {
+      if (this.database.getRender(id)?.status === 'cancelled') return;
+      const safe = publicError(error);
+      this.database.markFailed(id, safe.code, safe.publicMessage);
+      await removeReplay(this.database.getRender(id));
+      log('error', 'beatmap_resolution_failed', {
+        component: 'resolver', jobId: id, code: safe.code, ...debugError(error),
+      });
+    }
+  }
+}
+
+function debugError(error: unknown): Record<string, string> {
+  if (error instanceof Error) {
+    return {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorStack: error.stack ?? '',
+    };
+  }
+  return { errorName: typeof error, errorMessage: String(error) };
+}
+
+async function removeReplay(row: RenderRow | undefined): Promise<void> {
+  if (row?.replay_path) await rm(row.replay_path, { force: true });
+}

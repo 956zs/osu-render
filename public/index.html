@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>osu! Render</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #080b12; --panel: rgba(18, 23, 35, .86); --panel-strong: #151b29;
+      --line: rgba(147, 164, 190, .16); --line-strong: rgba(147, 164, 190, .3);
+      --text: #f5f7fb; --muted: #98a5b9; --pink: #ff66aa; --pink-soft: rgba(255, 102, 170, .14);
+      --blue: #79b8ff; --danger: #ff8c9f; --shadow: 0 24px 80px rgba(0, 0, 0, .32);
+      background: var(--bg); color: var(--text);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background:
+      radial-gradient(circle at 12% 12%, rgba(121, 184, 255, .11), transparent 32rem),
+      radial-gradient(circle at 88% 8%, rgba(255, 102, 170, .1), transparent 30rem), var(--bg); }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 32px 32px; }
+    main { position: relative; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 54px 0 72px; }
+    .hero { display: flex; align-items: center; gap: 18px; margin-bottom: 30px; }
+    .hero-mark { width: 56px; height: 56px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 18px;
+      color: #fff; font-size: 28px; font-weight: 850; background: linear-gradient(145deg, var(--pink), #b760ff); box-shadow: 0 12px 32px rgba(255, 102, 170, .25); }
+    .eyebrow { margin: 0 0 5px; color: var(--pink); font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.45rem); line-height: 1.08; letter-spacing: -.035em; }
+    .subtitle { margin: 8px 0 0; color: var(--muted); font-size: .98rem; }
+    .layout { display: grid; grid-template-columns: minmax(320px, .82fr) minmax(560px, 1.35fr); gap: 22px; align-items: start; }
+    .panel { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
+    .upload-card { position: sticky; top: 24px; padding: 22px; }
+    .panel-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .step { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: var(--pink); background: var(--pink-soft); font-size: .75rem; font-weight: 850; }
+    .panel-heading h2 { margin: 0; font-size: 1.05rem; }
+    .panel-heading p { margin: 3px 0 0; color: var(--muted); font-size: .82rem; }
+    .token-field { display: grid; gap: 7px; margin-bottom: 16px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+    input[type=password] { width: 100%; padding: 12px 13px; color: var(--text); background: rgba(7, 10, 17, .7); border: 1px solid var(--line); border-radius: 11px; outline: none; transition: .18s ease; }
+    input[type=password]:focus { border-color: rgba(121, 184, 255, .65); box-shadow: 0 0 0 3px rgba(121, 184, 255, .1); }
+    input[type=file] { display: none; }
+    .drop { min-height: 250px; padding: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center;
+      border: 1px dashed var(--line-strong); border-radius: 16px; cursor: pointer; background: rgba(7, 10, 17, .45); transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+    .drop:hover, .drop.drag { border-color: var(--pink); background: var(--pink-soft); transform: translateY(-2px); }
+    .drop-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 7px; border-radius: 17px; color: var(--pink); background: var(--pink-soft); font-size: 1.5rem; }
+    .drop strong { font-size: 1rem; }
+    .drop-copy { color: var(--muted); font-size: .83rem; line-height: 1.6; }
+    .settings-card { overflow: clip; }
+    summary { min-height: 88px; padding: 20px 22px; display: flex; align-items: center; gap: 14px; cursor: pointer; list-style: none; user-select: none; }
+    summary::-webkit-details-marker { display: none; }
+    .summary-copy { min-width: 0; flex: 1; }
+    .summary-copy strong { display: block; font-size: 1.02rem; }
+    .summary-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: .78rem; font-weight: 500; }
+    .badge { padding: 5px 9px; border-radius: 999px; color: var(--blue); background: rgba(121, 184, 255, .1); font-size: .7rem; font-weight: 800; white-space: nowrap; }
+    .chevron { width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); border-radius: 9px; background: rgba(255,255,255,.04); transition: transform .2s ease; }
+    details[open] .chevron { transform: rotate(180deg); }
+    .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 14px 14px; }
+    fieldset { min-width: 0; margin: 0; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 10, 17, .42); }
+    fieldset:nth-child(-n+3) { grid-column: 1 / -1; }
+    legend { padding: 0 7px; color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .04em; }
+    .setting { min-width: 0; min-height: 30px; display: flex; align-items: center; gap: 9px; color: #dce2ec; font-size: .84rem; }
+    .setting.range { grid-column: 1 / -1; display: grid; grid-template-columns: 108px minmax(100px, 1fr) 42px; gap: 10px; }
+    input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 auto; margin: 0; accent-color: var(--pink); }
+    input[type=range] { width: 100%; accent-color: var(--pink); }
+    output { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+    select { min-width: 92px; margin-left: auto; padding: 7px 9px; color: var(--text); background: #0c111c; border: 1px solid var(--line-strong); border-radius: 8px; outline: none; }
+    .settings-foot { margin: 0 14px 14px; padding: 11px 13px; display: flex; gap: 9px; color: var(--muted); background: rgba(121, 184, 255, .06); border-radius: 11px; font-size: .76rem; line-height: 1.5; }
+    .settings-foot::before { content: "i"; width: 18px; height: 18px; flex: 0 0 auto; display: grid; place-items: center; color: var(--blue); border: 1px solid rgba(121,184,255,.35); border-radius: 50%; font-size: .68rem; font-weight: 850; }
+    .job { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 10, 17, .66); }
+    #state { font-weight: 800; text-transform: capitalize; }
+    .meta { min-height: 20px; margin: 7px 0 12px; color: var(--muted); font-size: .82rem; }
+    progress { width: 100%; height: 9px; overflow: hidden; border: 0; border-radius: 999px; background: #090d16; }
+    progress::-webkit-progress-bar { background: #090d16; }
+    progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
+    progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--pink), #9d7dff); }
+    button { margin: 8px 8px 0 0; padding: 10px 13px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; color: #120914; background: var(--pink); font-weight: 800; }
+    #cancel { color: var(--muted); background: transparent; border-color: var(--line-strong); }
+    .error { margin: 10px 0 0; color: var(--danger); font-size: .82rem; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+    @media (max-width: 940px) {
+      main { width: min(720px, calc(100% - 32px)); padding-top: 34px; }
+      .layout { grid-template-columns: 1fr; }
+      .settings-card { order: -1; }
+      .upload-card { position: static; }
+    }
+    @media (max-width: 620px) {
+      main { width: min(100% - 24px, 520px); padding: 24px 0 40px; }
+      .hero { align-items: flex-start; margin-bottom: 20px; }
+      .hero-mark { width: 46px; height: 46px; border-radius: 14px; font-size: 23px; }
+      .subtitle { font-size: .85rem; }
+      .panel { border-radius: 16px; }
+      summary { min-height: 76px; padding: 16px; }
+      .summary-copy small { display: none; }
+      .settings { grid-template-columns: 1fr; padding: 0 10px 10px; }
+      fieldset, fieldset:nth-child(-n+3) { grid-column: 1; grid-template-columns: 1fr; padding: 14px; }
+      .setting.range { grid-column: 1; grid-template-columns: 98px minmax(80px, 1fr) 38px; }
+      .upload-card { padding: 16px; }
+      .drop { min-height: 210px; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="hero-mark">o!</div>
+    <div>
+      <p class="eyebrow">danser-go render service</p>
+      <h1>把 replay 變成影片</h1>
+      <p class="subtitle">上傳 `.osr`，系統會自動找圖、排隊並輸出 MP4。</p>
+    </div>
+  </header>
+  <div class="layout">
+    <section class="panel upload-card">
+      <div class="panel-heading">
+        <span class="step">01</span>
+        <div><h2>上傳 replay</h2><p>目前一次處理一個 render</p></div>
+      </div>
+      <label class="token-field">Service token
+        <input id="token" type="password" autocomplete="current-password" placeholder="未啟用驗證可留空">
+      </label>
+      <label class="drop" id="drop">
+        <input id="file" type="file" accept=".osr">
+        <span class="drop-icon">↑</span>
+        <strong>拖入 `.osr` replay</strong>
+        <span class="drop-copy">或點擊選擇檔案<br>上限 5 MiB · 僅支援 osu!standard</span>
+      </label>
+      <section class="job" id="job" hidden>
+        <div id="state"></div><div class="meta" id="meta"></div>
+        <progress id="progress" value="0" max="100"></progress>
+        <p id="error" class="error"></p>
+        <button id="download" hidden>下載 MP4</button>
+        <button id="cancel" hidden>取消任務</button>
+      </section>
+    </section>
+  <details class="panel settings-card" id="settingsPanel">
+    <summary>
+      <span class="step">02</span>
+      <span class="summary-copy"><strong>自訂畫面設定</strong><small>每個任務獨立套用，不會修改伺服器基礎設定</small></span>
+      <span class="badge">可選 · 33 項</span>
+      <span class="chevron">⌄</span>
+    </summary>
+    <div class="settings">
+      <fieldset>
+        <legend>輸出影片</legend>
+        <label class="setting">解析度<select id="resolution"><option value="1080p" selected>1080p · 1920×1080</option><option value="720p">720p · 1280×720</option></select></label>
+      </fieldset>
+      <fieldset>
+        <legend>播放與音量</legend>
+        <label class="setting"><input id="skipIntro" type="checkbox" checked>自動跳過前奏</label>
+        <label class="setting range">總音量<input id="masterVolume" type="range" min="0" max="100" value="50"><output id="masterVolumeValue">50%</output></label>
+        <label class="setting range">音樂音量<input id="musicVolume" type="range" min="0" max="100" value="50"><output id="musicVolumeValue">50%</output></label>
+        <label class="setting range">打擊音量<input id="sampleVolume" type="range" min="0" max="100" value="50"><output id="sampleVolumeValue">50%</output></label>
+      </fieldset>
+      <fieldset>
+        <legend>背景與遊戲區</legend>
+        <label class="setting range">背景暗度<input id="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue">30%</output></label>
+        <label class="setting range">背景模糊<input id="backgroundBlur" type="range" min="0" max="100" value="0"><output id="backgroundBlurValue">0%</output></label>
+        <label class="setting range">遊戲區縮放<input id="playfieldScale" type="range" min="80" max="120" value="100"><output id="playfieldScaleValue">100%</output></label>
+        <label class="setting"><input id="loadVideos" type="checkbox" checked>背景影片</label>
+        <label class="setting"><input id="loadStoryboards" type="checkbox" checked>Storyboard</label>
+        <label class="setting"><input id="backgroundParallax" type="checkbox" checked>背景視差</label>
+        <label class="setting"><input id="bloom" type="checkbox" checked>Bloom 光暈</label>
+      </fieldset>
+      <fieldset>
+        <legend>游標與顏色</legend>
+        <label class="setting range">游標大小<input id="cursorSize" type="range" min="6" max="24" value="12"><output id="cursorSizeValue">12</output></label>
+        <label class="setting">軌跡樣式<select id="cursorTrailStyle"><option value="1">樣式 1</option><option value="2">樣式 2</option><option value="3">樣式 3</option><option value="4">樣式 4</option></select></label>
+        <label class="setting"><input id="cursorRainbow" type="checkbox">彩虹游標</label>
+        <label class="setting"><input id="cursorGlow" type="checkbox" checked>軌跡光暈</label>
+        <label class="setting"><input id="cursorRipples" type="checkbox">點擊波紋</label>
+        <label class="setting"><input id="cursorSmoke" type="checkbox" checked>游標煙霧</label>
+        <label class="setting"><input id="useSkinColors" type="checkbox" checked>使用 Skin 顏色</label>
+        <label class="setting"><input id="useBeatmapColors" type="checkbox" checked>使用圖譜顏色</label>
+      </fieldset>
+      <fieldset>
+        <legend>HUD 顯示</legend>
+        <label class="setting"><input id="showScore" type="checkbox" checked>分數與準確率</label>
+        <label class="setting"><input id="showHpBar" type="checkbox" checked>HP 條</label>
+        <label class="setting"><input id="showComboCounter" type="checkbox" checked>Combo</label>
+        <label class="setting"><input id="showHitErrorMeter" type="checkbox" checked>誤差條</label>
+        <label class="setting"><input id="showPpCounter" type="checkbox" checked>PP 計數器</label>
+        <label class="setting"><input id="showHitCounter" type="checkbox" checked>判定計數器</label>
+        <label class="setting"><input id="showStrainGraph" type="checkbox" checked>難度曲線</label>
+        <label class="setting"><input id="showKeyOverlay" type="checkbox" checked>按鍵顯示</label>
+        <label class="setting"><input id="showScoreboard" type="checkbox" checked>排行榜</label>
+        <label class="setting"><input id="showMods" type="checkbox" checked>Mods</label>
+        <label class="setting"><input id="showResultsScreen" type="checkbox" checked>結算畫面</label>
+      </fieldset>
+      <fieldset>
+        <legend>Hit Object</legend>
+        <label class="setting"><input id="showApproachCircles" type="checkbox" checked>Approach Circle</label>
+        <label class="setting"><input id="showComboNumbers" type="checkbox" checked>Combo 數字</label>
+        <label class="setting"><input id="showSliderEndCircles" type="checkbox" checked>Slider 尾圈</label>
+        <label class="setting"><input id="showSliderFollowCircle" type="checkbox" checked>Slider Follow Circle</label>
+        <label class="setting"><input id="showSliderScorePoints" type="checkbox" checked>Slider Tick</label>
+      </fieldset>
+    </div>
+    <p class="settings-foot">FPS、QSV 編碼與 motion blur 由伺服器固定，避免設定造成渲染失敗。</p>
+  </details>
+  </div>
+</main>
+<script type="module">
+const drop = document.querySelector('#drop');
+const input = document.querySelector('#file');
+const job = document.querySelector('#job');
+const state = document.querySelector('#state');
+const meta = document.querySelector('#meta');
+const progress = document.querySelector('#progress');
+const error = document.querySelector('#error');
+const download = document.querySelector('#download');
+const cancel = document.querySelector('#cancel');
+const token = document.querySelector('#token');
+const settingsPanel = document.querySelector('#settingsPanel');
+let timer;
+settingsPanel.open = window.matchMedia('(min-width: 941px)').matches;
+token.value = sessionStorage.getItem('serviceToken') ?? '';
+token.addEventListener('change', () => sessionStorage.setItem('serviceToken', token.value));
+for (const id of ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale', 'cursorSize']) {
+  const control = document.querySelector(`#${id}`); const output = document.querySelector(`#${id}Value`);
+  control.addEventListener('input', () => { output.value = `${control.value}${id === 'cursorSize' ? '' : '%'}`; });
+}
+drop.addEventListener('dragover', (event) => { event.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+drop.addEventListener('drop', (event) => { event.preventDefault(); drop.classList.remove('drag'); upload(event.dataTransfer.files[0]); });
+input.addEventListener('change', () => upload(input.files[0]));
+cancel.addEventListener('click', async () => { if (window.jobId) await api(`/api/renders/${window.jobId}`, { method: 'DELETE' }); });
+download.addEventListener('click', async () => {
+  const response = await api(`/api/renders/${window.jobId}/video`);
+  if (!response.ok) return;
+  const link = document.createElement('a'); link.href = URL.createObjectURL(await response.blob());
+  link.download = `${window.jobId}.mp4`; link.click(); URL.revokeObjectURL(link.href);
+});
+async function upload(file) {
+  if (!file) return;
+  const form = new FormData();
+  form.append('options', JSON.stringify(renderOptions()));
+  form.append('replay', file);
+  const response = await api('/api/renders', { method: 'POST', body: form });
+  const data = await response.json();
+  job.hidden = false;
+  if (!response.ok) { error.textContent = data.error?.message ?? '上傳失敗'; return; }
+  window.jobId = data.id; clearInterval(timer); poll(); timer = setInterval(poll, 1500);
+}
+function renderOptions() {
+  const checked = (id) => document.querySelector(`#${id}`).checked;
+  const number = (id) => Number(document.querySelector(`#${id}`).value);
+  return {
+    resolution: document.querySelector('#resolution').value,
+    skipIntro: checked('skipIntro'), masterVolume: number('masterVolume'),
+    musicVolume: number('musicVolume'), sampleVolume: number('sampleVolume'),
+    backgroundDim: number('backgroundDim'), backgroundBlur: number('backgroundBlur'),
+    playfieldScale: number('playfieldScale'), loadVideos: checked('loadVideos'),
+    loadStoryboards: checked('loadStoryboards'), backgroundParallax: checked('backgroundParallax'),
+    bloom: checked('bloom'), cursorSize: number('cursorSize'), cursorTrailStyle: number('cursorTrailStyle'),
+    cursorRainbow: checked('cursorRainbow'), cursorGlow: checked('cursorGlow'),
+    cursorRipples: checked('cursorRipples'), cursorSmoke: checked('cursorSmoke'),
+    useSkinColors: checked('useSkinColors'), useBeatmapColors: checked('useBeatmapColors'),
+    showScore: checked('showScore'), showHpBar: checked('showHpBar'),
+    showComboCounter: checked('showComboCounter'),
+    showHitErrorMeter: checked('showHitErrorMeter'), showPpCounter: checked('showPpCounter'),
+    showHitCounter: checked('showHitCounter'), showStrainGraph: checked('showStrainGraph'),
+    showKeyOverlay: checked('showKeyOverlay'), showScoreboard: checked('showScoreboard'),
+    showMods: checked('showMods'), showResultsScreen: checked('showResultsScreen'),
+    showApproachCircles: checked('showApproachCircles'), showComboNumbers: checked('showComboNumbers'),
+    showSliderEndCircles: checked('showSliderEndCircles'),
+    showSliderFollowCircle: checked('showSliderFollowCircle'),
+    showSliderScorePoints: checked('showSliderScorePoints'),
+  };
+}
+async function poll() {
+  const response = await api(`/api/renders/${window.jobId}`); const data = await response.json();
+  state.textContent = data.status; progress.value = data.progress ?? 0;
+  meta.textContent = data.player ? `${data.player} · ${data.beatmap?.id ?? 'map resolving'}` : '';
+  error.textContent = data.error?.message ?? '';
+  download.hidden = data.status !== 'completed'; cancel.hidden = ['completed', 'failed', 'cancelled'].includes(data.status);
+  if (download.hidden === false || ['failed', 'cancelled'].includes(data.status)) clearInterval(timer);
+}
+function api(url, options = {}) {
+  const headers = new Headers(options.headers); if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
+  return fetch(url, { ...options, headers });
+}
+</script>
+</body>
+</html>

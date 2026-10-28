@@ -1,0 +1,23 @@
+[Unit]
+Description=osu! danser render service
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/services/osu-render
+EnvironmentFile=%h/services/osu-render/.env
+Environment=DISPLAY=:1
+Environment=WAYLAND_DISPLAY=wayland-1
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=%h/.local/share/fnm/aliases/default/bin/node %h/services/osu-render/dist/src/main.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/services/osu-render/data %h/Downloads/danser-0.11.0-linux
+
+[Install]
+WantedBy=default.target
