@@ -20,12 +20,22 @@ import type { ReportTrigger } from './report-webhook.js';
 import type { Updater } from './updater.js';
 import type { LocalSongsStatus } from './local-songs.js';
 import { removeRenderFiles } from './storage.js';
+import { createPreviewSigner, type PreviewSigner } from './preview-url.js';
 import { DEFAULT_SKIN, installSkin, listSkins, skinInvalid, skinNameFromFilename, skinTooLarge, skinUploadPath, syncSkins } from './skins.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
 const DIAGNOSTICS_CACHE_MS = 30_000;
 const MAX_UPLOADS_PER_WINDOW = 5;
+const CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; "
+  + "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+/** The only files served from public/ besides the i18n JSON: route → [file, content type]. */
+const PAGE_FILES: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
+  '/': ['index.html', 'text/html; charset=utf-8'],
+  '/app.css': ['app.css', 'text/css; charset=utf-8'],
+  '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+});
+const SIGNED_VIDEO_PATH = /^\/api\/renders\/[a-f0-9-]{36}\/video\?/i;
 
 export interface HttpDependencies {
   database: RenderDatabase;
@@ -42,6 +52,8 @@ export interface HttpDependencies {
   updater?: Pick<Updater, 'applying' | 'checkLatest' | 'apply' | 'restartIfPending'>;
   /** Local osu!stable Songs index; its status goes into diagnostics. */
   localSongs?: { status(): LocalSongsStatus };
+  /** Signs the video URLs that <video> previews load without the Bearer header; defaults to a per-process key. */
+  previewSigner?: PreviewSigner;
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -50,7 +62,10 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     limits: { fileSize: limits.maxOsrBytes, files: 1, fields: 1, fieldSize: 4096, parts: 2 },
     throwFileSizeLimit: true,
   });
-  const indexHtml = await readFile(path.resolve(settings.root, 'public/index.html'), 'utf8');
+  const pageFiles = new Map(await Promise.all(Object.entries(PAGE_FILES).map(async ([route, [file, type]]) =>
+    [route, { type, body: await readFile(path.resolve(settings.root, 'public', file)) }] as const)));
+  const previewSigner = dependencies.previewSigner ?? createPreviewSigner({ ttlSeconds: appConfig.preview.ttlSeconds });
+  const deps = { ...dependencies, previewSigner };
   const translations = await loadTranslations(path.resolve(settings.root, 'public/i18n'));
   let diagnosticsInFlight: Promise<DiagnosticsReport> | undefined;
   let diagnosticsCache: { at: number; report: DiagnosticsReport } | undefined;
@@ -71,7 +86,8 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     return diagnosticsCache.report;
   };
   app.addHook('onRequest', async (request) => {
-    if (request.url.startsWith('/api/')) authorize(request);
+    // A signed video URL replaces the Bearer header; getVideo checks the signature.
+    if (request.url.startsWith('/api/') && !isSignedVideoRequest(request)) authorize(request);
   });
   app.setErrorHandler((error, request, reply) => {
     const safe = publicError(error);
@@ -88,7 +104,11 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     ),
     reportWebhook: dependencies.reporter !== undefined,
   }));
-  app.get('/', async (_request, reply) => reply.type('text/html; charset=utf-8').send(indexHtml));
+  for (const [route, file] of pageFiles) {
+    app.get(route, async (_request, reply) => reply.type(file.type).header('Cache-Control', 'no-cache')
+      .header('Content-Security-Policy', CONTENT_SECURITY_POLICY).header('X-Content-Type-Options', 'nosniff')
+      .header('Referrer-Policy', 'no-referrer').send(file.body));
+  }
   app.get('/i18n/:file', async (request, reply) => {
     const text = translations.get((request.params as { file?: string }).file ?? '');
     if (text === undefined) throw new AppError('NOT_FOUND', 'Language is not available.', 404);
@@ -116,9 +136,9 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   }
   app.post('/api/renders', async (request) => createRender(request, dependencies));
   app.get('/api/renders', async (request, reply) => reply.header('Cache-Control', 'no-store')
-    .send(listHistory(request, dependencies)));
-  app.get('/api/renders/:id', async (request, reply) => getRender(request, reply, dependencies));
-  app.get('/api/renders/:id/video', async (request, reply) => getVideo(request, reply, dependencies));
+    .send(listHistory(request, deps)));
+  app.get('/api/renders/:id', async (request, reply) => getRender(request, reply, deps));
+  app.get('/api/renders/:id/video', async (request, reply) => getVideo(request, reply, deps));
   app.delete('/api/renders/:id', async (request, reply) => cancelRender(request, reply, dependencies));
   app.delete('/api/renders/:id/files', async (request) => deleteRenderFiles(request, dependencies));
   return app;
@@ -198,20 +218,36 @@ function skinSizeMessage(): string {
   return `Skin files are limited to ${Math.floor(appConfig.skins.maxOskBytes / 1024 ** 2)} MiB.`;
 }
 
-async function getRender(request: FastifyRequest, _reply: FastifyReply, dependencies: HttpDependencies): Promise<object> {
+type SignedDependencies = HttpDependencies & { previewSigner: PreviewSigner };
+
+async function getRender(request: FastifyRequest, _reply: FastifyReply, dependencies: SignedDependencies): Promise<object> {
   const id = routeId(request);
   const row = requireRender(dependencies.database.getRender(id));
-  return serializeRender(row, dependencies.database.queuePosition(id));
+  const queue = dependencies.queue as Partial<Pick<RenderQueue, 'liveStats'>>;
+  const stats = row.status === 'rendering' ? queue.liveStats?.(id) : undefined;
+  return {
+    ...serializeRender(row, dependencies.database.queuePosition(id)),
+    speed: stats?.speed ?? null, eta: stats?.eta ?? null,
+    previewUrl: videoAvailable(row) ? dependencies.previewSigner.url(row.id) : null,
+  };
 }
 
-async function getVideo(request: FastifyRequest, reply: FastifyReply, dependencies: HttpDependencies): Promise<FastifyReply> {
-  const row = requireRender(dependencies.database.getRender(routeId(request)));
+async function getVideo(request: FastifyRequest, reply: FastifyReply, dependencies: SignedDependencies): Promise<FastifyReply> {
+  const id = routeId(request);
+  const signed = isSignedVideoRequest(request);
+  if (signed) {
+    const query = request.query as { sig?: unknown; exp?: unknown };
+    if (!dependencies.previewSigner.verify(id, query.sig, query.exp)) {
+      throw new AppError('UNAUTHORIZED', 'The video link is invalid or expired.', 403);
+    }
+  }
+  const row = requireRender(dependencies.database.getRender(id));
   if (row.files_deleted_at) throw new AppError('RENDER_EXPIRED', 'The video was deleted.', 410);
   if (row.status !== 'completed' || !row.video_path) throw new AppError('RENDER_FAILED', 'Video is not ready.', 409);
   const size = (await stat(row.video_path)).size;
   const range = request.headers.range;
   reply.type('video/mp4').header('Accept-Ranges', 'bytes')
-    .header('Content-Disposition', `attachment; filename="${row.id}.mp4"`);
+    .header('Content-Disposition', `${signed ? 'inline' : 'attachment'}; filename="${row.id}.mp4"`);
   if (!range) return reply.header('Content-Length', size).send(createReadStream(row.video_path));
   const selected = parseRange(range, size);
   return reply.code(206)
@@ -227,12 +263,16 @@ async function cancelRender(request: FastifyRequest, _reply: FastifyReply, depen
   return { id, status: 'cancelled' };
 }
 
-function listHistory(request: FastifyRequest, dependencies: HttpDependencies): object {
+function listHistory(request: FastifyRequest, dependencies: SignedDependencies): object {
   const { defaultLimit, maxLimit } = appConfig.history;
   const raw = (request.query as { limit?: unknown }).limit;
   const requested = typeof raw === 'string' && /^\d{1,6}$/.test(raw) ? Number(raw) : defaultLimit;
   const limit = Math.min(maxLimit, Math.max(1, requested));
-  return { renders: dependencies.database.rendersForClient(clientKeyFor(request), limit).map(serializeHistory) };
+  return {
+    renders: dependencies.database.rendersForClient(clientKeyFor(request), limit).map((row) => ({
+      ...serializeHistory(row), previewUrl: videoAvailable(row) ? dependencies.previewSigner.url(row.id) : null,
+    })),
+  };
 }
 
 /** Frees disk space now instead of waiting for retention; the history row stays, marked as deleted. */
@@ -263,6 +303,24 @@ async function loadTranslations(directory: string): Promise<Map<string, string>>
     if (text !== undefined) translations.set(`${language}.json`, text);
   }
   return translations;
+}
+
+function isSignedVideoRequest(request: FastifyRequest): boolean {
+  return request.method === 'GET' && SIGNED_VIDEO_PATH.test(request.url)
+    && (request.query as { sig?: unknown } | undefined)?.sig !== undefined;
+}
+
+function filesDeleted(row: RenderRow, now = Date.now()): boolean {
+  return Boolean(row.files_deleted_at) || (row.expires_at !== null && row.expires_at <= now);
+}
+
+function videoAvailable(row: RenderRow): boolean {
+  return row.status === 'completed' && Boolean(row.video_path) && !filesDeleted(row);
+}
+
+function renderMs(row: RenderRow): number | null {
+  return row.started_at !== null && row.completed_at !== null && row.status === 'completed'
+    ? row.completed_at - row.started_at : null;
 }
 
 function requireRender(row: RenderRow | undefined): RenderRow {
@@ -326,8 +384,7 @@ function parseRange(value: string, size: number): { start: number; end: number }
 }
 
 function serializeHistory(row: RenderRow): object {
-  const now = Date.now();
-  const deleted = Boolean(row.files_deleted_at) || (row.expires_at !== null && row.expires_at <= now);
+  const deleted = filesDeleted(row);
   return {
     id: row.id, status: row.status, progress: row.progress,
     createdAt: row.created_at, completedAt: row.completed_at, expiresAt: row.expires_at,
@@ -337,9 +394,8 @@ function serializeHistory(row: RenderRow): object {
     } : null,
     player: row.player_name, mods: row.mods,
     resolution: `${row.height}p`, encoder: row.encoder,
-    renderMs: row.started_at !== null && row.completed_at !== null && row.status === 'completed'
-      ? row.completed_at - row.started_at : null,
-    videoAvailable: row.status === 'completed' && Boolean(row.video_path) && !deleted,
+    renderMs: renderMs(row),
+    videoAvailable: videoAvailable(row),
     filesDeleted: deleted,
     error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
   };
@@ -350,11 +406,14 @@ function serializeRender(row: RenderRow, queuePosition: number | null): object {
     id: row.id, status: row.status, progress: row.progress,
     queuePosition: row.status === 'queued' ? queuePosition : 0,
     player: row.player_name,
-    beatmap: row.beatmap_id ? { id: row.beatmap_id, beatmapsetId: row.beatmapset_id, checksum: row.beatmap_checksum } : null,
+    beatmap: row.beatmap_id || row.beatmap_title ? {
+      id: row.beatmap_id, beatmapsetId: row.beatmapset_id, checksum: row.beatmap_checksum,
+      title: row.beatmap_title ?? null, artist: row.beatmap_artist ?? null, version: row.beatmap_version ?? null,
+    } : null,
     output: { width: row.width, height: row.height, fps: row.fps, encoder: row.encoder },
     mods: row.mods,
     options: parseRenderOptions(row.options_json),
     error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
-    createdAt: row.created_at, completedAt: row.completed_at,
+    createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, renderMs: renderMs(row),
   };
 }
