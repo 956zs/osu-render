@@ -3,7 +3,7 @@ import path from 'node:path';
 import { statfs } from 'node:fs/promises';
 import { StorageLowError } from './errors.js';
 import type { RenderDatabase } from './database.js';
-import type { Paths } from './types.js';
+import type { Paths, RenderRow } from './types.js';
 
 const STALE_TEMP_MS = 60 * 60 * 1000;
 
@@ -29,12 +29,7 @@ export class StorageManager {
   }
 
   async cleanupExpired(): Promise<void> {
-    for (const render of this.database.expiredRenders(Date.now())) {
-      await Promise.all([
-        rm(render.replay_path, { force: true }),
-        render.video_path ? rm(render.video_path, { force: true }) : Promise.resolve(),
-      ]);
-    }
+    for (const render of this.database.expiredRenders(Date.now())) await removeRenderFiles(render, this.paths);
   }
 
   async cleanupTemp(): Promise<void> {
@@ -55,4 +50,12 @@ export class StorageManager {
       this.database.deleteBeatmap(beatmap.checksum);
     }
   }
+}
+
+export async function removeRenderFiles(render: RenderRow, paths: Pick<Paths, 'logs'>): Promise<void> {
+  await Promise.all([
+    rm(render.replay_path, { force: true }),
+    render.video_path ? rm(render.video_path, { force: true }) : Promise.resolve(),
+    rm(path.join(paths.logs, `${path.basename(render.id)}.log`), { force: true }),
+  ]);
 }

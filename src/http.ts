@@ -12,8 +12,10 @@ import type { RenderDatabase } from './database.js';
 import type { RenderQueue } from './queue.js';
 import type { StorageManager } from './storage.js';
 import { isPreflightReady, type PreflightService, type PreflightState } from './preflight.js';
-import type { RenderRow } from './types.js';
+import type { Paths, RenderRow } from './types.js';
 import { parseRenderOptions, type RenderOptions } from './render-options.js';
+import { appConfig } from './app-config.js';
+import { collectDiagnostics, type DiagnosticsReport } from './diagnostics.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
@@ -25,7 +27,7 @@ export interface HttpDependencies {
   storage: StorageManager;
   preflight: PreflightService;
   preflightState: PreflightState;
-  paths: { replays: string; videos: string };
+  paths: Pick<Paths, 'replays' | 'videos' | 'data' | 'logs'>;
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -35,6 +37,8 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     throwFileSizeLimit: true,
   });
   const indexHtml = await readFile(path.resolve(settings.root, 'public/index.html'), 'utf8');
+  const translations = await loadTranslations(path.resolve(settings.root, 'public/i18n'));
+  let diagnosticsInFlight: Promise<DiagnosticsReport> | undefined;
   app.addHook('onRequest', async (request) => {
     if (request.url.startsWith('/api/')) authorize(request);
   });
@@ -51,6 +55,18 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     limits.hardMinFreeBytes,
   ));
   app.get('/', async (_request, reply) => reply.type('text/html; charset=utf-8').send(indexHtml));
+  app.get('/i18n/:file', async (request, reply) => {
+    const text = translations.get((request.params as { file?: string }).file ?? '');
+    if (text === undefined) throw new AppError('NOT_FOUND', 'Language is not available.', 404);
+    return reply.type('application/json; charset=utf-8').header('Cache-Control', 'no-cache').send(text);
+  });
+  app.get('/api/diagnostics', async (_request, reply) => {
+    diagnosticsInFlight ??= collectDiagnostics({
+      preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
+      settings, paths: dependencies.paths, database: dependencies.database, storage: dependencies.storage,
+    }).finally(() => { diagnosticsInFlight = undefined; });
+    return reply.header('Cache-Control', 'no-store').send(await diagnosticsInFlight);
+  });
 
   app.post('/api/renders', async (request) => createRender(request, dependencies));
   app.get('/api/renders/:id', async (request, reply) => getRender(request, reply, dependencies));
@@ -122,6 +138,15 @@ async function cancelRender(request: FastifyRequest, _reply: FastifyReply, depen
   requireRender(dependencies.database.getRender(id));
   await dependencies.queue.cancel(id);
   return { id, status: 'cancelled' };
+}
+
+async function loadTranslations(directory: string): Promise<Map<string, string>> {
+  const translations = new Map<string, string>();
+  for (const language of appConfig.i18n.languages) {
+    const text = await readFile(path.join(directory, `${language}.json`), 'utf8').catch(() => undefined);
+    if (text !== undefined) translations.set(`${language}.json`, text);
+  }
+  return translations;
 }
 
 function requireRender(row: RenderRow | undefined): RenderRow {

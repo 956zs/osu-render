@@ -81,14 +81,15 @@ export class RenderQueue {
         await rm(output, { force: true });
         return;
       }
-      log('info', 'render_completed', { component: 'worker', jobId: job.id });
+      log('info', 'render_completed', { component: 'worker', jobId: job.id, ...renderStats(this.database.getRender(job.id)) });
     } catch (error) {
       if (this.database.getRender(job.id)?.status === 'cancelled') return;
       const safe = publicError(error);
       this.database.markFailed(job.id, safe.code, safe.publicMessage);
       await removeReplay(this.database.getRender(job.id));
       log('error', 'render_failed', {
-        component: 'worker', jobId: job.id, code: safe.code, message: safe.message, ...debugError(error),
+        component: 'worker', jobId: job.id, code: safe.code, message: safe.message,
+        ...renderStats(this.database.getRender(job.id)), ...debugError(error),
       });
     }
   }
@@ -111,6 +112,12 @@ export class RenderQueue {
       });
     }
   }
+}
+
+function renderStats(row: RenderRow | undefined): { encoder?: string; renderMs?: number } {
+  if (!row) return {};
+  const renderMs = row.started_at !== null && row.completed_at !== null ? row.completed_at - row.started_at : undefined;
+  return { encoder: row.encoder, ...(renderMs !== undefined ? { renderMs } : {}) };
 }
 
 function debugError(error: unknown): Record<string, string> {
