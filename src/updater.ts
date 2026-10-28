@@ -175,6 +175,7 @@ export class Updater {
   private readonly now: () => number;
   private readonly isBusy: () => boolean;
   private readonly restartImpl: () => void;
+  private readonly currentVersion: string;
   private cached: { at: number; release: LatestRelease | null; error?: string } | undefined;
   private inFlight: Promise<void> | undefined;
   private applyingUpdate = false;
@@ -190,9 +191,11 @@ export class Updater {
     this.now = options.now ?? Date.now;
     this.isBusy = options.isBusy;
     this.restartImpl = options.restart;
+    this.currentVersion = currentVersion(this.appRoot);
   }
 
-  get current(): string { return currentVersion(this.appRoot); }
+  /** Version of the running code, read once at startup so later edits to package.json can't change it. */
+  get current(): string { return this.currentVersion; }
 
   /** In-app updates need the portable layout on Windows, started by start.bat (which installs the update on exit 75). */
   get portable(): boolean {

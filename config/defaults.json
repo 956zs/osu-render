@@ -27,7 +27,7 @@
     "enabled": true,
     "checkOnStartup": true,
     "repo": "956zs/osu-render",
-    "checkIntervalMs": 21600000,
+    "checkIntervalMs": 600000,
     "apiTimeoutMs": 15000,
     "downloadTimeoutMs": 900000,
     "maxDownloadBytes": 1073741824,

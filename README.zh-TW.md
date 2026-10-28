@@ -173,7 +173,7 @@ danser。適用 Windows 10 / 11 64 位元。
 
 ## 更新
 
-**可攜版 zip（0.4.0 起）：在網頁上直接更新。** osu-render 啟動時，以及你開啟網頁時（最多每 6 小時一次），會向 GitHub
+**可攜版 zip（0.4.0 起）：在網頁上直接更新。** osu-render 啟動時，以及你開啟網頁時（之後每 10 分鐘，網頁開著時也會定期確認），會向 GitHub
 查詢最新版本。有新版時，頁面最上方會出現「osu-render X 已推出」的橫幅。按 **立即更新** 並確認：
 
 1. 服務會從本 repo 的 [Releases](https://github.com/956zs/osu-render/releases) 下載新的 zip、檢查 SHA-256
