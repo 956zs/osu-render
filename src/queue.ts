@@ -102,7 +102,7 @@ export class RenderQueue {
       const resolved = await this.resolver.resolve(replay.beatmapChecksum,
         () => this.database.setStatus(id, 'downloading'));
       if (this.database.getRender(id)?.status === 'cancelled') return;
-      this.database.updateBeatmap(id, resolved.metadata.id, resolved.metadata.beatmapsetId);
+      this.database.updateBeatmap(id, resolved.metadata);
       this.database.setStatus(id, 'queued');
       await this.pump();
     } catch (error) {

@@ -22,5 +22,20 @@
     "minIntervalMs": 1000,
     "autoLogTailBytes": { "failed": 4096, "completed": 1024 }
   },
+  "skins": { "maxOskBytes": 209715200, "maxExtractedBytes": 1073741824, "maxEntries": 10000, "maxNameLength": 100 },
+  "update": {
+    "enabled": true,
+    "checkOnStartup": true,
+    "repo": "956zs/osu-render",
+    "checkIntervalMs": 21600000,
+    "apiTimeoutMs": 15000,
+    "downloadTimeoutMs": 900000,
+    "maxDownloadBytes": 1073741824,
+    "maxExtractedBytes": 4294967296,
+    "maxEntries": 50000,
+    "downloadHosts": ["github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]
+  },
+  "history": { "defaultLimit": 20, "maxLimit": 100 },
+  "localSongs": { "autoDetect": true, "maxFiles": 300000, "progressEvery": 5000 },
   "i18n": { "languages": ["en", "zh-TW", "es"], "fallback": "en" }
 }

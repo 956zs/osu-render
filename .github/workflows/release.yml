@@ -1,7 +1,10 @@
 name: Release
 
+# Pushing to main publishes a release automatically when package.json has a version that is not tagged yet.
+# Pushing a v* tag by hand still works; whichever run comes second finds the release and skips it.
 on:
   push:
+    branches: [main]
     tags: ['v*']
   pull_request:
     paths:
@@ -22,8 +25,42 @@ env:
   DANSER_SHA256: 68b9529ac7a745283d59d26d7fa7178d8b7cccd50d070746791c397b7594da71
 
 jobs:
+  check:
+    name: Decide what to build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      release: ${{ steps.decide.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: decide
+        run: |
+          version=$(jq -r .version package.json)
+          build=true
+          release=false
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_TYPE" = tag ]; then
+            release=true
+          elif [ "$GITHUB_EVENT_NAME" = push ]; then
+            status=0
+            git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null || status=$?
+            if [ "$status" = 0 ]; then
+              echo "v$version is already tagged, so this push to main publishes nothing."
+              build=false
+            elif [ "$status" = 2 ]; then
+              echo "v$version is not tagged yet: building and publishing it."
+              release=true
+            else
+              echo "::error::git ls-remote failed with exit code $status"
+              exit 1
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
   package:
     name: Windows portable zip
+    needs: check
+    if: needs.check.outputs.build == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -48,11 +85,14 @@ jobs:
         id: version
         env:
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RELEASE: ${{ needs.check.outputs.release }}
         run: |
           $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             $version = $env:GITHUB_REF_NAME -replace '^v', ''
             if ($version -ne $pkg) { throw "Tag $env:GITHUB_REF_NAME does not match package.json version $pkg" }
+          } elseif ($env:RELEASE -eq 'true') {
+            $version = $pkg
           } else {
             $version = "$pkg-$($env:COMMIT_SHA.Substring(0, 7))"
           }
@@ -69,8 +109,8 @@ jobs:
           Copy-Item package.json, package-lock.json, .env.example, LICENSE "$stage/"
           Copy-Item README*.md "$stage/"
           Copy-Item -Recurse docs "$stage/docs"
-          Copy-Item packaging/windows/start.bat, packaging/windows/doctor.bat, packaging/THIRD_PARTY_NOTICES.txt "$stage/"
-          Copy-Item packaging/windows/setup.ps1, packaging/windows/open-browser.ps1 "$stage/scripts/windows/"
+          Copy-Item packaging/windows/start.bat, packaging/windows/doctor.bat, packaging/windows/set-webhook.bat, packaging/THIRD_PARTY_NOTICES.txt "$stage/"
+          Copy-Item packaging/windows/setup.ps1, packaging/windows/open-browser.ps1, packaging/windows/apply-update.ps1 "$stage/scripts/windows/"
           Push-Location $stage
           npm ci --omit=dev --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw "npm ci --omit=dev failed" }
@@ -122,6 +162,9 @@ jobs:
           $notices = "$env:STAGE/THIRD_PARTY_NOTICES.txt"
           $text = (Get-Content $notices -Raw).Replace('@DANSER_VERSION@', $env:DANSER_VERSION).Replace('@NODE_VERSION@', $env:NODE_VERSION)
           [IO.File]::WriteAllText($notices, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"))
+          # The in-app updater reads VERSION.json; apply-update.ps1 replaces danser\ only when "danser" changes.
+          $info = [ordered]@{ app = '${{ steps.version.outputs.version }}'; node = $env:NODE_VERSION; danser = $env:DANSER_VERSION }
+          [IO.File]::WriteAllText("$env:STAGE/VERSION.json", ($info | ConvertTo-Json) + "`n")
 
       - name: Create zip
         run: |
@@ -151,14 +194,21 @@ jobs:
           $root = Join-Path $base 'osu-render'
           Set-Location -LiteralPath $root
           Get-ChildItem -Force | Format-Table Mode, Length, Name
-          foreach ($required in 'start.bat', 'doctor.bat', 'THIRD_PARTY_NOTICES.txt', '.env.example', 'LICENSE', 'README.md',
+          foreach ($required in 'start.bat', 'doctor.bat', 'set-webhook.bat', 'THIRD_PARTY_NOTICES.txt', '.env.example', 'LICENSE', 'README.md',
               'runtime/node.exe', 'runtime/LICENSE', 'dist/src/main.js', 'dist/src/doctor.js', 'public/index.html', 'config/defaults.json',
-              'scripts/windows/setup.ps1', 'scripts/windows/open-browser.ps1', 'danser/danser-cli.exe', 'danser/ffmpeg/ffmpeg.exe',
+              'scripts/windows/setup.ps1', 'scripts/windows/open-browser.ps1', 'scripts/windows/apply-update.ps1', 'VERSION.json',
+              'danser/danser-cli.exe', 'danser/ffmpeg/ffmpeg.exe',
               'node_modules/better-sqlite3/build/Release/better_sqlite3.node') {
             if (-not (Test-Path -LiteralPath (Join-Path $root $required))) { throw "Missing $required" }
           }
           if (Test-Path node_modules/typescript) { throw "dev dependencies were packaged" }
           if ((Get-Content start.bat -Raw) -notmatch "`r`n") { throw "start.bat does not use CRLF line endings" }
+          if ((Get-Content scripts/windows/apply-update.ps1 -Raw) -notmatch "`r`n") { throw "apply-update.ps1 does not use CRLF line endings" }
+          if ((Get-Content set-webhook.bat -Raw) -notmatch "`r`n") { throw "set-webhook.bat does not use CRLF line endings" }
+          $versionInfo = Get-Content VERSION.json -Raw | ConvertFrom-Json
+          if ($versionInfo.app -ne '${{ steps.version.outputs.version }}' -or $versionInfo.danser -ne $env:DANSER_VERSION -or -not $versionInfo.node) {
+            throw "VERSION.json is wrong: $($versionInfo | ConvertTo-Json -Compress)"
+          }
           $node = Join-Path $root 'runtime/node.exe'
           & $node --version
 
@@ -184,6 +234,56 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw '.env written by setup.ps1 does not parse as expected' }
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 -ClientId abc -ClientSecret x -Force
           if ($LASTEXITCODE -eq 0) { throw 'setup.ps1 accepted a non-numeric client id' }
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::developer report webhook (setup.ps1, set-webhook.bat)'
+          $envFile = Join-Path $root '.env'
+          $hook = 'https://discord.com/api/webhooks/123456789/abc_DEF-123'
+          $hook2 = 'https://canary.discordapp.com/api/v10/webhooks/987/xyz-987'
+          # Out-Host: otherwise the child's output joins the function's return value and the exit-code checks compare an array.
+          function Invoke-Setup { powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/setup.ps1 @args | Out-Host; return $LASTEXITCODE }
+          function Get-EnvValue([string]$key) {
+            $env:ENV_KEY = $key
+            & $node -e "process.loadEnvFile('.env'); process.stdout.write(process.env[process.env.ENV_KEY] ?? '<unset>')"
+          }
+          if ((Invoke-Setup -ClientId 1 -ClientSecret dummy-secret -WebhookUrl $hook -Force) -ne 0) { throw 'setup.ps1 rejected a valid webhook URL' }
+          if ((Get-EnvValue 'REPORT_WEBHOOK_URL') -ne $hook -or (Get-EnvValue 'OSU_CLIENT_ID') -ne '1') { throw 'setup.ps1 did not write REPORT_WEBHOOK_URL' }
+          foreach ($bad in 'https://evil.example/api/webhooks/1/x', 'http://discord.com/api/webhooks/1/x', 'https://discord.com/api/webhooks/1/x?wait=true',
+              'https://discord.com:444/api/webhooks/1/x', 'https://u@discord.com/api/webhooks/1/x', 'https://discord.com/api/webhooks/abc/x') {
+            if ((Invoke-Setup -ClientId 1 -ClientSecret dummy-secret -WebhookUrl $bad -Force) -eq 0) { throw "setup.ps1 accepted $bad" }
+            if ((Invoke-Setup -WebhookOnly -WebhookUrl $bad) -eq 0) { throw "setup.ps1 -WebhookOnly accepted $bad" }
+          }
+          # -WebhookOnly keeps every other line, a BOM is dropped, CRLF stays CRLF and the key is replaced, not duplicated.
+          $bom = [byte[]](0xEF, 0xBB, 0xBF)
+          $crlf = "OSU_CLIENT_ID=1`r`nOSU_CLIENT_SECRET=dummy-secret`r`nCUSTOM=keep me`r`nREPORT_WEBHOOK_URL=old`r`n"
+          [IO.File]::WriteAllBytes($envFile, $bom + [Text.Encoding]::UTF8.GetBytes($crlf))
+          if ((Invoke-Setup -WebhookOnly -WebhookUrl $hook2) -ne 0) { throw 'setup.ps1 -WebhookOnly failed' }
+          $written = [IO.File]::ReadAllText($envFile)
+          if ($written -ne $crlf.Replace('REPORT_WEBHOOK_URL=old', "REPORT_WEBHOOK_URL=$hook2")) { throw "unexpected .env after -WebhookOnly:`n$written" }
+          if ([IO.File]::ReadAllBytes($envFile)[0] -eq 0xEF) { throw '-WebhookOnly kept the BOM' }
+          if ((Get-EnvValue 'CUSTOM') -ne 'keep me') { throw '-WebhookOnly lost other settings' }
+          # LF file without the key: appended.
+          [IO.File]::WriteAllText($envFile, "OSU_CLIENT_ID=1`nOSU_CLIENT_SECRET=dummy-secret`n")
+          if ((Invoke-Setup -WebhookOnly -WebhookUrl $hook) -ne 0) { throw 'setup.ps1 -WebhookOnly failed on an LF file' }
+          if ([IO.File]::ReadAllText($envFile) -ne "OSU_CLIENT_ID=1`nOSU_CLIENT_SECRET=dummy-secret`nREPORT_WEBHOOK_URL=$hook`n") { throw 'unexpected LF .env after -WebhookOnly' }
+          # set-webhook.bat with nothing typed leaves .env alone.
+          $before = [IO.File]::ReadAllText($envFile)
+          $empty = Join-Path $env:RUNNER_TEMP 'webhook-stdin.txt'
+          [IO.File]::WriteAllText($empty, "`r`n`r`n")
+          $hookBat = Start-Process -FilePath (Join-Path $root 'set-webhook.bat') -WorkingDirectory $env:RUNNER_TEMP -PassThru -NoNewWindow `
+            -RedirectStandardInput $empty -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'set-webhook.out.log') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'set-webhook.err.log')
+          if (-not $hookBat.WaitForExit(60000)) { taskkill /PID $hookBat.Id /T /F | Out-Null; throw 'set-webhook.bat hung' }
+          Get-Content (Join-Path $env:RUNNER_TEMP 'set-webhook.out.log'), (Join-Path $env:RUNNER_TEMP 'set-webhook.err.log') -ErrorAction SilentlyContinue
+          if ($hookBat.ExitCode -ne 0) { throw "set-webhook.bat exited with $($hookBat.ExitCode)" }
+          if ([IO.File]::ReadAllText($envFile) -ne $before) { throw 'set-webhook.bat changed .env although nothing was entered' }
+          # No .env yet: tell the user to run start.bat first.
+          Move-Item $envFile "$envFile.bak"
+          if ((Invoke-Setup -WebhookOnly -WebhookUrl $hook) -eq 0) { throw '-WebhookOnly succeeded without a .env' }
+          Move-Item "$envFile.bak" $envFile
+          # The server checks below run without a webhook.
+          if ((Invoke-Setup -ClientId 1 -ClientSecret dummy-secret -Force) -ne 0) { throw 'setup.ps1 failed' }
+          $webhookLines = @(Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^REPORT_WEBHOOK_URL=' })
+          if ($webhookLines.Count -ne 1 -or $webhookLines[0] -ne 'REPORT_WEBHOOK_URL=') { throw "REPORT_WEBHOOK_URL should be empty, .env has: $($webhookLines -join ' | ')" }
           Write-Host '::endgroup::'
 
           function Wait-Health([int]$seconds) {
@@ -235,6 +335,123 @@ jobs:
           Write-Host 'Smoke test passed.'
           exit 0
 
+      - name: Smoke test in-app update
+        env:
+          OSU_RENDER_NO_BROWSER: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.version.outputs.version }}'
+          $base = Join-Path $env:RUNNER_TEMP 'update test ü'
+          Expand-Archive -Path $env:ZIP -DestinationPath $base
+          $root = Join-Path $base 'osu-render'
+          $node = Join-Path $root 'runtime/node.exe'
+          $updateDir = Join-Path $root 'data/update'
+          $applyScript = Join-Path $root 'scripts/windows/apply-update.ps1'
+          $utf8 = New-Object System.Text.UTF8Encoding $false
+          function Write-Text([string]$path, [string]$text) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+            [IO.File]::WriteAllText($path, $text, $utf8)
+          }
+          function Get-AppVersion { (Get-Content -LiteralPath (Join-Path $root 'VERSION.json') -Raw | ConvertFrom-Json).app }
+          function Assert-Path([string]$relative, [bool]$exists = $true) {
+            if ((Test-Path -LiteralPath (Join-Path $root $relative)) -ne $exists) { throw "$relative should $(if ($exists) { 'exist' } else { 'not exist' })" }
+          }
+          # Stages the zip built above as a fake newer version, extracted by the same code the server uses.
+          function New-Staging([string]$fake, [string]$danser) {
+            $staging = Join-Path $updateDir 'staging'
+            Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+            $env:STAGE_ZIP = $env:ZIP; $env:STAGE_DIR = $staging; $env:STAGE_VERSION = $version
+            $env:UPDATER_JS = Join-Path $root 'dist/src/updater.js'; $env:APP_CONFIG_JS = Join-Path $root 'dist/src/app-config.js'
+            & $node --input-type=module -e @'
+          import { pathToFileURL } from 'node:url';
+          const { stageRelease } = await import(pathToFileURL(process.env.UPDATER_JS).href);
+          const { appConfig } = await import(pathToFileURL(process.env.APP_CONFIG_JS).href);
+          console.log(await stageRelease(process.env.STAGE_ZIP, process.env.STAGE_DIR, process.env.STAGE_VERSION, appConfig.update));
+          '@ | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "stageRelease failed for the built zip" }
+            Rename-Item -LiteralPath (Join-Path $staging $version) -NewName $fake
+            $app = Join-Path $staging "$fake/osu-render"
+            $info = Get-Content -LiteralPath (Join-Path $app 'VERSION.json') -Raw | ConvertFrom-Json
+            $info.app = $fake
+            if ($danser) { $info.danser = $danser }
+            Write-Text (Join-Path $app 'VERSION.json') ($info | ConvertTo-Json)
+            Write-Text (Join-Path $app "dist/marker-$fake.txt") $fake
+            Write-Text (Join-Path $updateDir 'pending.json') (@{ version = $fake; from = (Get-AppVersion) } | ConvertTo-Json)
+            return $app
+          }
+          function Invoke-Apply {
+            powershell -NoProfile -ExecutionPolicy Bypass -File $applyScript | Out-Host
+            return $LASTEXITCODE
+          }
+
+          # User data that every update must keep.
+          $envText = "OSU_CLIENT_ID=777`nOSU_CLIENT_SECRET=keep-me`n"
+          Write-Text (Join-Path $root '.env') $envText
+          Write-Text (Join-Path $root 'data/user-file.txt') 'user'
+          Write-Text (Join-Path $root 'config/local.json') '{}'
+          Write-Text (Join-Path $root 'danser/settings/user.json') '{}'
+          Write-Text (Join-Path $root 'danser/danser.db') 'db'
+          Write-Text (Join-Path $root 'danser/skins/My Skin/skin.ini') '[General]'
+          Write-Text (Join-Path $root 'danser/old-danser-marker.txt') 'old'
+          function Assert-UserData {
+            if ([IO.File]::ReadAllText((Join-Path $root '.env')) -ne $envText) { throw '.env changed' }
+            foreach ($kept in 'data/user-file.txt', 'config/local.json', 'danser/settings/user.json', 'danser/danser.db', 'danser/skins/My Skin/skin.ini') { Assert-Path $kept }
+          }
+
+          Write-Host '::group::update with the same danser'
+          New-Staging '99.0.0' $null | Out-Null
+          if ((Invoke-Apply) -ne 0) { throw 'apply-update.ps1 failed' }
+          if ((Get-AppVersion) -ne '99.0.0') { throw "VERSION.json says $(Get-AppVersion)" }
+          Assert-UserData
+          foreach ($present in 'dist/marker-99.0.0.txt', 'dist/src/main.js', 'start.bat', 'runtime/node.exe', 'danser/old-danser-marker.txt', "data/update/backup-$version/dist/src/main.js") { Assert-Path $present }
+          foreach ($gone in 'data/update/pending.json', 'data/update/staging') { Assert-Path $gone $false }
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::update with a new danser'
+          New-Staging '99.1.0' 'test-danser' | Out-Null
+          if ((Invoke-Apply) -ne 0) { throw 'apply-update.ps1 failed' }
+          if ((Get-AppVersion) -ne '99.1.0') { throw "VERSION.json says $(Get-AppVersion)" }
+          Assert-UserData
+          Assert-Path 'danser/danser-cli.exe'
+          Assert-Path 'danser/old-danser-marker.txt' $false
+          Assert-Path 'data/update/backup-99.0.0/danser/old-danser-marker.txt'
+          Assert-Path "data/update/backup-$version" $false
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::failed update rolls back'
+          New-Staging '99.2.0' $null | Out-Null
+          # Readable but not movable: the script gets past its checks, moves the other files, then fails on VERSION.json.
+          $lock = [IO.File]::Open((Join-Path $root 'VERSION.json'), 'Open', 'Read', 'Read')
+          try { $code = Invoke-Apply } finally { $lock.Dispose() }
+          if ($code -eq 0) { throw 'apply-update.ps1 should fail while VERSION.json is locked' }
+          $log = Get-Content -LiteralPath (Join-Path $updateDir 'apply-update.log') -Raw
+          if ($log -notmatch 'Updating osu-render 99\.1\.0 -> 99\.2\.0' -or $log -notmatch 'Restoring the previous version') { throw "unexpected apply-update.log:`n$log" }
+          if ((Get-AppVersion) -ne '99.1.0') { throw "rollback left VERSION.json at $(Get-AppVersion)" }
+          Assert-UserData
+          foreach ($present in 'dist/marker-99.1.0.txt', 'dist/src/main.js', 'start.bat', 'runtime/node.exe', 'danser/danser-cli.exe') { Assert-Path $present }
+          foreach ($gone in 'dist/marker-99.2.0.txt', 'data/update/pending.json', 'data/update/staging') { Assert-Path $gone $false }
+          Write-Host '::endgroup::'
+
+          Write-Host '::group::start.bat installs the update on exit code 75 and restarts'
+          # Stand-in server: exits 75 while an update is pending (like the real one after staging), otherwise records the relaunch.
+          $fakeMain = "import { existsSync, writeFileSync } from 'node:fs';`nif (existsSync('data/update/pending.json')) process.exit(75);`nwriteFileSync('data/relaunched.txt', process.env.OSU_RENDER_LAUNCHER ?? '');`n"
+          $app = New-Staging '99.3.0' $null
+          Write-Text (Join-Path $root 'dist/src/main.js') $fakeMain
+          Write-Text (Join-Path $app 'dist/src/main.js') $fakeMain
+          $empty = Join-Path $env:RUNNER_TEMP 'empty-stdin.txt'
+          New-Item -ItemType File -Force -Path $empty | Out-Null
+          $bat = Start-Process -FilePath (Join-Path $root 'start.bat') -WorkingDirectory $env:RUNNER_TEMP -PassThru -NoNewWindow `
+            -RedirectStandardInput $empty -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'update-bat.out.log') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'update-bat.err.log')
+          if (-not $bat.WaitForExit(300000)) { taskkill /PID $bat.Id /T /F | Out-Null; throw 'start.bat did not finish within 5 minutes' }
+          Get-Content (Join-Path $env:RUNNER_TEMP 'update-bat.out.log'), (Join-Path $env:RUNNER_TEMP 'update-bat.err.log') -ErrorAction SilentlyContinue
+          if ($bat.ExitCode -ne 0) { throw "start.bat exited with $($bat.ExitCode)" }
+          if ((Get-AppVersion) -ne '99.3.0') { throw "start.bat did not install the update: VERSION.json says $(Get-AppVersion)" }
+          if ([IO.File]::ReadAllText((Join-Path $root 'data/relaunched.txt')) -ne 'start.bat') { throw 'the relaunched server did not see OSU_RENDER_LAUNCHER=start.bat' }
+          Assert-UserData
+          Write-Host '::endgroup::'
+          Write-Host 'Update smoke test passed.'
+          exit 0
+
       - uses: actions/upload-artifact@v7
         with:
           name: osu-render-${{ steps.version.outputs.version }}-win-x64
@@ -247,8 +464,8 @@ jobs:
 
   release:
     name: GitHub Release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    if: needs.check.outputs.release == 'true'
+    needs: [check, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -260,7 +477,14 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.package.outputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "osu-render $GITHUB_REF_NAME" --notes-file out/release-notes.md \
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+          # A push to main has no tag yet: gh creates it on the pushed commit.
+          if [ "$GITHUB_REF_TYPE" = tag ]; then target=(--verify-tag); else target=(--target "$GITHUB_SHA"); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" "${target[@]}" \
+            --title "osu-render $TAG" --notes-file out/release-notes.md \
             out/*.zip out/*.sha256

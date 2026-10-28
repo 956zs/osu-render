@@ -7,7 +7,7 @@
 - osu-render @VERSION@ (web UI + render queue), with production dependencies only
 - Node.js @NODE_VERSION@ (`runtime\node.exe`)
 - danser-go @DANSER_VERSION@ for Windows (`danser\`), including its FFmpeg build
-- `start.bat` (start osu-render), `doctor.bat` (diagnostics report), `scripts\windows\setup.ps1` (first-run setup)
+- `start.bat` (start osu-render), `doctor.bat` (diagnostics report), `set-webhook.bat` (sets the developer report webhook the maintainer gave you), `scripts\windows\setup.ps1` (first-run setup), `scripts\windows\apply-update.ps1` (installs in-app updates)
 
 **Quick start**
 
@@ -23,6 +23,11 @@ Notes:
 - Windows SmartScreen may say "Windows protected your PC" because the scripts are not signed: click **More info** and **Run anyway**. Unblocking the zip before extracting (step 1) avoids most of these prompts.
 - The GPU encoder (NVIDIA NVENC, AMD AMF, Intel Quick Sync) is detected automatically and falls back to the CPU (libx264). To force one, edit `RENDER_ENCODER` in `.env`.
 - If start.bat says the port is in use, osu-render is probably already running in another window. Change `PORT` in `.env` to use another port.
+
+**Updating**
+
+- Already on 0.4.0 or later: click **Update now** in the banner at the top of the osu-render page. It downloads this zip, checks the SHA-256 checksum, restarts and keeps your `.env`, `data\` folder and danser settings.
+- Older versions: close osu-render, unzip this release into a new folder, copy `.env` and the `data` folder over from the old one, and run `start.bat`.
 
 **Sending diagnostics**
 

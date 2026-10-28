@@ -20,6 +20,10 @@
 - [功能](#功能)
 - [平台與 GPU 支援](#平台與-gpu-支援)
 - [Windows 快速開始：可攜版 zip（推薦）](#windows-快速開始可攜版-zip推薦)
+- [自訂皮膚](#自訂皮膚)
+- [渲染歷史與保存期限](#渲染歷史與保存期限)
+- [本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)
+- [更新](#更新)
 - [回報測試結果（給測試者）](#回報測試結果給測試者)
 - [常見問題](#常見問題)
 - [從原始碼安裝](#從原始碼安裝)
@@ -43,9 +47,12 @@
 - 720p 或 1080p、60 FPS，H.264 影像搭配 AAC 音訊。
 - 每個任務可單獨調整畫面：跳過前奏、音量、背景暗度／模糊／視差、Bloom、遊戲區縮放、游標大小／軌跡／特效、
   Skin 或圖譜配色、HUD 元件與 hit object 細節。
+- 自訂皮膚：在網頁介面上傳 `.osk`（或直接放進 `data/skins`），每次渲染都能選擇。
 - 自動偵測 GPU 編碼器，並實際編碼一個 frame 做自我測試；失敗時改用 x264。
 - SQLite 持久化 FIFO 佇列，一次只渲染一個任務，當機或重啟後可自動恢復。
-- 磁碟保護：剩餘空間不足時拒絕新任務；影片與 replay 24 小時後過期，快取圖譜依最久未使用（LRU）清除。
+- 磁碟保護：剩餘空間不足時拒絕新任務；影片與 replay 24 小時後過期（`VIDEO_RETENTION_HOURS`），快取圖譜依最久未使用（LRU）清除。
+- 每個用戶端都有渲染歷史紀錄，可下載或刪除檔案。
+- 下載前先用本機 osu!stable `Songs` 資料夾裡的圖譜，未上架的圖譜也能渲染。
 - 精簡的 HTTP API，影片下載支援 Range，可選用 bearer token。
 - 內建診斷報告（`doctor.bat`、`npm run doctor` 或網頁介面），方便回報問題。
 - Windows 可攜版 zip：內含 Node.js 與 danser-go，什麼都不用安裝。
@@ -100,24 +107,21 @@ danser。適用 Windows 10 / 11 64 位元。
 **修改設定。** 用記事本編輯解壓縮資料夾裡的 `.env`（見[設定](#設定)），然後關掉主控台視窗、重新執行 `start.bat`。
 想重新回答第一次的設定問題，刪掉 `.env` 即可。
 
-**更新到新版本。**
-
-1. 關掉主控台視窗。
-2. 把新版本解壓縮到一個**新的**資料夾。
-3. 從舊資料夾把 `.env` 與整個 `data` 資料夾複製到新資料夾。如果你建立或修改過 `danser\settings\default.json`，
-   也一起複製。
-4. 從新資料夾執行 `start.bat`。確認一切正常後再刪除舊資料夾。
+**更新到新版本。** 從 0.4.0 起，按頁面最上方橫幅裡的 **立即更新** 即可，見[更新](#更新)。
 
 **zip 裡有什麼**（最上層資料夾 `osu-render\`）：
 
 | 路徑 | 內容 |
 | --- | --- |
 | `start.bat` | 啟動服務（第一次會詢問 osu! 憑證）並開啟瀏覽器。 |
+| `set-webhook.bat` | 在 `.env` 設定回報給開發者用的 webhook，見[回報測試結果](#回報測試結果給測試者)。 |
 | `doctor.bat` | 執行診斷檢查，並開啟報告所在的資料夾，見[回報測試結果](#回報測試結果給測試者)。 |
 | `runtime\node.exe` | Node.js 24 LTS（官方 Windows x64 版本，打包時驗證過 checksum）。 |
 | `danser\` | Windows 版 danser-go 0.12.1，未經修改，含它附帶的 FFmpeg。 |
 | `dist\`、`public\`、`config\`、`node_modules\`、`package.json` | 程式本體（已編譯，只含正式環境相依套件）。 |
 | `scripts\windows\setup.ps1` | `start.bat` 使用的首次設定程式。 |
+| `scripts\windows\apply-update.ps1` | `start.bat` 重新啟動服務時安裝已下載的更新，見[更新](#更新)。 |
+| `VERSION.json` | 這個 zip 內 osu-render、Node.js 與 danser 的版本（更新程式會讀取）。 |
 | `.env.example` | `.env` 的範本，每個設定都有說明。 |
 | `README*.md`、`LICENSE`、`THIRD_PARTY_NOTICES.txt` | 說明文件、本專案授權，以及隨附軟體的授權。 |
 
@@ -125,6 +129,76 @@ danser。適用 Windows 10 / 11 64 位元。
 
 隨附的第三方軟體各自保有原授權：Node.js（MIT 等）、danser-go（GPL-3.0）與 danser 內附的 FFmpeg，以及
 `node_modules` 裡的 npm 套件。完整清單見 zip 內的 `THIRD_PARTY_NOTICES.txt`。
+
+## 自訂皮膚
+
+在網頁介面打開 **自訂畫面設定 → 皮膚**，按 **上傳 .osk** 並選擇皮膚檔。皮膚會安裝到伺服器上並立即選用，之後的
+渲染也能從 **皮膚** 清單中選擇。勾選 **使用皮膚的游標** 會改用皮膚自己的游標，而不是 danser 的。上傳同名皮膚會
+取代舊的。
+
+也可以手動加入皮膚：把皮膚資料夾（含有 `skin.ini` 的那一層）或 `.osk` 檔複製到皮膚資料夾，可攜版是
+`data\skins`，其他安裝方式是 `data/skins`（可用 `DANSER_SKINS_DIR` 更改）。放進去的 `.osk` 會在網頁下次載入
+皮膚清單時自動解壓。`default` 是 danser 內建的皮膚。上限（每個 `.osk` 200 MiB、解壓後大小、檔案數）設定在
+`config/defaults.json` 的 `skins` 區段。
+
+## 渲染歷史與保存期限
+
+**歷史紀錄** 卡片會列出你最近在這台伺服器上的渲染（最新的在前，最多 20 筆）：圖譜、玩家、mod、解析度、編碼器、
+渲染花了多久，以及檔案什麼時候會被刪除。完成的影片有 **下載** 按鈕。**刪除檔案** 會立刻刪除影片、replay 與日誌，
+紀錄本身會留在清單上並標示為已刪除。清單只會顯示從你自己的位址上傳的渲染（可攜版就是你這台電腦），渲染完成時會
+自動重新整理。
+
+完成、失敗與取消的渲染，其影片、replay 與日誌會保留 `VIDEO_RETENTION_HOURS` 小時（預設 24，可設 1 到 720），之後
+自動刪除。在 `.env` 設定後重新啟動即可。
+
+## 本機 osu! Songs 資料夾
+
+如果同一台電腦有安裝 osu!stable，你已經有的圖譜會直接從它的 `Songs` 資料夾複製，不再查詢與下載。這樣未上架或只有
+本機才有的圖譜也能渲染，而且不用下載任何東西。
+
+- Windows：會自動找到 `%LOCALAPPDATA%\osu!\Songs`。要關閉，在 `config/local.json` 寫
+  `"localSongs": { "autoDetect": false }`。
+- 其他資料夾：在 `.env` 設定 `OSU_SONGS_DIRS`，多個資料夾在 Windows 用 `;`、在 Linux 用 `:` 分隔。
+- 啟動時會在背景建立索引（之後只重新讀取新增或修改過的 `.osu`），所以 Songs 很大時，安裝後第一次啟動可能要一分鐘
+  左右。這段期間照樣可以渲染，還沒索引到的圖譜會改用 API 與 mirror。進度寫在日誌裡，索引狀態會出現在診斷報告中。
+- 圖譜會複製到 `data/songs`，不會修改你的 osu! 資料夾。連結（symlink／junction）資料夾會被略過。
+- 本機複製因任何原因失敗時，會改回用 osu! API 與 mirror。
+- 不支援 osu!lazer（它用雜湊值存放檔案，沒有 Songs 資料夾）。
+
+## 更新
+
+**可攜版 zip（0.4.0 起）：在網頁上直接更新。** osu-render 啟動時，以及你開啟網頁時（最多每 6 小時一次），會向 GitHub
+查詢最新版本。有新版時，頁面最上方會出現「osu-render X 已推出」的橫幅。按 **立即更新** 並確認：
+
+1. 服務會從本 repo 的 [Releases](https://github.com/956zs/osu-render/releases) 下載新的 zip、檢查 SHA-256
+   checksum，並解壓縮到 `data\update\staging\`。其中任何一步失敗都不會改動任何檔案，頁面也會顯示失敗。
+2. osu-render 停止，`start.bat` 在同一個視窗裡安裝新檔案並重新啟動。頁面會自動重新整理，並顯示「已更新到 osu-render X」。
+
+會保留不動的：`.env`、`data` 資料夾（影片、上傳的皮膚、圖譜快取、日誌）、`config\local.json`，以及 danser 的
+`settings` 資料夾、`danser.db` 與 `skins` 資料夾。只有新版附帶不同版本的 danser 時才會替換 danser 本身。舊的程式檔案會移到
+`data\update\backup-<舊版本>`（只保留最新一份備份）。安裝失敗時會自動放回舊檔案並重新啟動舊版本，詳細資訊在
+`data\update\apply-update.log`。
+
+有影片在排隊或算圖時會拒絕更新，請等它完成。只有用 `start.bat` 啟動服務時才能更新。要關閉更新檢查，建立
+`config\local.json`，內容為 `{ "update": { "enabled": false } }`。
+
+**可攜版 zip，手動更新**（0.4.0 以前的版本沒有更新按鈕，需要手動更新一次）：
+
+1. 關掉主控台視窗。
+2. 把新版本解壓縮到一個**新的**資料夾。
+3. 從舊資料夾把 `.env` 與整個 `data` 資料夾複製到新資料夾。如果你建立或修改過 `danser\settings\default.json`，
+   也一起複製。
+4. 從新資料夾執行 `start.bat`。確認一切正常後再刪除舊資料夾。
+
+**從原始碼安裝**（`git clone`）：橫幅只會顯示提示，因為服務無法替換自己的 git 工作目錄。請這樣更新：
+
+```sh
+git pull
+npm ci
+npm run build
+```
+
+然後重新啟動服務（使用 systemd unit 時執行 `sudo systemctl restart osu-render`，否則停止後重新執行 `npm start`）。
 
 ## 回報測試結果（給測試者）
 
@@ -134,14 +208,19 @@ danser。適用 Windows 10 / 11 64 位元。
 
 如果維護者私下（例如私訊）給了你一個**回報用 webhook 網址**：
 
-1. 在 osu-render 資料夾中，對 `.env` 檔按右鍵 →「**開啟方式**」→「**記事本**」（第一次執行 `start.bat` 時會建立這個檔案）。
-2. 找到靠近最後的 `REPORT_WEBHOOK_URL=` 這一行，把網址貼在 `=` 後面，不要加引號或空格：
-   `REPORT_WEBHOOK_URL=https://discord.com/api/webhooks/...`（舊版建立的 `.env` 沒有這一行，請自己加在最後）。
-3. 存檔，關掉 `start.bat` 的視窗，再重新執行 `start.bat`。
+1. 如果還沒執行過，先執行一次 `start.bat`（第一次執行會建立 `.env`，也會詢問這個網址；在那裡貼上就可以跳過下一步）。
+2. 在 osu-render 資料夾中雙擊 **`set-webhook.bat`**，貼上網址後按 Enter。輸入內容不會顯示；網址無效時會拒絕並要求重新輸入。
+   `.env` 裡的其他設定都會保留。
+3. 關掉 `start.bat` 的視窗，再重新執行 `start.bat`。如果 `.env` 裡的網址無效，黑色視窗會顯示警告。
+
+備用方式（手動）：對 `.env` 按右鍵 →「**開啟方式**」→「**記事本**」，找到靠近最後的 `REPORT_WEBHOOK_URL=` 這一行，把網址貼在
+`=` 後面，不要加引號或空格（舊版建立的 `.env` 沒有這一行，請自己加在最後）。存檔後重新啟動。Windows 預設會隱藏副檔名，
+請確認檔名真的是 `.env` 而不是 `.env.txt`：記事本存檔時有時會加上 `.txt`，而 osu-render 不會讀取 `.env.txt`（`start.bat`
+發現這種檔案時會警告）。在檔案總管選「**檢視 → 顯示 → 副檔名**」即可看到真正的檔名。
 
 之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷報告**」
 卡片也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
-不會重新測試，所以不會干擾渲染。網址錯誤時，服務會在啟動時記錄 `report_webhook_invalid`，並在不回報的狀態下繼續執行。
+不會重新測試，所以不會干擾渲染。網址錯誤時，服務會在啟動時顯示警告（並記錄 `report_webhook_invalid`），並在不回報的狀態下繼續執行；網址有效時會記錄 `report_webhook_enabled`。
 
 請不要把網址給別人：任何拿到網址的人都能在那個頻道發訊息。
 
@@ -179,7 +258,7 @@ doctor 會對**所有**支援的編碼器做自我測試，而不只是第一個
 
 **它會上傳任何東西嗎？**
 沒有任何遙測。服務只會連到 osu! API（取得 token、用 checksum 查圖譜），以及 `BEATMAP_MIRRORS` 裡的圖譜 mirror
-（下載 `.osz`）。replay 與影片都留在你的電腦上，24 小時後刪除。診斷報告只有在你自己分享，或設定了 `REPORT_WEBHOOK_URL`（每次渲染後會把遮蔽過的報告送到該 Discord webhook）時
+（下載 `.osz`）。replay 與影片都留在你的電腦上，24 小時後刪除（`VIDEO_RETENTION_HOURS`）。診斷報告只有在你自己分享，或設定了 `REPORT_WEBHOOK_URL`（每次渲染後會把遮蔽過的報告送到該 Discord webhook）時
 才會離開電腦，見[隱私](#隱私)。
 
 **可以把它設成 Windows 服務嗎？**
@@ -350,6 +429,8 @@ journalctl --user -u osu-render.service -f
 | `DANSER_BIN` | `<DANSER_DIR>/danser-cli`（Windows 為 `.exe`） | danser CLI 執行檔，放在別處時才需要設定。 |
 | `DANSER_BASE_SETTINGS` | `<DANSER_DIR>/settings/default.json` | 渲染時作為基礎的 danser 設定（見下方）。 |
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | 傳給 danser 的 Skin 資料夾。 |
+| `OSU_SONGS_DIRS` | Windows：`%LOCALAPPDATA%\osu!\Songs`（存在時） | 下載前先使用的 osu!stable `Songs` 資料夾，以 `;`（Windows）或 `:`（Linux）分隔。見[本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)。 |
+| `VIDEO_RETENTION_HOURS` | `24` | 完成渲染的影片、replay 與日誌保留幾小時，1 到 720。 |
 | `DANSER_SETTINGS_NAME` | `service` | 服務寫出的設定檔名稱：`<DANSER_DIR>/settings/<name>.json`。只能用英數字、`-` 與 `_`。 |
 | `RENDER_ENCODER` | `auto` | `auto`、`h264_nvenc`、`hevc_nvenc`、`h264_amf`、`hevc_amf`、`h264_qsv`、`hevc_qsv` 或 `libx264`。其他值會讓啟動失敗並顯示錯誤。 |
 | `OSU_CLIENT_ID` | 空 | osu! OAuth client ID。必填。 |
@@ -365,7 +446,7 @@ journalctl --user -u osu-render.service -f
 印出 `No beatmap specified, closing...` 後結束。
 
 不屬於機密的可調參數放在 [`config/defaults.json`](config/defaults.json)：各平台的編碼器自動順序、自我測試的尺寸與
-逾時、診斷報告大小、issue 連結，以及回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
+逾時、診斷報告大小、issue 連結，回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`），以及更新檢查（`update`：開關、GitHub repo、檢查間隔、下載大小上限與允許的下載主機）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
 忽略。範例：
 
 ```json
@@ -397,7 +478,13 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | `GET /api/renders/:id` | 任務狀態、進度、佇列位置、圖譜、輸出格式與錯誤。 |
 | `GET /api/renders/:id/video` | 完成的 MP4，支援 HTTP `Range`。 |
 | `DELETE /api/renders/:id` | 取消任務。 |
+| `GET /api/renders?limit=N` | 你最近的渲染（只限同一個用戶端位址，預設 20、最多 100）：`{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error" }] }`。 |
+| `DELETE /api/renders/:id/files` | 立刻刪除你自己已結束渲染的影片、replay 與日誌，歷史紀錄會保留。還在執行時回傳錯誤 `RENDER_ACTIVE`（409）。已刪除的影片回傳 `RENDER_EXPIRED`（410）。 |
+| `GET /api/skins` | 已安裝的皮膚：`{ "skins": [{ "name" }] }`，內建的 `default` 排第一。 |
+| `POST /api/skins` | multipart 上傳：`skin`（`.osk` 檔）。安裝後回傳 `{ "name" }`，或錯誤 `SKIN_INVALID`（422）／`SKIN_TOO_LARGE`（413）。 |
 | `GET /api/diagnostics` | 診斷報告（與 `npm run doctor` 相同的 JSON）。 |
+| `GET /api/update` | 更新狀態：`{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`，上次查詢 GitHub 失敗時另有 `error`。最多每 `update.checkIntervalMs` 查詢 GitHub 一次。 |
+| `POST /api/update/apply` | 僅限用 `start.bat` 啟動的可攜版 zip：下載、驗證並準備最新版本，回傳 `{ "applying": true, "version" }`，然後透過 `start.bat` 重新啟動來安裝。錯誤：`UPDATE_NOT_PORTABLE`（409）、`UPDATE_BUSY`（409，有未完成的算圖或正在更新）、`UPDATE_FAILED`（502，沒有改動任何檔案）。 |
 | `POST /api/diagnostics/send` | 把診斷報告送到 `REPORT_WEBHOOK_URL`。回傳 `{ "sent": true }`，或錯誤 `REPORT_WEBHOOK_DISABLED`（409，未設定）／`REPORT_SEND_FAILED`（502）。 |
 | `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`、`reportWebhook`。 |
 
@@ -491,8 +578,12 @@ CI（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）會在 Ubuntu 與 
 Node 22），並有一個 smoke job 在兩個平台下載 danser 0.12.1，檢查 `npm run doctor` 能找到 danser 與 FFmpeg，且 x264
 自我測試通過。CI runner 沒有 GPU，硬體編碼器只能靠大家在實機執行 doctor 來測試。
 
-Windows 可攜版 zip 由 `.github/workflows/release.yml` 依 `packaging/` 中的檔案建置：每個 `v*` tag 都會在 Windows
-runner 上組裝 zip、對解壓縮後的副本做 smoke test，再把 zip 與它的 SHA-256 checksum 附到 GitHub Release。
+發佈是自動的：**在 `package.json` 調高版本號，push 到 main，release 就會自動發佈。**（`npm version 0.5.0 --no-git-tag-version`
+會同時更新 `package.json` 與 `package-lock.json`。）每次 push 到 main，`.github/workflows/release.yml` 會檢查 tag
+`v<版本>` 是否存在。不存在時，它會在 Windows runner 上依 `packaging/` 中的檔案組裝可攜版 zip，對解壓縮後的副本做
+smoke test（包含程式內更新：保留與替換 danser 兩種情況、失敗回復，以及 `start.bat` 在 exit code 75 時重新啟動），
+然後建立 tag 與 GitHub Release，附上 zip 與它的 SHA-256 checksum。沒有改版本號的 push 不會發佈任何東西。手動 push
+`v*` tag 也仍然可以，release 只會建立一次。
 
 ## 授權與致謝
 

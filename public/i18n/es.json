@@ -76,7 +76,14 @@
     "RENDER_TIMEOUT": "El render tardó demasiado y se detuvo.",
     "INTERNAL_ERROR": "El servidor tuvo un error interno.",
     "REPORT_WEBHOOK_DISABLED": "Este servidor no tiene configurado el envío de reportes al desarrollador.",
-    "REPORT_SEND_FAILED": "No se pudo enviar el reporte al desarrollador. Inténtalo más tarde, o descárgalo y envía el archivo."
+    "REPORT_SEND_FAILED": "No se pudo enviar el reporte al desarrollador. Inténtalo más tarde, o descárgalo y envía el archivo.",
+    "SKIN_INVALID": "Ese archivo no es un skin de osu! válido. Sube un .osk exportado desde osu! o descargado.",
+    "SKIN_TOO_LARGE": "Ese skin pesa más de lo que permite este servidor.",
+    "RENDER_EXPIRED": "Este video se eliminó, ya sea porque venció o porque se borraron sus archivos.",
+    "RENDER_ACTIVE": "Este render todavía está en curso. Cancélalo antes de borrar sus archivos.",
+    "UPDATE_NOT_PORTABLE": "Las actualizaciones desde la app solo funcionan en el zip portable de Windows iniciado con start.bat. Si instalaste desde el código fuente, actualiza con git pull.",
+    "UPDATE_BUSY": "Todavía hay un render en curso o ya se está actualizando. Inténtalo de nuevo cuando termine.",
+    "UPDATE_FAILED": "No se pudo descargar o verificar la actualización. No se cambió nada. Inténtalo más tarde."
   },
   "settings": {
     "title": "Ajustes de render personalizados",
@@ -115,6 +122,17 @@
       "smoke": "Humo del cursor",
       "skinColors": "Usar colores del Skin",
       "beatmapColors": "Usar colores del mapa"
+    },
+    "skin": {
+      "legend": "Skin",
+      "select": "Skin",
+      "default": "Predeterminado (danser)",
+      "cursor": "Usar el cursor del skin",
+      "upload": "Subir .osk",
+      "uploading": "Subiendo e instalando el skin…",
+      "installed": "Se instaló \"{name}\" y quedó seleccionado.",
+      "failed": "No se pudo subir el skin. Revisa tu conexión e inténtalo de nuevo.",
+      "hint": "Los skins que subas se guardan en este servidor y puedes elegirlos en cualquier render."
     },
     "hud": {
       "legend": "HUD",
@@ -162,5 +180,31 @@
     "noIssueLink": "El reporte no incluye un enlace válido para crear el issue en GitHub.",
     "sending": "Enviando el reporte al desarrollador…",
     "sent": "Reporte enviado al desarrollador. ¡Gracias!"
+  },
+  "update": {
+    "available": "Ya está disponible osu-render {version} (tienes la {current}).",
+    "apply": "Actualizar ahora",
+    "notes": "Novedades",
+    "gitHint": "Para actualizar una instalación desde el código fuente, ejecuta git pull, npm ci y npm run build, y reinicia osu-render.",
+    "confirm": "¿Descargar osu-render {version} y reiniciar? Tu configuración y tus archivos se conservan, y esta página se recarga sola.",
+    "downloading": "Descargando y verificando la actualización. Puede tardar unos minutos…",
+    "restarting": "Instalando la actualización y reiniciando. Esta página se recarga sola.",
+    "done": "Actualizado a osu-render {version}.",
+    "notInstalled": "La actualización no se instaló, sigues en la {version}. Los detalles están en data\\update\\apply-update.log.",
+    "timeout": "osu-render no volvió a iniciarse. Revisa la ventana de osu-render y luego recarga esta página."
+  },
+  "history": {
+    "title": "Historial",
+    "hint": "Tus renders recientes en este servidor. Los videos se borran automáticamente después de un tiempo.",
+    "refresh": "Actualizar",
+    "empty": "Todavía no hay renders. Sube un replay para empezar.",
+    "failed": "No se pudo cargar el historial.",
+    "unknownMap": "Mapa desconocido",
+    "took": "renderizado en {duration}",
+    "deleted": "Archivos borrados",
+    "expires": "Archivos guardados hasta {time}",
+    "download": "Descargar",
+    "deleteFiles": "Borrar archivos",
+    "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer."
   }
 }

@@ -55,6 +55,11 @@ export interface RenderRow {
   started_at: number | null;
   completed_at: number | null;
   expires_at: number | null;
+  beatmap_title?: string | null;
+  beatmap_artist?: string | null;
+  beatmap_version?: string | null;
+  /** Set once the video, replay and log were removed (retention or the user's request). */
+  files_deleted_at?: number | null;
 }
 
 export interface BeatmapRow {
@@ -65,6 +70,9 @@ export interface BeatmapRow {
   size_bytes: number;
   created_at: number;
   last_used_at: number;
+  title?: string | null;
+  artist?: string | null;
+  version?: string | null;
 }
 
 export interface Paths {

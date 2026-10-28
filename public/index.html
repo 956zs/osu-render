@@ -78,6 +78,20 @@
     .settings-foot { margin: 0 14px 14px; padding: 11px 13px; display: flex; gap: 9px; color: var(--muted); background: rgba(121, 184, 255, .06); border-radius: 11px; font-size: .76rem; line-height: 1.5; }
     .settings-foot::before { content: "i"; width: 18px; height: 18px; flex: 0 0 auto; display: grid; place-items: center; color: var(--blue); border: 1px solid rgba(121,184,255,.35); border-radius: 50%; font-size: .68rem; font-weight: 850; }
     .diag-card { grid-column: 2; grid-row: 2; padding: 22px; }
+    .history-card { grid-column: 1 / -1; grid-row: 3; padding: 22px; }
+    .history-card .panel-heading { flex-wrap: wrap; }
+    .history-card .panel-heading > div { flex: 1 1 200px; }
+    .history-list { margin: 0; padding: 0; display: grid; gap: 10px; list-style: none; }
+    .history-item { padding: 13px 15px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; border: 1px solid var(--line); border-radius: 13px; background: rgba(7, 10, 17, .5); }
+    .history-item strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+    .history-state { justify-self: end; color: var(--muted); font-size: .76rem; font-weight: 800; }
+    .history-state[data-status=completed] { color: var(--ok); }
+    .history-state[data-status=failed] { color: var(--danger); }
+    .history-meta, .history-files { grid-column: 1; margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+    .history-files[data-tone=error] { color: var(--danger); }
+    .history-actions { grid-column: 2; grid-row: 2 / span 2; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    .history-actions button { margin: 0; padding: 7px 11px; font-size: .78rem; }
+    .history-empty { margin: 0; color: var(--muted); font-size: .82rem; }
     .diag-list { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; color: var(--muted); font-size: .82rem; line-height: 1.55; }
     .diag-list li { display: flex; gap: 10px; }
     .diag-list li::before { content: ""; width: 6px; height: 6px; margin-top: .58em; flex: 0 0 auto; border-radius: 50%; background: var(--pink); }
@@ -85,6 +99,12 @@
     .diag-status { min-height: 1.4em; margin: 12px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
     .diag-status[data-tone=ok] { color: var(--ok); }
     .diag-status[data-tone=error] { color: var(--danger); }
+    .setting.wide { grid-column: 1 / -1; }
+    .setting #skin { max-width: 65%; text-overflow: ellipsis; }
+    .skin-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+    .skin-actions button { margin: 0; }
+    .skin-actions .diag-status { margin: 0; flex: 1 1 160px; }
+    .skin-hint { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
     .diag-summary { width: 100%; min-height: 140px; margin-top: 10px; padding: 11px 12px; resize: vertical; color: var(--text); background: rgba(7, 10, 17, .7);
       border: 1px solid var(--line); border-radius: 11px; font: .76rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .clipboard-scratch { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; }
@@ -101,12 +121,22 @@
     button[aria-disabled=true] { cursor: progress; opacity: .55; }
     #cancel { color: var(--muted); background: transparent; border-color: var(--line-strong); }
     .error { margin: 10px 0 0; color: var(--danger); font-size: .82rem; }
+    .update-banner { margin-bottom: 22px; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; border: 1px solid rgba(121, 184, 255, .35);
+      border-radius: 14px; background: rgba(121, 184, 255, .08); font-size: .86rem; line-height: 1.5; }
+    .update-banner[data-tone=ok] { border-color: rgba(126, 226, 168, .4); background: rgba(126, 226, 168, .08); }
+    .update-banner[data-tone=error] { border-color: rgba(255, 140, 159, .4); background: rgba(255, 140, 159, .08); }
+    .update-text { min-width: 0; flex: 1 1 320px; margin: 0; }
+    .update-text span { color: var(--muted); }
+    .update-banner[data-tone=error] .update-text span { color: var(--danger); }
+    .update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; }
+    .update-actions button { margin: 0; }
+    .update-actions a { color: var(--blue); font-size: .82rem; font-weight: 700; }
     [hidden] { display: none !important; }
     :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
     @media (max-width: 940px) {
       main { width: min(720px, calc(100% - 32px)); padding-top: 34px; }
       .layout { grid-template-columns: 1fr; grid-template-rows: none; }
-      .upload-card, .settings-card, .diag-card { grid-column: auto; grid-row: auto; }
+      .upload-card, .settings-card, .diag-card, .history-card { grid-column: auto; grid-row: auto; }
       .settings-card { order: -1; }
       .upload-card { position: static; }
     }
@@ -124,7 +154,10 @@
       .settings { grid-template-columns: 1fr; padding: 0 10px 10px; }
       fieldset, fieldset:nth-child(-n+3) { grid-column: 1; grid-template-columns: 1fr; padding: 14px; }
       .setting.range { grid-column: 1; grid-template-columns: 98px minmax(80px, 1fr) 38px; }
-      .upload-card, .diag-card { padding: 16px; }
+      .upload-card, .diag-card, .history-card { padding: 16px; }
+      .history-item { grid-template-columns: 1fr; }
+      .history-state { justify-self: start; }
+      .history-actions { grid-column: 1; grid-row: auto; justify-content: flex-start; }
       .drop { min-height: 210px; }
       .badge { display: none; }
     }
@@ -132,6 +165,13 @@
 </head>
 <body>
 <main>
+  <section class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
+    <p class="update-text"><strong id="updateTitle"></strong> <span id="updateDetail"></span></p>
+    <div class="update-actions">
+      <button type="button" id="updateApply" hidden data-i18n="update.apply">Update now</button>
+      <a id="updateNotes" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
+    </div>
+  </section>
   <header class="hero">
     <div class="hero-mark" aria-hidden="true">o!</div>
     <div class="hero-copy">
@@ -171,7 +211,7 @@
     <summary>
       <span class="step">02</span>
       <span class="summary-copy"><strong data-i18n="settings.title">Custom render settings</strong><small data-i18n="settings.hint">Applied to this render only; the server's base settings never change</small></span>
-      <span class="badge" id="settingsCount" data-i18n="settings.badge" data-i18n-n="36">Optional · 36 options</span>
+      <span class="badge" id="settingsCount" data-i18n="settings.badge" data-i18n-n="38">Optional · 38 options</span>
       <span class="chevron" aria-hidden="true">⌄</span>
     </summary>
     <div class="settings">
@@ -206,6 +246,17 @@
         <label class="setting"><input id="cursorSmoke" type="checkbox" checked><span data-i18n="settings.cursor.smoke">Cursor smoke</span></label>
         <label class="setting"><input id="useSkinColors" type="checkbox" checked><span data-i18n="settings.cursor.skinColors">Use Skin colors</span></label>
         <label class="setting"><input id="useBeatmapColors" type="checkbox" checked><span data-i18n="settings.cursor.beatmapColors">Use beatmap colors</span></label>
+      </fieldset>
+      <fieldset>
+        <legend data-i18n="settings.skin.legend">Skin</legend>
+        <label class="setting wide"><span data-i18n="settings.skin.select">Skin</span><select id="skin"><option value="default" selected data-i18n="settings.skin.default">Default (danser)</option></select></label>
+        <label class="setting wide"><input id="useSkinCursor" type="checkbox"><span data-i18n="settings.skin.cursor">Use the skin's cursor</span></label>
+        <div class="skin-actions">
+          <input id="skinFile" type="file" accept=".osk" hidden>
+          <button type="button" id="skinUpload" class="secondary" data-i18n="settings.skin.upload">Upload .osk</button>
+          <p class="diag-status" id="skinStatus" role="status" aria-live="polite"></p>
+        </div>
+        <p class="skin-hint" data-i18n="settings.skin.hint">Uploaded skins are saved on this server and can be picked for any render.</p>
       </fieldset>
       <fieldset>
         <legend data-i18n="settings.hud.legend">HUD</legend>
@@ -252,6 +303,16 @@
       <p class="diag-status" id="diagStatus" role="status" aria-live="polite"></p>
       <textarea class="diag-summary" id="diagSummary" readonly hidden aria-label="Report summary" data-i18n-aria-label="diagnostics.summaryLabel"></textarea>
     </section>
+    <section class="panel history-card" id="history" aria-labelledby="historyTitle">
+      <div class="panel-heading">
+        <span class="step">04</span>
+        <div><h2 id="historyTitle" data-i18n="history.title">History</h2><p data-i18n="history.hint">Your recent renders on this server. Videos are deleted automatically after a while.</p></div>
+        <button type="button" id="historyRefresh" class="secondary" data-i18n="history.refresh">Refresh</button>
+      </div>
+      <p class="diag-status" id="historyStatus" role="status" aria-live="polite"></p>
+      <p class="history-empty" id="historyEmpty" hidden data-i18n="history.empty">No renders yet. Upload a replay to start.</p>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
   </div>
 </main>
 <script type="module">
@@ -267,6 +328,10 @@ const cancel = document.querySelector('#cancel');
 const token = document.querySelector('#token');
 const settingsPanel = document.querySelector('#settingsPanel');
 const settingsCount = document.querySelector('#settingsCount');
+const historyList = document.querySelector('#historyList');
+const historyEmpty = document.querySelector('#historyEmpty');
+const historyStatus = document.querySelector('#historyStatus');
+const historyRefresh = document.querySelector('#historyRefresh');
 const languageSelect = document.querySelector('#language');
 const rendererStatus = document.querySelector('#rendererStatus');
 const rendererLabel = document.querySelector('#rendererLabel');
@@ -280,12 +345,25 @@ const diagSummary = document.querySelector('#diagSummary');
 const diagSend = document.querySelector('#diagSend');
 const diagPrivacy = document.querySelector('#diagPrivacy');
 const diagAutoSend = document.querySelector('#diagAutoSend');
+const updateBanner = document.querySelector('#updateBanner');
+const updateTitle = document.querySelector('#updateTitle');
+const updateDetail = document.querySelector('#updateDetail');
+const updateApply = document.querySelector('#updateApply');
+const updateNotes = document.querySelector('#updateNotes');
+const skinSelect = document.querySelector('#skin');
+const skinFile = document.querySelector('#skinFile');
+const skinUpload = document.querySelector('#skinUpload');
+const skinStatus = document.querySelector('#skinStatus');
 const LANGUAGES = [...languageSelect.options].map((option) => option.value);
 const FALLBACK_LANGUAGE = 'en';
 const LANGUAGE_STORAGE_KEY = 'language';
 const HEALTH_REFRESH_MS = 30_000;
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
+const HISTORY_LIMIT = 20;
 const ISSUE_URL_PREFIX = 'https://github.com/';
+const UPDATE_STORAGE_KEY = 'updateTarget';
+const UPDATE_POLL_MS = 2000;
+const UPDATE_RESTART_TIMEOUT_MS = 10 * 60_000;
 const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv'], [/^libx264$/, 'x264']];
 const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
 let timer;
@@ -298,11 +376,18 @@ let health = null;
 let diagnosticsReport = null;
 let diagnosticsMessage = null;
 let diagnosticsBusy = false;
+let update = null;
+let updateMessage = null;
+let updateBusy = false;
+let skinMessage = null;
+let historyItems = null;
+let historyMessage = null;
+let skinBusy = false;
 
 settingsPanel.open = window.matchMedia('(min-width: 941px)').matches;
 settingsCount.dataset.i18nN = String(Object.keys(renderOptions()).length);
 token.value = sessionStorage.getItem('serviceToken') ?? '';
-token.addEventListener('change', () => sessionStorage.setItem('serviceToken', token.value));
+token.addEventListener('change', () => { sessionStorage.setItem('serviceToken', token.value); loadSkins(); loadHistory(); });
 for (const id of ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale', 'cursorSize']) {
   const control = document.querySelector(`#${id}`); const output = document.querySelector(`#${id}Value`);
   control.addEventListener('input', () => { output.value = `${control.value}${id === 'cursorSize' ? '' : '%'}`; });
@@ -317,6 +402,8 @@ download.addEventListener('click', async () => {
   if (!response.ok) { requestError = (await readJson(response))?.error ?? { key: 'errors.RENDER_FAILED' }; renderJob(); return; }
   saveBlob(await response.blob(), `${window.jobId}.mp4`);
 });
+skinUpload.addEventListener('click', () => { if (!skinBusy) skinFile.click(); });
+skinFile.addEventListener('change', () => { const file = skinFile.files[0]; skinFile.value = ''; uploadSkin(file); });
 languageSelect.addEventListener('change', () => {
   try { localStorage.setItem(LANGUAGE_STORAGE_KEY, languageSelect.value); } catch { /* storage disabled: choice lasts for this page */ }
   setLanguage(languageSelect.value);
@@ -367,6 +454,11 @@ languageSelect.value = detectLanguage();
 setLanguage(languageSelect.value);
 loadHealth();
 setInterval(loadHealth, HEALTH_REFRESH_MS);
+loadUpdate();
+updateApply.addEventListener('click', applyUpdate);
+loadSkins();
+loadHistory();
+historyRefresh.addEventListener('click', () => loadHistory());
 
 async function upload(file) {
   if (!file) return;
@@ -378,7 +470,7 @@ async function upload(file) {
   try { response = await api('/api/renders', { method: 'POST', body: form }); } catch { response = null; }
   const data = response ? await readJson(response) : null;
   if (!response?.ok || typeof data?.id !== 'string') { uploadError = data?.error ?? { key: 'job.uploadFailed' }; renderJob(); return; }
-  uploadError = null; requestError = null; currentJob = null;
+  uploadError = null; requestError = null; currentJob = null; loadHistory();
   window.jobId = data.id; clearInterval(timer); poll(); timer = setInterval(poll, 1500);
 }
 function renderOptions() {
@@ -386,6 +478,7 @@ function renderOptions() {
   const number = (id) => Number(document.querySelector(`#${id}`).value);
   return {
     resolution: document.querySelector('#resolution').value,
+    skin: skinSelect.value, useSkinCursor: checked('useSkinCursor'),
     skipIntro: checked('skipIntro'), masterVolume: number('masterVolume'),
     musicVolume: number('musicVolume'), sampleVolume: number('sampleVolume'),
     backgroundDim: number('backgroundDim'), backgroundBlur: number('backgroundBlur'),
@@ -419,7 +512,7 @@ async function poll() {
     return;
   }
   currentJob = data; requestError = null; renderJob();
-  if (TERMINAL_STATUSES.includes(data.status)) { clearInterval(timer); loadHealth(); }
+  if (TERMINAL_STATUSES.includes(data.status)) { clearInterval(timer); loadHealth(); loadHistory(); }
 }
 function renderJob() {
   if (currentJob) {
@@ -433,7 +526,7 @@ function renderJob() {
 }
 function errorText(problem) {
   if (!problem) return '';
-  if (problem.key) return t(problem.key);
+  if (problem.key) return t(problem.key, problem.vars);
   return t(`errors.${problem.code}`, {}, problem.message ?? String(problem.code ?? ''));
 }
 async function readJson(response) {
@@ -442,6 +535,81 @@ async function readJson(response) {
 function api(url, options = {}) {
   const headers = new Headers(options.headers); if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
   return fetch(url, { ...options, headers });
+}
+async function loadHistory(message = null) {
+  try {
+    const response = await api(`/api/renders?limit=${HISTORY_LIMIT}`, { cache: 'no-store' });
+    const data = await readJson(response);
+    if (response.status === 401 || data?.error?.code === 'UNAUTHORIZED') { historyItems = null; historyMessage = { key: 'diagnostics.needsToken' }; }
+    else if (!response.ok || !Array.isArray(data?.renders)) historyMessage = { key: 'history.failed' };
+    else { historyItems = data.renders; historyMessage = message; }
+  } catch { historyMessage = { key: 'history.failed' }; }
+  renderHistory();
+}
+function renderHistory() {
+  historyStatus.textContent = historyMessage ? errorText(historyMessage) : '';
+  historyStatus.dataset.tone = historyMessage ? 'error' : '';
+  historyEmpty.hidden = !(Array.isArray(historyItems) && historyItems.length === 0);
+  historyList.replaceChildren(...(historyItems ?? []).map(historyEntry));
+}
+function historyEntry(item) {
+  const entry = document.createElement('li');
+  entry.className = 'history-item';
+  const title = document.createElement('strong');
+  title.textContent = mapLabel(item.beatmap);
+  title.title = title.textContent;
+  const state = document.createElement('span');
+  state.className = 'history-state'; state.dataset.status = item.status;
+  state.textContent = t(`status.${item.status}`, { position: '?', progress: Math.round(Number(item.progress) || 0) }, item.status);
+  const meta = document.createElement('p');
+  meta.className = 'history-meta';
+  meta.textContent = [
+    formatTime(item.createdAt), item.player, item.mods, item.resolution, encoderLabel(item.encoder),
+    item.renderMs ? t('history.took', { duration: formatDuration(item.renderMs) }) : null,
+  ].filter(Boolean).join(' · ');
+  const files = document.createElement('p');
+  files.className = 'history-files';
+  if (item.error) { files.textContent = errorText(item.error); files.dataset.tone = 'error'; }
+  else if (item.filesDeleted) files.textContent = t('history.deleted');
+  else if (TERMINAL_STATUSES.includes(item.status) && item.expiresAt) files.textContent = t('history.expires', { time: formatTime(item.expiresAt) });
+  const actions = document.createElement('div');
+  actions.className = 'history-actions';
+  if (item.videoAvailable) actions.append(historyButton(t('history.download'), '', () => downloadHistoryVideo(item.id)));
+  if (TERMINAL_STATUSES.includes(item.status) && !item.filesDeleted) {
+    actions.append(historyButton(t('history.deleteFiles'), 'secondary', () => deleteHistoryFiles(item.id)));
+  }
+  entry.append(title, state, meta, files, actions);
+  return entry;
+}
+function historyButton(text, className, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = className; button.textContent = text;
+  button.addEventListener('click', onClick);
+  return button;
+}
+function mapLabel(beatmap) {
+  if (!beatmap?.title) return beatmap?.id ? `#${beatmap.id}` : t('history.unknownMap');
+  const name = beatmap.artist ? `${beatmap.artist} - ${beatmap.title}` : beatmap.title;
+  return beatmap.version ? `${name} [${beatmap.version}]` : name;
+}
+function formatTime(value) {
+  return typeof value === 'number' ? new Date(value).toLocaleString(document.documentElement.lang || undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+}
+function formatDuration(ms) {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+async function downloadHistoryVideo(id) {
+  let response;
+  try { response = await api(`/api/renders/${id}/video`); } catch { response = null; }
+  if (!response?.ok) { await loadHistory((response && (await readJson(response))?.error) ?? { key: 'errors.RENDER_FAILED' }); return; }
+  saveBlob(await response.blob(), `${id}.mp4`);
+}
+async function deleteHistoryFiles(id) {
+  if (!window.confirm(t('history.confirmDelete'))) return;
+  let response;
+  try { response = await api(`/api/renders/${id}/files`, { method: 'DELETE' }); } catch { response = null; }
+  await loadHistory(response?.ok ? null : (response && (await readJson(response))?.error) ?? { key: 'history.failed' });
 }
 function saveBlob(blob, filename) {
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
@@ -468,7 +636,7 @@ async function setLanguage(language) {
   if (request !== languageRequest || !loaded) return; // superseded, or nothing loaded: keep the text already on screen
   messages = loaded.messages;
   document.documentElement.lang = loaded.language;
-  applyTranslations(); renderHealth(); renderJob(); renderDiagnosticsStatus();
+  applyTranslations(); renderHealth(); renderJob(); renderDiagnosticsStatus(); renderSkinStatus(); renderHistory(); renderUpdate();
 }
 async function loadMessages(language) {
   try {
@@ -561,12 +729,119 @@ function renderDiagnosticsStatus() {
   diagStatus.textContent = diagnosticsMessage ? t(diagnosticsMessage.key) : '';
   diagStatus.dataset.tone = diagnosticsMessage?.tone ?? '';
 }
+async function loadSkins(selected = skinSelect.value) {
+  let names = [];
+  try {
+    const response = await api('/api/skins', { cache: 'no-store' });
+    const data = await readJson(response);
+    if (response.ok && Array.isArray(data?.skins)) names = data.skins.map((skin) => skin?.name).filter((name) => typeof name === 'string');
+  } catch { /* keep the built-in default only */ }
+  names = ['default', ...names.filter((name) => name !== 'default')];
+  skinSelect.replaceChildren(...names.map((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    if (name === 'default') { option.dataset.i18n = 'settings.skin.default'; option.textContent = t('settings.skin.default', {}, 'Default (danser)'); } else option.textContent = name;
+    return option;
+  }));
+  skinSelect.value = names.includes(selected) ? selected : 'default';
+}
+async function uploadSkin(file) {
+  if (!file || skinBusy) return;
+  if (!file.name.toLowerCase().endsWith('.osk')) { showSkin({ code: 'SKIN_INVALID' }, 'error'); return; }
+  setSkinBusy(true); showSkin({ key: 'settings.skin.uploading' }, 'info');
+  try {
+    const form = new FormData();
+    form.append('skin', file);
+    const response = await api('/api/skins', { method: 'POST', body: form });
+    const data = await readJson(response);
+    if (!response.ok || typeof data?.name !== 'string') { showSkin(data?.error ?? { key: 'settings.skin.failed' }, 'error'); return; }
+    await loadSkins(data.name);
+    showSkin({ key: 'settings.skin.installed', vars: { name: data.name } }, 'ok');
+  } catch {
+    showSkin({ key: 'settings.skin.failed' }, 'error');
+  } finally { setSkinBusy(false); }
+}
+function setSkinBusy(busy) {
+  skinBusy = busy;
+  skinUpload.setAttribute('aria-disabled', String(busy));
+}
+function showSkin(problem, tone) {
+  skinMessage = { problem, tone }; renderSkinStatus();
+}
+function renderSkinStatus() {
+  skinStatus.textContent = skinMessage ? errorText(skinMessage.problem) : '';
+  skinStatus.dataset.tone = skinMessage?.tone ?? '';
+}
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch { /* insecure context or denied: try the legacy path */ }
   const scratch = document.createElement('textarea');
   scratch.value = text; scratch.readOnly = true; scratch.className = 'clipboard-scratch';
   document.body.append(scratch); scratch.select();
   try { return document.execCommand('copy'); } catch { return false; } finally { scratch.remove(); }
+}
+
+async function loadUpdate() {
+  try {
+    const response = await api('/api/update', { cache: 'no-store' });
+    const data = response.ok ? await readJson(response) : null;
+    if (typeof data?.current !== 'string') return;
+    update = data;
+  } catch { return; } // informational only
+  let target = null;
+  try { target = sessionStorage.getItem(UPDATE_STORAGE_KEY); sessionStorage.removeItem(UPDATE_STORAGE_KEY); } catch { /* storage disabled */ }
+  if (target) {
+    updateMessage = update.current === target
+      ? { key: 'update.done', vars: { version: target }, tone: 'ok' }
+      : { key: 'update.notInstalled', vars: { version: update.current }, tone: 'error' };
+  }
+  renderUpdate();
+}
+function renderUpdate() {
+  const available = update?.available === true && typeof update.latest === 'string';
+  updateBanner.hidden = !available && !updateMessage;
+  if (updateBanner.hidden) return;
+  updateBanner.dataset.tone = updateMessage?.tone ?? 'info';
+  updateBanner.setAttribute('aria-busy', String(updateBusy));
+  updateTitle.textContent = available ? t('update.available', { version: update.latest, current: update.current }) : '';
+  if (updateMessage?.problem) updateDetail.textContent = errorText(updateMessage.problem);
+  else if (updateMessage) updateDetail.textContent = t(updateMessage.key, updateMessage.vars);
+  else updateDetail.textContent = update.portable ? '' : t('update.gitHint');
+  updateApply.hidden = !available || update.portable !== true;
+  updateApply.setAttribute('aria-disabled', String(updateBusy));
+  const notesUrl = typeof update?.notesUrl === 'string' && update.notesUrl.startsWith(ISSUE_URL_PREFIX) ? update.notesUrl : null;
+  updateNotes.hidden = !available || !notesUrl;
+  if (notesUrl) updateNotes.href = notesUrl;
+}
+async function applyUpdate() {
+  if (updateBusy || update?.available !== true) return;
+  if (!window.confirm(t('update.confirm', { version: update.latest }))) return;
+  updateBusy = true; updateMessage = { key: 'update.downloading', vars: {}, tone: 'info' }; renderUpdate();
+  let response = null;
+  let data = null;
+  try { response = await api('/api/update/apply', { method: 'POST' }); data = await readJson(response); } catch { /* reported below */ }
+  if (!response?.ok || data?.applying !== true || typeof data.version !== 'string') {
+    updateBusy = false; updateMessage = { problem: data?.error ?? { code: 'UPDATE_FAILED' }, tone: 'error' }; renderUpdate();
+    return;
+  }
+  try { sessionStorage.setItem(UPDATE_STORAGE_KEY, data.version); } catch { /* the reload just skips the result message */ }
+  updateMessage = { key: 'update.restarting', vars: { version: data.version }, tone: 'info' }; renderUpdate();
+  await waitForRestart(data.version);
+}
+// The server exits, start.bat installs the files and starts it again: reload once it answers as the new version
+// (or answers again after having been down, so the page can show that the update was rolled back).
+async function waitForRestart(version) {
+  const deadline = Date.now() + UPDATE_RESTART_TIMEOUT_MS;
+  let wentDown = false;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, UPDATE_POLL_MS));
+    let up = false;
+    try { up = (await fetch('/health', { cache: 'no-store' })).ok; } catch { /* still restarting */ }
+    if (!up) { wentDown = true; continue; }
+    let current = null;
+    try { current = (await readJson(await api('/api/update', { cache: 'no-store' })))?.current ?? null; } catch { /* retry */ }
+    if (wentDown || current === version) { window.location.reload(); return; }
+  }
+  updateBusy = false; updateMessage = { key: 'update.timeout', vars: {}, tone: 'error' }; renderUpdate();
 }
 function fileTimestamp(date) {
   const pad = (value) => String(value).padStart(2, '0');

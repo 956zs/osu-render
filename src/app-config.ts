@@ -22,6 +22,21 @@ export interface AppConfig {
     minIntervalMs: number;
     autoLogTailBytes: { failed: number; completed: number };
   };
+  skins: { maxOskBytes: number; maxExtractedBytes: number; maxEntries: number; maxNameLength: number };
+  update: {
+    enabled: boolean;
+    checkOnStartup: boolean;
+    repo: string;
+    checkIntervalMs: number;
+    apiTimeoutMs: number;
+    downloadTimeoutMs: number;
+    maxDownloadBytes: number;
+    maxExtractedBytes: number;
+    maxEntries: number;
+    downloadHosts: readonly string[];
+  };
+  history: { defaultLimit: number; maxLimit: number };
+  localSongs: { autoDetect: boolean; maxFiles: number; progressEvery: number };
   i18n: { languages: readonly string[]; fallback: string };
 }
 
@@ -39,7 +54,7 @@ export function loadAppConfig(defaultsFile = DEFAULTS_FILE, localFile = LOCAL_CO
 }
 
 export function validateAppConfig(value: unknown): AppConfig {
-  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'i18n']);
+  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'i18n']);
   const encoders = object(root.encoders, 'encoders', ['autoOrder', 'selfTest']);
   const autoOrder = object(encoders.autoOrder, 'encoders.autoOrder');
   if (!('default' in autoOrder)) throw configError('encoders.autoOrder.default', 'is required');
@@ -50,6 +65,11 @@ export function validateAppConfig(value: unknown): AppConfig {
   const reportWebhook = object(root.reportWebhook, 'reportWebhook',
     ['username', 'timeoutMs', 'retryAfterCapMs', 'minIntervalMs', 'autoLogTailBytes']);
   const autoLogTail = object(reportWebhook.autoLogTailBytes, 'reportWebhook.autoLogTailBytes', ['failed', 'completed']);
+  const skins = object(root.skins, 'skins', ['maxOskBytes', 'maxExtractedBytes', 'maxEntries', 'maxNameLength']);
+  const update = object(root.update, 'update', ['enabled', 'checkOnStartup', 'repo', 'checkIntervalMs', 'apiTimeoutMs',
+    'downloadTimeoutMs', 'maxDownloadBytes', 'maxExtractedBytes', 'maxEntries', 'downloadHosts']);
+  const history = object(root.history, 'history', ['defaultLimit', 'maxLimit']);
+  const localSongs = object(root.localSongs, 'localSongs', ['autoDetect', 'maxFiles', 'progressEvery']);
   const i18n = object(root.i18n, 'i18n', ['languages', 'fallback']);
   const languages = stringArray(i18n.languages, 'i18n.languages', /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
   const fallback = string(i18n.fallback, 'i18n.fallback');
@@ -84,6 +104,33 @@ export function validateAppConfig(value: unknown): AppConfig {
         failed: integer(autoLogTail.failed, 'reportWebhook.autoLogTailBytes.failed', 0),
         completed: integer(autoLogTail.completed, 'reportWebhook.autoLogTailBytes.completed', 0),
       },
+    },
+    skins: {
+      maxOskBytes: integer(skins.maxOskBytes, 'skins.maxOskBytes', 1),
+      maxExtractedBytes: integer(skins.maxExtractedBytes, 'skins.maxExtractedBytes', 1),
+      maxEntries: integer(skins.maxEntries, 'skins.maxEntries', 1),
+      maxNameLength: integer(skins.maxNameLength, 'skins.maxNameLength', 1),
+    },
+    update: {
+      enabled: boolean(update.enabled, 'update.enabled'),
+      checkOnStartup: boolean(update.checkOnStartup, 'update.checkOnStartup'),
+      repo: string(update.repo, 'update.repo', /^[\w.-]+\/[\w.-]+$/),
+      checkIntervalMs: integer(update.checkIntervalMs, 'update.checkIntervalMs', 60_000),
+      apiTimeoutMs: integer(update.apiTimeoutMs, 'update.apiTimeoutMs', 1),
+      downloadTimeoutMs: integer(update.downloadTimeoutMs, 'update.downloadTimeoutMs', 1),
+      maxDownloadBytes: integer(update.maxDownloadBytes, 'update.maxDownloadBytes', 1),
+      maxExtractedBytes: integer(update.maxExtractedBytes, 'update.maxExtractedBytes', 1),
+      maxEntries: integer(update.maxEntries, 'update.maxEntries', 1),
+      downloadHosts: stringArray(update.downloadHosts, 'update.downloadHosts', /^[a-z0-9-]+(\.[a-z0-9-]+)+$/),
+    },
+    history: {
+      defaultLimit: integer(history.defaultLimit, 'history.defaultLimit', 1),
+      maxLimit: integer(history.maxLimit, 'history.maxLimit', 1),
+    },
+    localSongs: {
+      autoDetect: boolean(localSongs.autoDetect, 'localSongs.autoDetect'),
+      maxFiles: integer(localSongs.maxFiles, 'localSongs.maxFiles', 1),
+      progressEvery: integer(localSongs.progressEvery, 'localSongs.progressEvery', 1),
     },
     i18n: { languages, fallback },
   };
@@ -123,6 +170,11 @@ function object(value: unknown, key: string, allowed?: string[]): Json {
 function integer(value: unknown, key: string, minimum: number): number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum) throw configError(key, `must be an integer >= ${minimum}`);
   return value as number;
+}
+
+function boolean(value: unknown, key: string): boolean {
+  if (typeof value !== 'boolean') throw configError(key, 'must be true or false');
+  return value;
 }
 
 function string(value: unknown, key: string, pattern?: RegExp): string {

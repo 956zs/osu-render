@@ -8,7 +8,7 @@ const RENDER_OPTION_IDS = [
   'cursorRainbow', 'cursorGlow', 'cursorRipples', 'cursorSmoke', 'useSkinColors', 'useBeatmapColors', 'showScore',
   'showHpBar', 'showComboCounter', 'showHitErrorMeter', 'showPpCounter', 'showHitCounter', 'showStrainGraph',
   'showKeyOverlay', 'showScoreboard', 'showMods', 'showResultsScreen', 'showApproachCircles', 'showComboNumbers',
-  'showSliderEndCircles', 'showSliderFollowCircle', 'showSliderScorePoints',
+  'showSliderEndCircles', 'showSliderFollowCircle', 'showSliderScorePoints', 'skin', 'useSkinCursor',
 ];
 
 async function page(): Promise<{ html: string; markup: string; script: string }> {
@@ -41,10 +41,40 @@ test('render options payload keeps every allowlisted key mapped to its control',
   assert.ok(body, 'renderOptions() is missing');
   const entries = [...body[1].matchAll(/(\w+): (?:checked|number)\('(\w+)'\)/g)].map((match) => [match[1], match[2]]);
   assert.ok(/resolution: document\.querySelector\('#resolution'\)\.value/.test(body[1]));
-  assert.deepEqual(['resolution', ...entries.map(([key]) => key)].sort(), [...RENDER_OPTION_IDS].sort());
+  assert.ok(/skin: skinSelect\.value/.test(body[1]));
+  assert.deepEqual(['resolution', 'skin', ...entries.map(([key]) => key)].sort(), [...RENDER_OPTION_IDS].sort());
   for (const [key, id] of entries) assert.equal(key, id);
   for (const id of RENDER_OPTION_IDS) startTag(markup, id);
   assert.match(startTag(markup, 'settingsCount'), new RegExp(`data-i18n-n="${RENDER_OPTION_IDS.length}"`));
+});
+
+test('skin fieldset offers a select, an .osk upload and the skin cursor toggle', async () => {
+  const { markup, script } = await page();
+  assert.match(startTag(markup, 'skin'), /^<select id="skin">/);
+  assert.match(markup, /<option value="default" selected data-i18n="settings\.skin\.default">/);
+  assert.match(startTag(markup, 'skinFile'), /type="file" accept="\.osk" hidden/);
+  assert.match(startTag(markup, 'skinUpload'), /^<button type="button"/);
+  assert.match(startTag(markup, 'skinStatus'), /aria-live="polite"/);
+  assert.match(startTag(markup, 'useSkinCursor'), /type="checkbox"/);
+  assert.doesNotMatch(startTag(markup, 'useSkinCursor'), /checked/);
+  assert.match(script, /api\('\/api\/skins', \{ cache: 'no-store' \}\)/);
+  assert.match(script, /form\.append\('skin', file\)/);
+  assert.match(script, /api\('\/api\/skins', \{ method: 'POST', body: form \}\)/);
+  assert.match(script, /await loadSkins\(data\.name\)/);
+});
+
+test('history card lists this client renders with download and delete actions', async () => {
+  const { markup, script } = await page();
+  const card = /<section class="panel history-card" id="history"[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
+  assert.match(card, /<span class="step">04<\/span>/);
+  assert.match(startTag(card, 'historyRefresh'), /^<button type="button"/);
+  assert.match(startTag(card, 'historyStatus'), /aria-live="polite"/);
+  assert.match(startTag(card, 'historyList'), /^<ul /);
+  assert.match(script, /api\(`\/api\/renders\?limit=\$\{HISTORY_LIMIT\}`/);
+  assert.match(script, /api\(`\/api\/renders\/\$\{id\}\/files`, \{ method: 'DELETE' \}\)/);
+  assert.match(script, /window\.confirm\(t\('history\.confirmDelete'\)\)/);
+  assert.match(script, /clearInterval\(timer\); loadHealth\(\); loadHistory\(\);/);
+  assert.match(script, /button\.type = 'button'/);
 });
 
 test('header shows a language switcher and a live renderer status chip', async () => {

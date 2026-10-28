@@ -29,7 +29,10 @@ export class StorageManager {
   }
 
   async cleanupExpired(): Promise<void> {
-    for (const render of this.database.expiredRenders(Date.now())) await removeRenderFiles(render, this.paths);
+    for (const render of this.database.expiredRenders(Date.now())) {
+      await removeRenderFiles(render, this.paths);
+      this.database.markFilesDeleted(render.id);
+    }
   }
 
   async cleanupTemp(): Promise<void> {
