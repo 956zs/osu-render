@@ -58,6 +58,9 @@ export interface RenderRow {
   beatmap_title?: string | null;
   beatmap_artist?: string | null;
   beatmap_version?: string | null;
+  beatmap_creator?: string | null;
+  /** Map length in seconds. */
+  beatmap_length?: number | null;
   /** Set once the video, replay and log were removed (retention or the user's request). */
   files_deleted_at?: number | null;
 }
@@ -73,6 +76,9 @@ export interface BeatmapRow {
   title?: string | null;
   artist?: string | null;
   version?: string | null;
+  creator?: string | null;
+  /** Map length in seconds. */
+  length?: number | null;
 }
 
 export interface Paths {

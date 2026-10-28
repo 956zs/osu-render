@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import Database from 'better-sqlite3';
 import { parseRetentionHours, settings } from '../src/config.js';
+import { BeatmapResolver } from '../src/beatmap-resolver.js';
 import { RenderDatabase } from '../src/database.js';
 import { createHttpServer, type HttpDependencies } from '../src/http.js';
 import type { PreflightResult } from '../src/types.js';
@@ -35,7 +36,7 @@ async function finishedRender(database: RenderDatabase, directory: string, id: s
   await writeFile(video, 'video');
   await writeFile(path.join(directory, `${id}.log`), 'log');
   database.createRender({ id, replayPath: replay, clientKey, encoder: 'h264_nvenc' });
-  database.updateBeatmap(id, { id: 5, beatmapsetId: 6, title: 'Title', artist: 'Artist', version: 'Hard' });
+  database.updateBeatmap(id, { id: 5, beatmapsetId: 6, title: 'Title', artist: 'Artist', version: 'Hard', creator: 'Mapper', totalLength: 151 });
   database.setStatus(id, 'queued');
   database.markRendering(id);
   database.setStatus(id, 'finalizing', 100);
@@ -67,10 +68,10 @@ test('older databases gain the history columns', async () => {
     old.close();
     const database = new RenderDatabase(file);
     const columns = (table: string): string[] => (database.db.pragma(`table_info(${table})`) as Array<{ name: string }>).map((column) => column.name);
-    for (const name of ['options_json', 'beatmap_title', 'beatmap_artist', 'beatmap_version', 'files_deleted_at']) {
+    for (const name of ['options_json', 'beatmap_title', 'beatmap_artist', 'beatmap_version', 'files_deleted_at', 'beatmap_creator', 'beatmap_length']) {
       assert.ok(columns('renders').includes(name), name);
     }
-    for (const name of ['title', 'artist', 'version']) assert.ok(columns('beatmaps').includes(name), name);
+    for (const name of ['title', 'artist', 'version', 'creator', 'length']) assert.ok(columns('beatmaps').includes(name), name);
     assert.ok(columns('local_beatmaps').includes('md5'));
     database.close();
   } finally { await rm(directory, { recursive: true, force: true }); }
@@ -115,7 +116,7 @@ test('GET /api/renders returns the requesting client history', async () => {
       '11111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333',
     ]);
     const done = renders.find((render) => render.status === 'completed') as Record<string, unknown>;
-    assert.deepEqual(done.beatmap, { id: 5, beatmapsetId: 6, title: 'Title', artist: 'Artist', version: 'Hard' });
+    assert.deepEqual(done.beatmap, { id: 5, beatmapsetId: 6, title: 'Title', artist: 'Artist', version: 'Hard', creator: 'Mapper', length: 151 });
     assert.equal(done.resolution, '1080p');
     assert.equal(done.encoder, 'h264_nvenc');
     assert.equal(done.videoAvailable, true);
@@ -158,5 +159,43 @@ test('DELETE /api/renders/:id/files frees a finished render of the same client',
     const busy = await app.inject({ method: 'DELETE', url: `/api/renders/${active}/files`, headers: auth, remoteAddress: ME });
     assert.equal(busy.statusCode, 409);
     assert.equal(busy.json().error.code, 'RENDER_ACTIVE');
+  });
+});
+
+test('render JSON adds mapper, map length, expiry and video size', async () => {
+  await withServer(async (app, database, directory) => {
+    const id = '44444444-4444-4444-8444-444444444444';
+    await finishedRender(database, directory, id, ME);
+    const render = (await app.inject({ method: 'GET', url: `/api/renders/${id}`, headers: auth, remoteAddress: ME })).json();
+    assert.equal(render.beatmap.creator, 'Mapper');
+    assert.equal(render.beatmap.length, 151);
+    assert.equal(typeof render.expiresAt, 'number');
+    assert.equal(render.videoBytes, 'video'.length);
+    database.markFilesDeleted(id);
+    const deleted = (await app.inject({ method: 'GET', url: `/api/renders/${id}`, headers: auth, remoteAddress: ME })).json();
+    assert.equal(deleted.previewUrl, null);
+    assert.equal(deleted.videoBytes, null);
+  });
+});
+
+test('cached beatmaps keep the mapper and length for later renders', async () => {
+  await withDatabase(async (database, directory) => {
+    database.saveBeatmap({
+      checksum: 'abc', beatmap_id: 5, beatmapset_id: 6, map_path: directory, size_bytes: 1,
+      title: 'Title', artist: 'Artist', version: 'Hard', creator: 'Mapper', length: 151,
+    });
+    assert.equal(database.findBeatmap('abc')?.creator, 'Mapper');
+    assert.equal(database.findBeatmap('abc')?.length, 151);
+    const resolver = new BeatmapResolver({} as never, database, {} as never, {} as never, { maxCompressedBytes: 1, maxExtractedBytes: 1, maxEntries: 1 });
+    const resolved = await resolver.resolve('abc', () => undefined);
+    assert.equal(resolved.metadata.creator, 'Mapper');
+    assert.equal(resolved.metadata.totalLength, 151);
+    database.createRender({ id: 'r', replayPath: '/r.osr', clientKey: ME, encoder: 'libx264' });
+    database.updateBeatmap('r', resolved.metadata);
+    assert.equal(database.getRender('r')?.beatmap_creator, 'Mapper');
+    assert.equal(database.getRender('r')?.beatmap_length, 151);
+    database.updateBeatmap('r', { id: 5, beatmapsetId: 6 });
+    assert.equal(database.getRender('r')?.beatmap_creator, null);
+    assert.equal(database.getRender('r')?.beatmap_length, null);
   });
 });

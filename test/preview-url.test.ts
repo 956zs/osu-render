@@ -85,7 +85,11 @@ test('render JSON carries the signed preview URL and beatmap details', async () 
   await withVideoServer(async (app) => {
     const render = (await app.inject({ method: 'GET', url: `/api/renders/${ID}`, headers: auth })).json();
     assert.match(render.previewUrl, new RegExp(`^/api/renders/${ID}/video\\?exp=`));
-    assert.deepEqual(render.beatmap, { id: 7, beatmapsetId: 8, checksum: 'c', title: 'Song', artist: 'Artist', version: 'Insane' });
+    assert.deepEqual(render.beatmap, {
+      id: 7, beatmapsetId: 8, checksum: 'c', title: 'Song', artist: 'Artist', version: 'Insane', creator: null, length: null,
+    });
+    assert.equal(render.videoBytes, 10);
+    assert.equal(typeof render.expiresAt, 'number');
     assert.equal(render.speed, null);
     assert.equal(render.eta, null);
     assert.equal(render.renderMs, 3000);

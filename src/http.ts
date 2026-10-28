@@ -225,10 +225,12 @@ async function getRender(request: FastifyRequest, _reply: FastifyReply, dependen
   const row = requireRender(dependencies.database.getRender(id));
   const queue = dependencies.queue as Partial<Pick<RenderQueue, 'liveStats'>>;
   const stats = row.status === 'rendering' ? queue.liveStats?.(id) : undefined;
+  const available = videoAvailable(row);
   return {
     ...serializeRender(row, dependencies.database.queuePosition(id)),
     speed: stats?.speed ?? null, eta: stats?.eta ?? null,
-    previewUrl: videoAvailable(row) ? dependencies.previewSigner.url(row.id) : null,
+    previewUrl: available ? dependencies.previewSigner.url(row.id) : null,
+    videoBytes: available && row.video_path ? await stat(row.video_path).then((info) => info.size, () => null) : null,
   };
 }
 
@@ -402,6 +404,7 @@ function serializeHistory(row: RenderRow): object {
     beatmap: row.beatmap_checksum || row.beatmap_title ? {
       id: row.beatmap_id, beatmapsetId: row.beatmapset_id,
       title: row.beatmap_title ?? null, artist: row.beatmap_artist ?? null, version: row.beatmap_version ?? null,
+      creator: row.beatmap_creator ?? null, length: row.beatmap_length ?? null,
     } : null,
     player: row.player_name, mods: row.mods,
     resolution: `${row.height}p`, encoder: row.encoder,
@@ -420,11 +423,13 @@ function serializeRender(row: RenderRow, queuePosition: number | null): object {
     beatmap: row.beatmap_id || row.beatmap_title ? {
       id: row.beatmap_id, beatmapsetId: row.beatmapset_id, checksum: row.beatmap_checksum,
       title: row.beatmap_title ?? null, artist: row.beatmap_artist ?? null, version: row.beatmap_version ?? null,
+      creator: row.beatmap_creator ?? null, length: row.beatmap_length ?? null,
     } : null,
     output: { width: row.width, height: row.height, fps: row.fps, encoder: row.encoder },
     mods: row.mods,
     options: parseRenderOptions(row.options_json),
     error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
     createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, renderMs: renderMs(row),
+    expiresAt: row.expires_at,
   };
 }

@@ -46,6 +46,7 @@ export class BeatmapResolver {
       metadata: {
         id: cached.beatmap_id, beatmapsetId: cached.beatmapset_id, checksum,
         title: cached.title ?? undefined, artist: cached.artist ?? undefined, version: cached.version ?? undefined,
+        creator: cached.creator ?? undefined, totalLength: cached.length ?? undefined,
       },
       cache: cached,
     };
@@ -107,6 +108,7 @@ export class BeatmapResolver {
       beatmap_id: Math.max(0, metadata.id),
       beatmapset_id: Math.max(0, metadata.beatmapsetId),
       title: metadata.title ?? null, artist: metadata.artist ?? null, version: metadata.version ?? null,
+      creator: metadata.creator ?? null, length: metadata.totalLength ?? null,
       map_path: mapPath, size_bytes: await directorySize(mapPath),
       created_at: Date.now(),
       last_used_at: Date.now(),
