@@ -142,7 +142,31 @@ del zip, los enumera.
 ## Reportar resultados (para testers)
 
 Funcione o no, un reporte nos dice qué GPU, driver y codificador tienes y cómo salió la prueba de cada
-codificador. Cualquiera de estas opciones genera el mismo reporte:
+codificador.
+
+### Lo más fácil: enviar los reportes al desarrollador automáticamente
+
+Si el mantenedor te dio una **URL de webhook para reportes** (en privado, por ejemplo por mensaje directo):
+
+1. En la carpeta de osu-render, haz clic derecho en el archivo `.env` → **Abrir con** → **Bloc de notas** (el
+   archivo se crea la primera vez que ejecutas `start.bat`).
+2. Busca la línea `REPORT_WEBHOOK_URL=` cerca del final y pega tu URL justo después del `=`, sin comillas ni
+   espacios: `REPORT_WEBHOOK_URL=https://discord.com/api/webhooks/...` (un `.env` de una versión anterior no tiene
+   esa línea: agrégala al final).
+3. Guarda, cierra la ventana de `start.bat` y vuelve a ejecutar `start.bat`.
+
+Desde entonces, cada render terminado (correcto, fallido o que excedió el tiempo; no los cancelados) envía un
+reporte anonimizado al canal de Discord del mantenedor, y la tarjeta **Diagnóstico** muestra el botón **Enviar al
+desarrollador** para enviar uno a mano (por ejemplo, si hay un problema al arrancar). Los reportes automáticos
+reutilizan la prueba de codificadores del arranque en lugar de hacer una nueva, así que nunca interrumpen un
+render. Si la URL no es válida, el servicio registra `report_webhook_invalid` al arrancar y sigue funcionando sin
+reportar.
+
+No compartas la URL: cualquiera que la tenga puede publicar mensajes en ese canal.
+
+### Otras formas de enviar un reporte
+
+Cualquiera de estas opciones genera el mismo reporte:
 
 - **Zip de Windows:** haz doble clic en **`doctor.bat`**. Muestra un resumen, guarda
   `data\diagnostics\doctor-<timestamp>.json` y abre esa carpeta en el Explorador. Puedes ejecutarlo con el
@@ -165,13 +189,16 @@ mostraba la página.
   RAM, nombres, fabricantes y versiones de driver de las GPUs, versiones de danser y FFmpeg y la lista de
   codificadores de FFmpeg, resultados de las pruebas de codificadores (con el final de la salida de error de
   FFmpeg), el resultado de la comprobación de arranque, un resumen de la configuración (host, puerto, codificador
-  configurado, nombres de host de los mirrors, y solo *si* las credenciales OAuth y `AUTH_TOKEN` están definidos),
+  configurado, nombres de host de los mirrors, y solo *si* las credenciales OAuth, `AUTH_TOKEN` y `REPORT_WEBHOOK_URL` están definidos),
   espacio libre en disco, metadatos de los últimos 20 renders (estado, codificador, resolución, tiempos, código
   de error y un fragmento final del log de danser, que puede mencionar títulos de mapas) y un resumen del
   `danser.log` de danser (versiones, GPU usada para OpenGL).
-- **No incluye:** el client ID y el secret de OAuth, `AUTH_TOKEN`, direcciones IP, nombres de jugadores ni
+- **No incluye:** el client ID y el secret de OAuth, `AUTH_TOKEN`, la URL del webhook, direcciones IP, nombres de jugadores ni
   archivos de replays o mapas. Tu carpeta personal se reemplaza por `~` y tu nombre de usuario por `<user>`.
-- **No se envía nada automáticamente.** El servicio nunca sube nada; tú decides si compartes el archivo. El
+- **No se envía nada automáticamente si no defines `REPORT_WEBHOOK_URL`.** En ese caso el servicio no sube nada y
+  tú decides si compartes el archivo. Si la defines, el reporte descrito arriba (más un mensaje corto de resumen)
+  se envía al canal de Discord de esa URL después de cada render terminado y cuando presionas **Enviar al
+  desarrollador**. La URL del webhook nunca se escribe en los logs ni en los reportes. El
   botón **Abrir issue en GitHub** solo abre en tu navegador una página ya rellenada (ese texto viaja a github.com en
   la dirección de la página); no se publica nada hasta que presiones **Submit**. Los issues de GitHub son públicos,
   así que revisa el reporte antes de publicarlo.
@@ -181,8 +208,9 @@ mostraba la página.
 **¿Sube algo a internet?**
 No hay telemetría. El servicio solo se conecta a la API de osu! (para obtener un token y buscar el mapa por su
 checksum) y a los mirrors de `BEATMAP_MIRRORS` (para descargar el `.osz`). Los replays y videos se quedan en tu
-equipo y se borran a las 24 horas. Los reportes de diagnóstico solo salen de tu equipo si tú los compartes, ver
-[Privacidad](#privacidad).
+equipo y se borran a las 24 horas. Los reportes de diagnóstico solo salen de tu equipo si tú los compartes, o si
+defines `REPORT_WEBHOOK_URL` (entonces se envía un reporte anonimizado a ese webhook de Discord después de cada
+render), ver [Privacidad](#privacidad).
 
 **¿Puedo ejecutarlo como servicio de Windows?**
 No. danser necesita el driver OpenGL de una sesión de escritorio iniciada; los servicios de Windows corren en la
@@ -376,6 +404,7 @@ editar.
 | `BEATMAP_MIRRORS` | `https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}` | URLs de descarga de `.osz` separadas por comas, en orden. `{id}` es el ID del beatmapset. |
 | `AUTH_TOKEN` | vacío | Si se define, cada petición a `/api/*` necesita `Authorization: Bearer <token>`. |
 | `MAX_QUEUE` | `20` | Máximo de trabajos sin terminar. |
+| `REPORT_WEBHOOK_URL` | vacío | Webhook de Discord (`https://discord.com/api/webhooks/<id>/<token>`, también `discordapp.com`, `ptb.` y `canary.`) que recibe un reporte de diagnóstico anonimizado después de cada render terminado y desde el botón **Enviar al desarrollador**. Otras URLs se rechazan con un aviso al arrancar. Es un secreto: nunca se escribe en logs ni reportes. Ver [Reportar resultados](#reportar-resultados-para-testers). |
 
 **Configuración base de danser.** El servicio copia `DANSER_BASE_SETTINGS`, sobrescribe lo necesario (carpetas,
 60 FPS, codificador, salida) y guarda el resultado en `<DANSER_DIR>/settings/<DANSER_SETTINGS_NAME>.json`. Si el
@@ -385,7 +414,8 @@ archivo base no existe, se usan los valores por defecto de danser. Si quieres un
 
 Los parámetros ajustables que no son secretos están en [`config/defaults.json`](config/defaults.json): el orden
 automático de codificadores por plataforma, el tamaño y el tiempo límite de la prueba, los tamaños del
-diagnóstico y el enlace para issues. Para cambiarlos, crea `config/local.json` solo con las claves que quieras
+diagnóstico, el enlace para issues, y del webhook de reportes el tiempo límite, el máximo de espera tras un 429, la
+separación entre mensajes y el tamaño del final del log (`reportWebhook`). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
 sobrescribir; se combina sobre los valores por defecto y git lo ignora. Ejemplo:
 
 ```json
@@ -420,7 +450,8 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | `GET /api/renders/:id/video` | El MP4 terminado. Soporta HTTP `Range`. |
 | `DELETE /api/renders/:id` | Cancela un trabajo. |
 | `GET /api/diagnostics` | Reporte de diagnóstico (el mismo JSON que `npm run doctor`). |
-| `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`. |
+| `POST /api/diagnostics/send` | Envía el reporte de diagnóstico a `REPORT_WEBHOOK_URL`. Devuelve `{ "sent": true }`, o el error `REPORT_WEBHOOK_DISABLED` (409, no configurado) / `REPORT_SEND_FAILED` (502). |
+| `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`. |
 
 ```sh
 curl -F replay=@my-play.osr -F 'options={"resolution":"720p","skipIntro":true}' http://127.0.0.1:3030/api/renders
@@ -445,8 +476,9 @@ Estados del trabajo: `uploaded` → `resolving` → `downloading` → `queued` �
   absolutas, `..`, symlinks u otros archivos especiales, sin nombres reservados de Windows (`CON`, `NUL`,
   `COM1`…) ni duplicados que solo difieren en mayúsculas, y el `.osu` debe coincidir con el MD5 del mapa del
   replay.
-- El secret de OAuth y `AUTH_TOKEN` se quedan en `.env` (ignorado por git) y nunca se envían al navegador ni
-  aparecen en los reportes de diagnóstico.
+- El secret de OAuth, `AUTH_TOKEN` y `REPORT_WEBHOOK_URL` se quedan en `.env` (ignorado por git) y nunca se envían
+  al navegador ni aparecen en los reportes de diagnóstico ni en los logs. Los reportes solo van a Discord si
+  defines `REPORT_WEBHOOK_URL`, y solo a `discord.com` / `discordapp.com`.
 
 ## Solución de problemas
 
