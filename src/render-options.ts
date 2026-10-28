@@ -1,4 +1,6 @@
+import { appConfig } from './app-config.js';
 import { AppError } from './errors.js';
+import { DEFAULT_SKIN, isValidSkinName } from './skins.js';
 
 export type RenderResolution = '720p' | '1080p';
 
@@ -49,6 +51,9 @@ export interface RenderOptions {
   readonly showSliderFollowCircle: boolean;
   readonly showSliderScorePoints: boolean;
   readonly resolution: RenderResolution;
+  /** Skin folder name; existence is checked against the skins folder when the job is submitted. */
+  readonly skin: string;
+  readonly useSkinCursor: boolean;
 }
 
 interface TogglePatch { readonly Show: boolean }
@@ -63,7 +68,12 @@ export interface DanserPatch {
     readonly MusicVolume: number;
     readonly SampleVolume: number;
   };
-  readonly Skin: { readonly UseColorsFromSkin: boolean; readonly UseBeatmapColors: boolean };
+  readonly Skin: {
+    readonly CurrentSkin: string;
+    readonly UseColorsFromSkin: boolean;
+    readonly UseBeatmapColors: boolean;
+    readonly Cursor: { readonly UseSkinCursor: boolean };
+  };
   readonly Cursor: {
     readonly CursorSize: number;
     readonly TrailStyle: number;
@@ -109,6 +119,8 @@ export interface DanserPatch {
 
 export const DEFAULT_RENDER_OPTIONS: Readonly<RenderOptions> = Object.freeze({
   resolution: '1080p',
+  skin: DEFAULT_SKIN,
+  useSkinCursor: false,
   skipIntro: true,
   masterVolume: 50,
   musicVolume: 50,
@@ -149,7 +161,7 @@ export const DEFAULT_RENDER_OPTIONS: Readonly<RenderOptions> = Object.freeze({
 const BOOLEAN_OPTIONS = [
   'skipIntro', 'loadVideos', 'loadStoryboards', 'backgroundParallax', 'bloom',
   'cursorRainbow', 'cursorGlow', 'cursorRipples', 'cursorSmoke',
-  'useSkinColors', 'useBeatmapColors', 'showScore', 'showHpBar', 'showComboCounter',
+  'useSkinColors', 'useBeatmapColors', 'useSkinCursor', 'showScore', 'showHpBar', 'showComboCounter',
   'showHitErrorMeter', 'showPpCounter', 'showHitCounter', 'showStrainGraph',
   'showKeyOverlay', 'showScoreboard', 'showMods', 'showResultsScreen',
   'showApproachCircles', 'showComboNumbers', 'showSliderEndCircles',
@@ -159,9 +171,9 @@ const NUMERIC_OPTIONS = [
   'masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim',
   'backgroundBlur', 'playfieldScale', 'cursorSize', 'cursorTrailStyle',
 ] as const;
-const RESOLUTION_OPTIONS = ['resolution'] as const;
+const STRING_OPTIONS = ['resolution', 'skin'] as const;
 const ALLOWED_OPTIONS = new Set<keyof RenderOptions>([
-  ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...RESOLUTION_OPTIONS,
+  ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...STRING_OPTIONS,
 ]);
 
 export function parseRenderOptions(value: string | undefined): Readonly<RenderOptions> {
@@ -173,6 +185,7 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
   const options: RenderOptions = {
     ...DEFAULT_RENDER_OPTIONS,
     resolution: resolutionOption(input),
+    skin: skinOption(input),
     masterVolume: boundedInteger(input, 'masterVolume', { min: 0, max: 100 }),
     musicVolume: boundedInteger(input, 'musicVolume', { min: 0, max: 100 }),
     sampleVolume: boundedInteger(input, 'sampleVolume', { min: 0, max: 100 }),
@@ -192,6 +205,7 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
     cursorSmoke: booleanOption(input, 'cursorSmoke'),
     useSkinColors: booleanOption(input, 'useSkinColors'),
     useBeatmapColors: booleanOption(input, 'useBeatmapColors'),
+    useSkinCursor: booleanOption(input, 'useSkinCursor'),
     showScore: booleanOption(input, 'showScore'),
     showHpBar: booleanOption(input, 'showHpBar'),
     showComboCounter: booleanOption(input, 'showComboCounter'),
@@ -216,7 +230,12 @@ export function buildDanserPatch(options: Readonly<RenderOptions>): DanserPatch 
   return {
     Recording: buildRecordingPatch(options),
     Audio: buildAudioPatch(options),
-    Skin: { UseColorsFromSkin: options.useSkinColors, UseBeatmapColors: options.useBeatmapColors },
+    Skin: {
+      CurrentSkin: options.skin,
+      UseColorsFromSkin: options.useSkinColors,
+      UseBeatmapColors: options.useBeatmapColors,
+      Cursor: { UseSkinCursor: options.useSkinCursor },
+    },
     Cursor: buildCursorPatch(options),
     Playfield: buildPlayfieldPatch(options),
     Gameplay: buildGameplayPatch(options),
@@ -317,6 +336,12 @@ function booleanOption(input: Record<string, unknown>, key: typeof BOOLEAN_OPTIO
 function resolutionOption(input: Record<string, unknown>): RenderResolution {
   const value = input.resolution ?? DEFAULT_RENDER_OPTIONS.resolution;
   if (value !== '720p' && value !== '1080p') throw invalidOptions('resolution must be 720p or 1080p.');
+  return value;
+}
+
+function skinOption(input: Record<string, unknown>): string {
+  const value = input.skin ?? DEFAULT_RENDER_OPTIONS.skin;
+  if (!isValidSkinName(value, appConfig.skins.maxNameLength)) throw invalidOptions('skin must be the name of an installed skin.');
   return value;
 }
 
