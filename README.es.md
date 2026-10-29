@@ -22,6 +22,7 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - [Funciones](#funciones)
 - [Plataformas y GPU](#plataformas-y-gpu)
 - [Inicio rápido en Windows: zip portable (recomendado)](#inicio-rápido-en-windows-zip-portable-recomendado)
+- [Perfiles de velocidad](#perfiles-de-velocidad)
 - [Skins personalizados](#skins-personalizados)
 - [Historial de renders y tiempo de conservación](#historial-de-renders-y-tiempo-de-conservación)
 - [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu)
@@ -54,6 +55,7 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - Solo subes el replay. El mapa se busca por su checksum con la API de osu!, se descarga de mirrors
   configurables (si uno falla se prueba el siguiente) y se verifica contra el MD5 del replay antes de renderizar.
 - 720p o 1080p a 60 FPS, video H.264 con audio AAC.
+- Perfiles de velocidad (**Rápido**, **Equilibrado**, **Calidad**) que cambian tiempo de render por calidad de imagen.
 - Opciones visuales por render: saltar la intro, volúmenes, atenuación/desenfoque/paralaje del fondo, bloom,
   escala del área de juego, tamaño/estela/efectos del cursor, colores de la skin o del mapa, elementos del HUD y
   detalles de los objetos.
@@ -151,6 +153,30 @@ en la primera ejecución.
 El software de terceros incluido conserva su propia licencia: Node.js (MIT y otras), danser-go (GPL-3.0) y el
 FFmpeg que viene dentro de danser, además de los paquetes npm de `node_modules`. `THIRD_PARTY_NOTICES.txt`, dentro
 del zip, los enumera.
+
+## Perfiles de velocidad
+
+**Ajustes rápidos** tiene un selector **Perfil de velocidad**. Fija el preset y el nivel de calidad del
+codificador que usa el render; por defecto es **Equilibrado**.
+
+| Perfil | NVIDIA NVENC | AMD AMF | Intel Quick Sync | x264 (CPU) |
+| --- | --- | --- | --- | --- |
+| **Rápido** | `p1`, CQ 24 | `speed`, QP 22 | `veryfast`, ICQ 23 | `veryfast`, CRF 20 |
+| **Equilibrado** | `p4`, CQ 22 | `balanced`, QP 20 | `faster`, ICQ 20 | `faster`, CRF 18 |
+| **Calidad** | `p7`, CQ 20 | `quality`, QP 18 | `slow`, ICQ 15 | `medium`, CRF 16 |
+
+Los codificadores HEVC usan los mismos presets con el número de calidad 2 más alto. Un número más bajo da una
+imagen más nítida y un archivo más grande. **Rápido** además desactiva el **bloom** en ese render, diga lo que
+diga el interruptor **Bloom** de **Todos los ajustes** (el interruptor se ve gris mientras **Rápido** está
+elegido).
+
+Medido en un portátil con Intel Iris Xe (Quick Sync) con un mapa de 3:20 a 1080p: **Rápido** 50 s (4,2x tiempo
+real, 296 MB), **Equilibrado** 61 s (3,4x, 391 MB), **Calidad** 73 s (2,9x, 711 MB).
+
+Las tablas están en `config/defaults.json`, en `speedProfiles` (preset y calidad por perfil y familia de
+codificador, el ajuste para HEVC y los perfiles que desactivan el bloom), y se pueden cambiar en
+`config/local.json`. La opción de render es `speedProfile` (`fast`, `balanced` o `quality`); cualquier otro valor
+se rechaza con `INVALID_OPTIONS`.
 
 ## Skins personalizados
 
@@ -264,7 +290,9 @@ Desde entonces, cada render terminado (correcto, fallido o que excedió el tiemp
 reporte anonimizado al canal de Discord del mantenedor, y la pestaña **Diagnóstico** muestra el botón **Enviar al
 desarrollador** para enviar uno a mano (por ejemplo, si hay un problema al arrancar). Los reportes automáticos
 reutilizan la prueba de codificadores del arranque en lugar de hacer una nueva, así que nunca interrumpen un
-render. Si la URL no es válida, el servicio muestra una advertencia al arrancar (y registra `report_webhook_invalid`) y
+render. El mensaje indica el codificador, la resolución, el tiempo y la velocidad media del render (por ejemplo
+`41.0 s, 1.82x avg`); si un render falló por un error interno inesperado, añade una línea `Detail:` con el mensaje
+de error corto. Si la URL no es válida, el servicio muestra una advertencia al arrancar (y registra `report_webhook_invalid`) y
 sigue funcionando sin reportar; con una URL válida registra `report_webhook_enabled`.
 
 No compartas la URL: cualquiera que la tenga puede publicar mensajes en ese canal.
@@ -297,8 +325,9 @@ mostraba la página.
   codificadores de FFmpeg, resultados de las pruebas de codificadores (con el final de la salida de error de
   FFmpeg), el resultado de la comprobación de arranque, un resumen de la configuración (host, puerto, codificador
   configurado, nombres de host de los mirrors, y solo *si* las credenciales OAuth, `AUTH_TOKEN` y `REPORT_WEBHOOK_URL` están definidos),
-  espacio libre en disco, metadatos de los últimos 20 renders (estado, codificador, resolución, tiempos, código
-  de error y un fragmento final del log de danser, que puede mencionar títulos de mapas) y un resumen del
+  espacio libre en disco, metadatos de los últimos 20 renders (estado, codificador, resolución, tiempos, velocidad
+  media de render, código de error, para errores internos inesperados un mensaje de error corto sin rutas de
+  carpetas, y un fragmento final del log de danser, que puede mencionar títulos de mapas) y un resumen del
   `danser.log` de danser (versiones, GPU usada para OpenGL).
 - **No incluye:** el client ID y el secret de OAuth, `AUTH_TOKEN`, la URL del webhook, direcciones IP, nombres de jugadores ni
   archivos de replays o mapas. Tu carpeta personal se reemplaza por `~` y tu nombre de usuario por `<user>`.
@@ -526,8 +555,10 @@ automático de codificadores por plataforma, el tamaño y el tiempo límite de l
 diagnóstico, el enlace para issues, y del webhook de reportes el tiempo límite, el máximo de espera tras un 429, la
 separación entre mensajes y el tamaño del final del log (`reportWebhook`), y la búsqueda de actualizaciones
 (`update`: activarla o no, repositorio de GitHub, intervalo, límites de tamaño de descarga y hosts de descarga
-permitidos) y cuánto duran los enlaces firmados de vista previa del video (`preview.ttlSeconds`, 3600 por
-defecto). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
+permitidos), cuánto duran los enlaces firmados de vista previa del video (`preview.ttlSeconds`, 3600 por
+defecto), los [perfiles de velocidad](#perfiles-de-velocidad) (`speedProfiles`) y el vigilante de bloqueos
+(`render.stallTimeoutMs`, 120000 por defecto: si danser no imprime nada durante ese tiempo, el render se detiene
+con `RENDER_STALLED`). Para cambiarlos, crea `config/local.json` solo con las claves que quieras
 sobrescribir; se combina sobre los valores por defecto y git lo ignora. Ejemplo:
 
 ```json
@@ -558,10 +589,10 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | Método y ruta | Descripción |
 | --- | --- |
 | `POST /api/renders` | Subida multipart: `replay` (el `.osr`, máx. 5 MiB) y `options` opcional (texto JSON). Devuelve `{ "id", "status" }`. |
-| `GET /api/renders/:id` | Estado del trabajo, progreso, posición en la cola, mapa (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), formato de salida, `startedAt`, `renderMs` y error. Durante el render, `speed` (un número como `1.42`) y `eta` (texto tal como lo imprime danser); al terminar, `previewUrl` (un enlace firmado al video, ver abajo). |
+| `GET /api/renders/:id` | Estado del trabajo, progreso, posición en la cola, mapa (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), formato de salida, `startedAt`, `renderMs` y error. Durante el render, `speed` (un número como `1.42`) y `eta` (texto tal como lo imprime danser); al terminar, `avgSpeed` (velocidad media del render, por ejemplo `1.82`) y `previewUrl` (un enlace firmado al video, ver abajo). |
 | `GET /api/renders/:id/video` | El MP4 terminado, con el nombre `Artist - Title [Version].mp4`. Soporta HTTP `Range`. También acepta el `previewUrl` firmado (`?exp=<segundos unix>&sig=<hex>`) en lugar del header Bearer, para que un elemento `<video>` pueda reproducirlo. Los enlaces firmados caducan tras `preview.ttlSeconds` (1 hora por defecto) y dejan de funcionar cuando el servicio se reinicia (la clave es aleatoria en cada arranque); un enlace inválido o caducado devuelve `UNAUTHORIZED` (403). |
 | `DELETE /api/renders/:id` | Cancela un trabajo. |
-| `GET /api/renders?limit=N` | Tus renders recientes (solo de la misma dirección de cliente, 20 por defecto, máximo 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
+| `GET /api/renders?limit=N` | Tus renders recientes (solo de la misma dirección de cliente, 20 por defecto, máximo 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "avgSpeed", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
 | `DELETE /api/renders/:id/files` | Borra ya el video, el replay y el log de tu propio render terminado; la entrada del historial se queda. Error `RENDER_ACTIVE` (409) si todavía está en curso. Un video borrado devuelve `RENDER_EXPIRED` (410). |
 | `GET /api/skins` | Skins instalados: `{ "skins": [{ "name" }] }`, con el `default` integrado primero. |
 | `POST /api/skins` | Subida multipart: `skin` (un `.osk`). Lo instala y devuelve `{ "name" }`, o el error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
@@ -569,7 +600,7 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | `GET /api/update` | Estado de actualización: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`, más `error` si falló la última consulta a GitHub. Consulta GitHub como mucho cada `update.checkIntervalMs`. |
 | `POST /api/update/apply` | Solo el zip portable iniciado con `start.bat`: descarga, verifica y prepara la versión más nueva, responde `{ "applying": true, "version" }` y luego reinicia con `start.bat` para instalarla. Errores: `UPDATE_NOT_PORTABLE` (409), `UPDATE_BUSY` (409, hay un render sin terminar o ya se está actualizando), `UPDATE_FAILED` (502, no se cambió nada). |
 | `POST /api/diagnostics/send` | Envía el reporte de diagnóstico a `REPORT_WEBHOOK_URL`. Devuelve `{ "sent": true }`, o el error `REPORT_WEBHOOK_DISABLED` (409, no configurado) / `REPORT_SEND_FAILED` (502). |
-| `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`. |
+| `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`, `bloomOffProfiles` (perfiles de velocidad que desactivan el bloom). |
 
 ```sh
 curl -F replay=@my-play.osr -F 'options={"resolution":"720p","skipIntro":true}' http://127.0.0.1:3030/api/renders
@@ -635,6 +666,11 @@ los fotogramas) y la ruta y los argumentos de FFmpeg. Los logs de cada render se
 
 **`RENDER_TIMEOUT`.** Un render tardó más de 30 minutos y se detuvo. Suele pasar con el respaldo por CPU en un
 equipo lento; prueba 720p, arregla el codificador de GPU o revisa el log del render en `data/logs/`.
+
+**`RENDER_STALLED`.** danser no imprimió nada (ni progreso ni otra salida) durante 2 minutos, así que el render se
+detuvo. Una opción de codificador incorrecta puede dejar a danser colgado así. Revisa el log del render en
+`data/logs/`, prueba otro perfil de velocidad y envía un reporte. Si danser solo necesita más tiempo para cargar
+un mapa o storyboard enorme, sube `render.stallTimeoutMs` en `config/local.json`.
 
 **`start.bat` o `doctor.bat` dice "osu-render files are missing".** El zip se abrió desde la vista de zip del
 Explorador o no se extrajo completo. Haz clic derecho en el zip → **Extraer todo** y ejecuta el `.bat` desde la

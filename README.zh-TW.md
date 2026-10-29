@@ -20,6 +20,7 @@
 - [功能](#功能)
 - [平台與 GPU 支援](#平台與-gpu-支援)
 - [Windows 快速開始：可攜版 zip（推薦）](#windows-快速開始可攜版-zip推薦)
+- [速度設定](#速度設定)
 - [自訂皮膚](#自訂皮膚)
 - [渲染歷史與保存期限](#渲染歷史與保存期限)
 - [本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)
@@ -50,6 +51,7 @@
 - 只需上傳 replay。服務會用 checksum 透過 osu! API 找圖譜，從可設定的 mirror 下載（失敗會換下一個），
   渲染前再比對 replay 的 MD5。
 - 720p 或 1080p、60 FPS，H.264 影像搭配 AAC 音訊。
+- 速度設定（**速度**、**平衡**、**畫質**），在渲染時間與畫質之間取捨。
 - 每個任務可單獨調整畫面：跳過前奏、音量、背景暗度／模糊／視差、Bloom、遊戲區縮放、游標大小／軌跡／特效、
   Skin 或圖譜配色、HUD 元件與 hit object 細節。
 - 自訂皮膚：在「**Skin**」分頁上傳 `.osk`（或直接放進 `data/skins`），每次渲染都能選擇。
@@ -134,6 +136,26 @@ danser。適用 Windows 10 / 11 64 位元。
 
 隨附的第三方軟體各自保有原授權：Node.js（MIT 等）、danser-go（GPL-3.0）與 danser 內附的 FFmpeg，以及
 `node_modules` 裡的 npm 套件。完整清單見 zip 內的 `THIRD_PARTY_NOTICES.txt`。
+
+## 速度設定
+
+「**快速設定**」裡有「**速度設定**」切換，會依這次渲染使用的編碼器設定 preset 與品質數值，預設為「**平衡**」。
+
+| 設定 | NVIDIA NVENC | AMD AMF | Intel Quick Sync | x264（CPU） |
+| --- | --- | --- | --- | --- |
+| **速度** | `p1`、CQ 24 | `speed`、QP 22 | `veryfast`、ICQ 23 | `veryfast`、CRF 20 |
+| **平衡** | `p4`、CQ 22 | `balanced`、QP 20 | `faster`、ICQ 20 | `faster`、CRF 18 |
+| **畫質** | `p7`、CQ 20 | `quality`、QP 18 | `slow`、ICQ 15 | `medium`、CRF 16 |
+
+HEVC 編碼器使用相同的 preset，品質數值加 2。數值越低畫面越清晰、檔案越大。「**速度**」還會關閉這次渲染的
+**Bloom**，不管「**全部設定**」裡的 **Bloom** 開關怎麼設（選「**速度**」時該開關會變灰）。
+
+在 Intel Iris Xe 筆電（Quick Sync）以 1080p 渲染一張 3:20 的圖譜實測：「**速度**」50 秒（實際時間的 4.2 倍速、296 MB）、
+「**平衡**」61 秒（3.4 倍、391 MB）、「**畫質**」73 秒（2.9 倍、711 MB）。
+
+這些表格放在 `config/defaults.json` 的 `speedProfiles`（各編碼器家族每個設定的 preset 與品質、HEVC 加值、會關閉
+Bloom 的設定），可以在 `config/local.json` 覆寫。渲染選項名稱是 `speedProfile`（`fast`、`balanced` 或 `quality`），
+其他值會以 `INVALID_OPTIONS` 拒絕。
 
 ## 自訂皮膚
 
@@ -226,7 +248,8 @@ npm run build
 
 之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷**」
 分頁也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
-不會重新測試，所以不會干擾渲染。網址錯誤時，服務會在啟動時顯示警告（並記錄 `report_webhook_invalid`），並在不回報的狀態下繼續執行；網址有效時會記錄 `report_webhook_enabled`。
+不會重新測試，所以不會干擾渲染。訊息會寫出這次渲染的編碼器、解析度、耗時與平均速度（例如 `41.0 s, 1.82x avg`）；
+因非預期內部錯誤而失敗的渲染，還會多一行 `Detail:` 寫出簡短的錯誤訊息。網址錯誤時，服務會在啟動時顯示警告（並記錄 `report_webhook_invalid`），並在不回報的狀態下繼續執行；網址有效時會記錄 `report_webhook_enabled`。
 
 請不要把網址給別人：任何拿到網址的人都能在那個頻道發訊息。
 
@@ -251,7 +274,8 @@ doctor 會對**所有**支援的編碼器做自我測試，而不只是第一個
 - **包含：** 作業系統名稱／版本／架構、CPU 型號、核心數、記憶體大小、GPU 名稱、廠商與驅動版本、danser 與 FFmpeg
   版本及 FFmpeg 編碼器清單、編碼器自我測試結果（含 FFmpeg 錯誤輸出的結尾）、啟動檢查結果、設定摘要（host、port、
   編碼器設定、mirror 主機名稱，以及 OAuth 憑證、`AUTH_TOKEN` 與 `REPORT_WEBHOOK_URL` *是否*有設定）、剩餘磁碟空間、最近 20 個任務的
-  中繼資料（狀態、編碼器、解析度、耗時、錯誤代碼，以及一小段 danser 日誌結尾，其中可能出現圖譜名稱），以及 danser
+  中繼資料（狀態、編碼器、解析度、耗時、平均渲染速度、錯誤代碼、發生非預期內部錯誤時一段已移除資料夾路徑的簡短
+  錯誤訊息，以及一小段 danser 日誌結尾，其中可能出現圖譜名稱），以及 danser
   `danser.log` 的摘要（版本、OpenGL 使用的 GPU）。
 - **不包含：** OAuth client ID 與 secret、`AUTH_TOKEN`、webhook 網址、IP 位址、玩家名稱、replay 與圖譜檔案。
   家目錄會被替換成 `~`，使用者名稱替換成 `<user>`。
@@ -453,7 +477,7 @@ journalctl --user -u osu-render.service -f
 印出 `No beatmap specified, closing...` 後結束。
 
 不屬於機密的可調參數放在 [`config/defaults.json`](config/defaults.json)：各平台的編碼器自動順序、自我測試的尺寸與
-逾時、診斷報告大小、issue 連結，回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`），以及更新檢查（`update`：開關、GitHub repo、檢查間隔、下載大小上限與允許的下載主機），以及影片預覽簽章連結的有效時間（`preview.ttlSeconds`，預設 3600 秒）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
+逾時、診斷報告大小、issue 連結，回報 webhook 的逾時、429 重試上限、訊息間隔與日誌結尾大小（`reportWebhook`），以及更新檢查（`update`：開關、GitHub repo、檢查間隔、下載大小上限與允許的下載主機），影片預覽簽章連結的有效時間（`preview.ttlSeconds`，預設 3600 秒）、[速度設定](#速度設定)（`speedProfiles`），以及卡住偵測（`render.stallTimeoutMs`，預設 120000：danser 這麼久完全沒有輸出時，渲染會以 `RENDER_STALLED` 中止）。要修改時，建立只含要覆寫鍵值的 `config/local.json`；它會合併到預設值之上，且被 git
 忽略。範例：
 
 ```json
@@ -482,10 +506,10 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | 方法與路徑 | 說明 |
 | --- | --- |
 | `POST /api/renders` | multipart 上傳：`replay`（`.osr`，最大 5 MiB）與選用的 `options`（JSON 字串）。回傳 `{ "id", "status" }`。 |
-| `GET /api/renders/:id` | 任務狀態、進度、佇列位置、圖譜（`id`、`beatmapsetId`、`checksum`、`title`、`artist`、`version`）、輸出格式、`startedAt`、`renderMs` 與錯誤。渲染中另有 `speed`（數字，例如 `1.42`）與 `eta`（danser 印出的文字）；完成後有 `previewUrl`（簽章過的影片連結，見下一列）。 |
+| `GET /api/renders/:id` | 任務狀態、進度、佇列位置、圖譜（`id`、`beatmapsetId`、`checksum`、`title`、`artist`、`version`）、輸出格式、`startedAt`、`renderMs` 與錯誤。渲染中另有 `speed`（數字，例如 `1.42`）與 `eta`（danser 印出的文字）；完成後有 `avgSpeed`（平均渲染速度，例如 `1.82`）與 `previewUrl`（簽章過的影片連結，見下一列）。 |
 | `GET /api/renders/:id/video` | 完成的 MP4，檔名為 `Artist - Title [Version].mp4`，支援 HTTP `Range`。也接受簽章過的 `previewUrl`（`?exp=<unix 秒數>&sig=<hex>`）取代 Bearer header，讓 `<video>` 元素可以播放。簽章連結在 `preview.ttlSeconds`（預設 1 小時）後失效，服務重新啟動後也會失效（金鑰每次啟動隨機產生）；無效或過期的連結回傳 `UNAUTHORIZED`（403）。 |
 | `DELETE /api/renders/:id` | 取消任務。 |
-| `GET /api/renders?limit=N` | 你最近的渲染（只限同一個用戶端位址，預設 20、最多 100）：`{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`。 |
+| `GET /api/renders?limit=N` | 你最近的渲染（只限同一個用戶端位址，預設 20、最多 100）：`{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "avgSpeed", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`。 |
 | `DELETE /api/renders/:id/files` | 立刻刪除你自己已結束渲染的影片、replay 與日誌，歷史紀錄會保留。還在執行時回傳錯誤 `RENDER_ACTIVE`（409）。已刪除的影片回傳 `RENDER_EXPIRED`（410）。 |
 | `GET /api/skins` | 已安裝的皮膚：`{ "skins": [{ "name" }] }`，內建的 `default` 排第一。 |
 | `POST /api/skins` | multipart 上傳：`skin`（`.osk` 檔）。安裝後回傳 `{ "name" }`，或錯誤 `SKIN_INVALID`（422）／`SKIN_TOO_LARGE`（413）。 |
@@ -493,7 +517,7 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | `GET /api/update` | 更新狀態：`{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`，上次查詢 GitHub 失敗時另有 `error`。最多每 `update.checkIntervalMs` 查詢 GitHub 一次。 |
 | `POST /api/update/apply` | 僅限用 `start.bat` 啟動的可攜版 zip：下載、驗證並準備最新版本，回傳 `{ "applying": true, "version" }`，然後透過 `start.bat` 重新啟動來安裝。錯誤：`UPDATE_NOT_PORTABLE`（409）、`UPDATE_BUSY`（409，有未完成的算圖或正在更新）、`UPDATE_FAILED`（502，沒有改動任何檔案）。 |
 | `POST /api/diagnostics/send` | 把診斷報告送到 `REPORT_WEBHOOK_URL`。回傳 `{ "sent": true }`，或錯誤 `REPORT_WEBHOOK_DISABLED`（409，未設定）／`REPORT_SEND_FAILED`（502）。 |
-| `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`、`reportWebhook`。 |
+| `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`、`reportWebhook`、`bloomOffProfiles`（會關閉 Bloom 的速度設定）。 |
 
 ```sh
 curl -F replay=@my-play.osr -F 'options={"resolution":"720p","skipIntro":true}' http://127.0.0.1:3030/api/renders
@@ -549,6 +573,10 @@ curl -o my-play.mp4 http://127.0.0.1:3030/api/renders/<id>/video
 
 **`RENDER_TIMEOUT`。** 渲染超過 30 分鐘而被中止。多半發生在較慢的機器使用 CPU 備援時；可改用 720p、修好 GPU
 編碼器，或查看 `data/logs/` 中的渲染日誌。
+
+**`RENDER_STALLED`。** danser 有 2 分鐘完全沒有輸出（沒有進度也沒有其他訊息），所以渲染被中止。錯誤的編碼器選項
+可能讓 danser 這樣卡住。請查看 `data/logs/` 中的渲染日誌、換一個速度設定試試，並送出報告。如果只是超大的圖譜或
+storyboard 需要更久才能載入，可以在 `config/local.json` 調高 `render.stallTimeoutMs`。
 
 **`start.bat` 或 `doctor.bat` 顯示「osu-render files are missing」。** zip 是直接在檔案總管的 zip 檢視中開啟，或沒有
 完整解壓縮。在 zip 上按右鍵 → **全部解壓縮**，再從解壓縮後的資料夾執行 `.bat`。
