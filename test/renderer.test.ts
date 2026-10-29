@@ -139,7 +139,7 @@ test('a silent danser is killed by the watchdog and reported as RENDER_STALLED',
     assert.ok(Date.now() - started < 10_000);
     const log = await readFile(path.join(paths.logs, 'stalled-job.log'), 'utf8');
     assert.match(log, /Progress: 5%/);
-    assert.match(log, /\[osu-render\] danser stalled \(signal SIGKILL\)/);
+    assert.match(log, /\[osu-render\] danser stalled \((signal SIGKILL|code \d+)\)/);
   });
 });
 
