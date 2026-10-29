@@ -63,6 +63,10 @@ export interface RenderRow {
   beatmap_length?: number | null;
   /** Set once the video, replay and log were removed (retention or the user's request). */
   files_deleted_at?: number | null;
+  /** Redacted internal cause of an unexpected failure; diagnostics and reports only, never the public API. */
+  error_detail?: string | null;
+  /** Average render speed danser reported (1 = real time); completed renders only. */
+  avg_speed?: number | null;
 }
 
 export interface BeatmapRow {

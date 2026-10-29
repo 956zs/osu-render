@@ -100,12 +100,12 @@ export class RenderDatabase {
     }
     this.addMissingColumns('renders', {
       beatmap_title: 'TEXT', beatmap_artist: 'TEXT', beatmap_version: 'TEXT', files_deleted_at: 'INTEGER',
-      beatmap_creator: 'TEXT', beatmap_length: 'INTEGER',
+      beatmap_creator: 'TEXT', beatmap_length: 'INTEGER', error_detail: 'TEXT', avg_speed: 'REAL',
     });
     this.addMissingColumns('beatmaps', { title: 'TEXT', artist: 'TEXT', version: 'TEXT', creator: 'TEXT', length: 'INTEGER' });
   }
 
-  private addMissingColumns(table: 'renders' | 'beatmaps', wanted: Record<string, 'TEXT' | 'INTEGER'>): void {
+  private addMissingColumns(table: 'renders' | 'beatmaps', wanted: Record<string, 'TEXT' | 'INTEGER' | 'REAL'>): void {
     const existing = new Set((this.db.pragma(`table_info(${table})`) as Array<{ name: string }>).map((column) => column.name));
     for (const [name, type] of Object.entries(wanted)) {
       if (!existing.has(name)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
@@ -173,24 +173,25 @@ export class RenderDatabase {
   markRendering(id: string): boolean {
     const now = Date.now();
     const result = this.db.prepare(`UPDATE renders SET status = 'rendering', progress = 0,
-      started_at = ?, updated_at = ?, error_code = NULL, error_message = NULL
+      started_at = ?, updated_at = ?, error_code = NULL, error_message = NULL, error_detail = NULL, avg_speed = NULL
       WHERE id = ? AND status = 'queued'`).run(now, now, id);
     return result.changes === 1;
   }
 
-  markCompleted(id: string, videoPath: string, expiresAt: number): boolean {
+  markCompleted(id: string, videoPath: string, expiresAt: number, avgSpeed: number | null = null): boolean {
     const now = Date.now();
     const result = this.db.prepare(`UPDATE renders SET status = 'completed', progress = 100, video_path = ?,
-      completed_at = ?, expires_at = ?, updated_at = ? WHERE id = ? AND status = 'finalizing'`)
-      .run(videoPath, now, expiresAt, now, id);
+      completed_at = ?, expires_at = ?, updated_at = ?, avg_speed = ? WHERE id = ? AND status = 'finalizing'`)
+      .run(videoPath, now, expiresAt, now, avgSpeed, id);
     return result.changes === 1;
   }
 
-  markFailed(id: string, code: string, message: string): void {
+  /** `detail` is the redacted internal cause (internalErrorDetail); reports only, never the public API. */
+  markFailed(id: string, code: string, message: string, detail: string | null = null): void {
     const now = Date.now();
-    this.db.prepare(`UPDATE renders SET status = 'failed', error_code = ?, error_message = ?,
+    this.db.prepare(`UPDATE renders SET status = 'failed', error_code = ?, error_message = ?, error_detail = ?,
       completed_at = ?, updated_at = ?, expires_at = ? WHERE id = ?`)
-      .run(code, message, now, now, now + limits.videoRetentionMs, id);
+      .run(code, message, detail, now, now, now + limits.videoRetentionMs, id);
   }
 
   cancel(id: string): void {

@@ -12,6 +12,8 @@ import { buildDanserPatch, parseRenderOptions } from './render-options.js';
 
 const execFileAsync = promisify(execFile);
 const PROGRESS_PATTERN = /Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)?x?(?:,\s*ETA:\s*([^,]*))?/g;
+/** ffmpeg status lines (danser prints them with ShowFFmpegLogs); the final mux pass reports the total. */
+const FRAME_PATTERN = /\bframe=\s*(\d+)/g;
 const TERMINATE_GRACE_MS = 10_000;
 const STDIO_DRAIN_MS = 2_000;
 const RM_RETRY = { force: true, recursive: true, maxRetries: 5, retryDelay: 200 } as const;
@@ -20,6 +22,18 @@ const RM_RETRY = { force: true, recursive: true, maxRetries: 5, retryDelay: 200 
 export interface ProgressDetail {
   speed: number | null;
   eta: string | null;
+}
+
+/** Speeds danser reported for one render; avg is the harmonic mean (each progress line covers the same share of frames). */
+export interface SpeedSummary {
+  avg: number | null;
+  last: number | null;
+  frames: number | null;
+}
+
+export interface RenderResult {
+  path: string;
+  speed: SpeedSummary;
 }
 
 export type ProgressListener = (progress: number, detail: ProgressDetail) => void;
@@ -32,6 +46,8 @@ export interface RendererOptions {
   settingsName?: string;
   paths: Paths;
   timeoutMs: number;
+  /** Kill danser when it prints nothing for this long; defaults to appConfig.render.stallTimeoutMs. */
+  stallTimeoutMs?: number;
   platform?: NodeJS.Platform;
   logTailBytes?: number;
   terminateGraceMs?: number;
@@ -44,7 +60,7 @@ interface ActiveRender {
   cancelled: boolean;
 }
 
-type Outcome = 'completed' | 'failed' | 'cancelled' | 'timeout';
+type Outcome = 'completed' | 'failed' | 'cancelled' | 'timeout' | 'stalled';
 
 export class DanserRenderer {
   private active: ActiveRender | null = null;
@@ -54,7 +70,7 @@ export class DanserRenderer {
     this.platform = options.platform ?? process.platform;
   }
 
-  async render(job: RenderRow, onProgress: ProgressListener): Promise<string> {
+  async render(job: RenderRow, onProgress: ProgressListener): Promise<RenderResult> {
     const danserOutput = path.join(this.options.paths.danserOutput, `${job.id}.mp4`);
     const partOutput = path.join(this.options.paths.videos, `${job.id}.mp4.part`);
     const finalOutput = path.join(this.options.paths.videos, `${job.id}.mp4`);
@@ -62,12 +78,12 @@ export class DanserRenderer {
     const tools = await resolveDanserTools(this.options.danserDir, this.options.danserBin, this.platform);
     const args = buildDanserArguments(job, this.options.settingsName);
     try {
-      await this.runDanser(job.id, tools, args, onProgress);
+      const speed = await this.runDanser(job.id, tools, args, onProgress);
       await access(danserOutput);
       await renameWithRetry(danserOutput, partOutput);
       await this.validateVideo(tools, partOutput);
       await renameWithRetry(partOutput, finalOutput);
-      return finalOutput;
+      return { path: finalOutput, speed };
     } catch (error) {
       await this.cleanupOutputs(job.id).catch(() => undefined);
       throw error;
@@ -93,7 +109,7 @@ export class DanserRenderer {
     tools: DanserTools,
     args: string[],
     onProgress: ProgressListener,
-  ): Promise<void> {
+  ): Promise<SpeedSummary> {
     const spawnProcess = this.options.spawnProcess ?? spawn;
     const child = spawnProcess(tools.danserCli, args, {
       cwd: this.options.danserDir, shell: false, windowsHide: true,
@@ -103,9 +119,25 @@ export class DanserRenderer {
     const active: ActiveRender = { jobId, process: child, cancelled: false };
     this.active = active;
     const tail = new OutputTail(this.options.logTailBytes ?? appConfig.diagnostics.logTailBytes);
-    const parsers = { stdout: createProgressParser(onProgress), stderr: createProgressParser(onProgress) };
-    child.stdout?.on('data', (chunk: Buffer) => { tail.push(chunk); parsers.stdout(chunk.toString()); });
-    child.stderr?.on('data', (chunk: Buffer) => { tail.push(chunk); parsers.stderr(chunk.toString()); });
+    const speed = new SpeedTracker();
+    const listener: ProgressListener = (progress, detail) => { speed.record(detail.speed); onProgress(progress, detail); };
+    const parsers = { stdout: createProgressParser(listener), stderr: createProgressParser(listener) };
+    // danser can sit silently while loading a big map or storyboard, so any output counts as activity.
+    let stalled = false;
+    const stallTimeoutMs = this.options.stallTimeoutMs ?? appConfig.render.stallTimeoutMs;
+    const watchdog = setTimeout(() => {
+      stalled = true;
+      terminateProcessTree(child, true, this.platform);
+    }, stallTimeoutMs);
+    const onOutput = (parse: (text: string) => void) => (chunk: Buffer): void => {
+      if (!stalled) watchdog.refresh();
+      tail.push(chunk);
+      const text = chunk.toString();
+      parse(text);
+      speed.observe(text);
+    };
+    child.stdout?.on('data', onOutput(parsers.stdout));
+    child.stderr?.on('data', onOutput(parsers.stderr));
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
@@ -116,11 +148,16 @@ export class DanserRenderer {
     try {
       const exit = await waitForProcess(child);
       exitText = exit.signal ? `signal ${exit.signal}` : `code ${exit.code}`;
-      outcome = active.cancelled ? 'cancelled' : timedOut ? 'timeout' : exit.code === 0 ? 'completed' : 'failed';
+      outcome = active.cancelled ? 'cancelled' : timedOut ? 'timeout' : stalled ? 'stalled' : exit.code === 0 ? 'completed' : 'failed';
       if (outcome === 'timeout') throw new AppError('RENDER_TIMEOUT', `danser exceeded the render time limit (${exitText}).`, 500);
+      if (outcome === 'stalled') {
+        throw new AppError('RENDER_STALLED', `danser stopped responding: no output for ${Math.round(stallTimeoutMs / 1000)} s (${exitText}).`, 500);
+      }
       if (outcome !== 'completed') throw new AppError('RENDER_FAILED', `danser exited with ${exitText}.`, 500);
+      return speed.summary();
     } finally {
       clearTimeout(timeout);
+      clearTimeout(watchdog);
       if (this.active === active) this.active = null;
       await this.writeLog(jobId, tail, `${outcome} (${exitText})`);
     }
@@ -165,7 +202,7 @@ export function buildDanserArguments(job: RenderRow, settingsName = 'service'): 
     '-noupdatecheck',
   ];
   if (options.skipIntro) argumentsList.push('-quickstart');
-  argumentsList.push(`-sPatch=${JSON.stringify(buildDanserPatch(options))}`);
+  argumentsList.push(`-sPatch=${JSON.stringify(buildDanserPatch(options, job.encoder))}`);
   return argumentsList;
 }
 
@@ -182,6 +219,33 @@ export function createProgressParser(onProgress: ProgressListener): (output: str
       }
     }
   };
+}
+
+export class SpeedTracker {
+  private inverseSum = 0;
+  private samples = 0;
+  private last: number | null = null;
+  private frames: number | null = null;
+
+  record(speed: number | null): void {
+    if (speed === null || !(speed > 0)) return;
+    this.inverseSum += 1 / speed;
+    this.samples += 1;
+    this.last = speed;
+  }
+
+  /** Picks up ffmpeg frame counters from raw output. */
+  observe(output: string): void {
+    for (const match of output.matchAll(FRAME_PATTERN)) {
+      const frames = Number(match[1]);
+      if (Number.isSafeInteger(frames) && frames > (this.frames ?? -1)) this.frames = frames;
+    }
+  }
+
+  summary(): SpeedSummary {
+    const avg = this.samples > 0 ? Math.round((this.samples / this.inverseSum) * 100) / 100 : null;
+    return { avg, last: this.last, frames: this.frames };
+  }
 }
 
 export class OutputTail {
