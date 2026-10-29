@@ -286,8 +286,11 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
       paths: { data: path.join(directory, 'data'), logs },
       database: {
         recentRenders: (limit) => [
-          row({ id: failedId, status: 'failed', player_name: 'SecretPlayer', error_code: 'RENDER_FAILED', started_at: 1000, completed_at: 4000, created_at: 900 }),
-          row({ id: okId, status: 'completed', player_name: 'OtherPlayer', started_at: 100, completed_at: 600, created_at: 50 }),
+          row({
+            id: failedId, status: 'failed', player_name: 'SecretPlayer', error_code: 'RENDER_FAILED', started_at: 1000, completed_at: 4000,
+            created_at: 900, error_detail: `TypeError: SecretPlayer at 10.1.2.3 token ${SECRET}`,
+          }),
+          row({ id: okId, status: 'completed', player_name: 'OtherPlayer', started_at: 100, completed_at: 600, created_at: 50, avg_speed: 1.82 }),
         ].slice(0, limit),
       },
       storage: { freeBytes: async () => 42 },
@@ -319,6 +322,10 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     assert.deepEqual(report.renders.map((render) => render.index), [1, 2]);
     assert.equal(report.renders[0].renderMs, 3000);
     assert.equal(report.renders[0].errorCode, 'RENDER_FAILED');
+    assert.equal(report.renders[0].errorDetail, 'TypeError: <player> at <ip> token <secret>');
+    assert.equal(report.renders[0].avgSpeed, null);
+    assert.equal(report.renders[1].errorDetail, null);
+    assert.equal(report.renders[1].avgSpeed, 1.82);
     assert.match(report.renders[0].logTail ?? '', /Loading replay of <player> from ~\/x\.osr\nout=<render-id>\.mp4\nclient <ip> token <secret>\nposting to <secret>\nnvenc init failed/);
     assert.equal(report.renders[1].logTail, undefined);
     assert.equal(report.errors.length, 0);

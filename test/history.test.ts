@@ -40,7 +40,7 @@ async function finishedRender(database: RenderDatabase, directory: string, id: s
   database.setStatus(id, 'queued');
   database.markRendering(id);
   database.setStatus(id, 'finalizing', 100);
-  database.markCompleted(id, video, Date.now() + 60_000);
+  database.markCompleted(id, video, Date.now() + 60_000, 1.82);
 }
 
 test('VIDEO_RETENTION_HOURS defaults to 24 and is clamped to 1..720', () => {
@@ -68,7 +68,8 @@ test('older databases gain the history columns', async () => {
     old.close();
     const database = new RenderDatabase(file);
     const columns = (table: string): string[] => (database.db.pragma(`table_info(${table})`) as Array<{ name: string }>).map((column) => column.name);
-    for (const name of ['options_json', 'beatmap_title', 'beatmap_artist', 'beatmap_version', 'files_deleted_at', 'beatmap_creator', 'beatmap_length']) {
+    for (const name of ['options_json', 'beatmap_title', 'beatmap_artist', 'beatmap_version', 'files_deleted_at', 'beatmap_creator', 'beatmap_length',
+      'error_detail', 'avg_speed']) {
       assert.ok(columns('renders').includes(name), name);
     }
     for (const name of ['title', 'artist', 'version', 'creator', 'length']) assert.ok(columns('beatmaps').includes(name), name);
@@ -124,6 +125,7 @@ test('GET /api/renders returns the requesting client history', async () => {
     assert.ok((done.videoBytes as number) > 0);
     assert.equal(done.filesDeleted, false);
     assert.equal(typeof done.renderMs, 'number');
+    assert.equal(done.avgSpeed, 1.82);
     assert.equal(typeof done.expiresAt, 'number');
     const queued = renders.find((render) => render.status === 'uploaded') as Record<string, unknown>;
     assert.equal(queued.videoAvailable, false);
@@ -178,6 +180,26 @@ test('render JSON adds mapper, map length, expiry and video size', async () => {
     const deleted = (await app.inject({ method: 'GET', url: `/api/renders/${id}`, headers: auth, remoteAddress: ME })).json();
     assert.equal(deleted.previewUrl, null);
     assert.equal(deleted.videoBytes, null);
+  });
+});
+
+test('render API exposes the average speed but never the internal error detail', async () => {
+  await withServer(async (app, database, directory) => {
+    const done = '55555555-5555-4555-8555-555555555555';
+    await finishedRender(database, directory, done, ME);
+    const completed = (await app.inject({ method: 'GET', url: `/api/renders/${done}`, headers: auth, remoteAddress: ME })).json();
+    assert.equal(completed.avgSpeed, 1.82);
+    const failed = '66666666-6666-4666-8666-666666666666';
+    database.createRender({ id: failed, replayPath: path.join(directory, 'f.osr'), clientKey: ME, encoder: 'libx264' });
+    database.markFailed(failed, 'INTERNAL_ERROR', 'The render service encountered an internal error.', 'TypeError: secret detail');
+    assert.equal(database.getRender(failed)?.error_detail, 'TypeError: secret detail');
+    const single = await app.inject({ method: 'GET', url: `/api/renders/${failed}`, headers: auth, remoteAddress: ME });
+    const history = await app.inject({ method: 'GET', url: '/api/renders', headers: auth, remoteAddress: ME });
+    for (const body of [single.body, history.body]) {
+      assert.doesNotMatch(body, /secret detail|error_?detail/i);
+    }
+    assert.deepEqual(single.json().error, { code: 'INTERNAL_ERROR', message: 'The render service encountered an internal error.' });
+    assert.equal(single.json().avgSpeed, null);
   });
 });
 
