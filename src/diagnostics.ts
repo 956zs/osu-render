@@ -20,7 +20,7 @@ const ISSUE_BODY_CHARS = 1500;
 const ISSUE_URL_MAX = 8000;
 const RENDER_ID_PATTERN = /^[A-Za-z0-9-]{1,64}$/;
 /** Report keys holding free text (logs, error output) where player names may appear. */
-const FREE_TEXT_KEYS = new Set(['logTail', 'error', 'displayDetail']);
+const FREE_TEXT_KEYS = new Set(['logTail', 'error', 'displayDetail', 'errorDetail']);
 const WINDOWS_GPU_COMMAND = 'ConvertTo-Json -Compress @(Get-CimInstance Win32_VideoController'
   + ' | Select-Object Name,AdapterCompatibility,DriverVersion,PNPDeviceID,Status)';
 
@@ -110,6 +110,10 @@ export interface RenderDiagnostics {
   completedAt: number | null;
   renderMs: number | null;
   errorCode: string | null;
+  /** Redacted internal cause (error name + message) of unexpected failures. */
+  errorDetail: string | null;
+  /** Average render speed danser reported (1 = real time). */
+  avgSpeed: number | null;
   logTail?: string;
 }
 
@@ -529,7 +533,7 @@ async function collectRenders(
       index: position + 1, status: row.status, encoder: row.encoder, width: row.width, height: row.height,
       createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at,
       renderMs: row.started_at !== null && row.completed_at !== null ? Math.max(0, row.completed_at - row.started_at) : null,
-      errorCode: row.error_code,
+      errorCode: row.error_code, errorDetail: row.error_detail ?? null, avgSpeed: row.avg_speed ?? null,
     };
     const tailBytes = row.id === focus?.id ? focus.logTailBytes
       : row.status === 'failed' ? appConfig.diagnostics.reportLogTailBytes : 0;
@@ -606,7 +610,7 @@ export function issueSummary(report: IssueInput): Record<string, unknown> {
     probes: Object.fromEntries(report.encoderProbes.map((probe) => [probe.encoder, probe.ok ? 'ok' : `fail: ${(probe.error ?? '').slice(-160)}`])),
     lastRender: lastRender ? compact({
       status: lastRender.status, encoder: lastRender.encoder, size: `${lastRender.width}x${lastRender.height}`,
-      renderMs: lastRender.renderMs, errorCode: lastRender.errorCode,
+      renderMs: lastRender.renderMs, avgSpeed: lastRender.avgSpeed, errorCode: lastRender.errorCode,
     }) : null,
     errors: report.errors.map((error) => error.source),
   };
@@ -681,7 +685,8 @@ function driverSummary(report: IssueInput): string {
 
 export function renderSummary(render: RenderDiagnostics): string {
   const seconds = render.renderMs === null ? '' : `, ${(render.renderMs / 1000).toFixed(1)} s`;
-  return `${render.status} (${render.encoder}, ${render.width}x${render.height}${seconds}${render.errorCode ? `, ${render.errorCode}` : ''})`;
+  const speed = render.avgSpeed === null ? '' : `, ${render.avgSpeed.toFixed(2)}x avg`;
+  return `${render.status} (${render.encoder}, ${render.width}x${render.height}${seconds}${speed}${render.errorCode ? `, ${render.errorCode}` : ''})`;
 }
 
 // ---------------------------------------------------------------- helpers

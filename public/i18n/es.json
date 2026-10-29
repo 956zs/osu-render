@@ -66,7 +66,12 @@
     "skipIntro": "Saltar intro",
     "on": "Activado",
     "off": "Desactivado",
-    "moreHint": "{n} ajustes más: audio, cursor, HUD, objetos…"
+    "moreHint": "{n} ajustes más: audio, cursor, HUD, objetos…",
+    "speed": "Perfil de velocidad",
+    "speedFast": "Rápido",
+    "speedBalanced": "Equilibrado",
+    "speedQuality": "Calidad",
+    "speedHint": "Rápido renderiza antes con una imagen algo peor y sin bloom. Calidad es lo más lento, con la imagen más nítida y archivos más grandes."
   },
   "presets": {
     "label": "Preajustes",
@@ -153,6 +158,7 @@
     "BEATMAP_CHECKSUM_MISMATCH": "El mapa descargado no coincide con la versión del replay.",
     "RENDER_FAILED": "El render falló.",
     "RENDER_TIMEOUT": "El render tardó demasiado y se detuvo.",
+    "RENDER_STALLED": "El renderizador dejó de responder y se detuvo el render.",
     "INTERNAL_ERROR": "El servidor tuvo un error interno.",
     "REPORT_WEBHOOK_DISABLED": "Este servidor no tiene configurado el envío de reportes al desarrollador.",
     "REPORT_SEND_FAILED": "No se pudo enviar el reporte al desarrollador. Inténtalo más tarde, o descárgalo y envía el archivo.",
@@ -188,7 +194,8 @@
       "videos": "Video de fondo",
       "storyboards": "Storyboard",
       "parallax": "Parallax del fondo",
-      "bloom": "Bloom"
+      "bloom": "Bloom",
+      "bloomOff": "Desactivado con el perfil Rápido"
     },
     "cursor": {
       "legend": "Cursor y colores",
@@ -245,7 +252,8 @@
     "download": "Descargar",
     "deleteFiles": "Borrar archivos",
     "confirmDelete": "¿Borrar el video, el replay y el log de este render? No se puede deshacer.",
-    "done": "Listo"
+    "done": "Listo",
+    "avgSpeed": "{speed}× de media"
   },
   "skins": {
     "title": "Skins",

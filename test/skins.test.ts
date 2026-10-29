@@ -154,11 +154,11 @@ test('render options validate the skin name and patch danser skin settings', () 
   const options = parseRenderOptions(JSON.stringify({ skin: 'Rafis HDDT', useSkinCursor: true }));
   assert.equal(options.skin, 'Rafis HDDT');
   assert.equal(options.useSkinCursor, true);
-  assert.deepEqual(buildDanserPatch(options).Skin, {
+  assert.deepEqual(buildDanserPatch(options, "libx264").Skin, {
     CurrentSkin: 'Rafis HDDT', UseColorsFromSkin: true, UseBeatmapColors: true, Cursor: { UseSkinCursor: true },
   });
-  assert.deepEqual(buildDanserPatch(parseRenderOptions(undefined)).Skin.Cursor, { UseSkinCursor: false });
-  assert.equal(buildDanserPatch(parseRenderOptions(undefined)).Skin.CurrentSkin, 'default');
+  assert.deepEqual(buildDanserPatch(parseRenderOptions(undefined), "libx264").Skin.Cursor, { UseSkinCursor: false });
+  assert.equal(buildDanserPatch(parseRenderOptions(undefined), "libx264").Skin.CurrentSkin, 'default');
   for (const bad of ['../x', '', '.staging', 'a/b', 'nul', 42, 'x'.repeat(101)]) {
     assert.throws(() => parseRenderOptions(JSON.stringify({ skin: bad })), /skin must be/, String(bad));
   }

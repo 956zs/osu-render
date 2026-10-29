@@ -28,7 +28,7 @@ function fakeReport(overrides: Partial<DiagnosticsReport> = {}): DiagnosticsRepo
     storage: { freeBytes: 1 },
     renders: [{
       index: 1, status: 'failed', encoder: 'h264_nvenc', width: 1920, height: 1080, createdAt: 1, startedAt: 1000,
-      completedAt: 13300, renderMs: 12300, errorCode: 'RENDER_FAILED', logTail: 'nvenc init failed',
+      completedAt: 13300, renderMs: 12300, errorCode: 'RENDER_FAILED', errorDetail: null, avgSpeed: null, logTail: 'nvenc init failed',
     }],
     errors: [],
     ...overrides,
@@ -97,6 +97,20 @@ test('buildWebhookMessage: summary content, no mentions, attachment, secrets scr
   for (const [trigger, label] of [['render_completed', 'render completed'], ['render_timeout', 'render timeout']] as const) {
     assert.match(buildWebhookMessage(fakeReport(), trigger, { username: 'u', secrets: [] }).payload.content, new RegExp(` · ${label}\\n`));
   }
+});
+
+test('buildWebhookMessage adds the internal detail of failed renders and the average speed', () => {
+  const failed = fakeReport({ focusRender: 1 });
+  failed.renders[0] = { ...failed.renders[0], errorCode: 'INTERNAL_ERROR', errorDetail: 'TypeError: x is `undefined`' };
+  const content = buildWebhookMessage(failed, 'render_failed', { username: 'u', secrets: [] }).payload.content;
+  assert.match(content, /\nRender #1: failed \(h264_nvenc, 1920x1080, 12\.3 s, INTERNAL_ERROR\)\nDetail: TypeError: x is 'undefined'\n```\n/);
+  assert.equal(content.match(/```/g)?.length, 2);
+
+  const completed = fakeReport({ focusRender: 1 });
+  completed.renders[0] = { ...completed.renders[0], status: 'completed', errorCode: null, errorDetail: 'stale', avgSpeed: 1.8234 };
+  const ok = buildWebhookMessage(completed, 'render_completed', { username: 'u', secrets: [] }).payload.content;
+  assert.match(ok, /\nRender #1: completed \(h264_nvenc, 1920x1080, 12\.3 s, 1\.82x avg\)\n```\n/);
+  assert.doesNotMatch(ok, /Detail:/);
 });
 
 test('buildWebhookMessage caps content at 2000 characters and neutralizes code fences', () => {

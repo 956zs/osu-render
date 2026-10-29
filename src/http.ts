@@ -103,6 +103,7 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
       limits.hardMinFreeBytes,
     ),
     reportWebhook: dependencies.reporter !== undefined,
+    bloomOffProfiles: appConfig.speedProfiles.disableBloom,
   }));
   for (const [route, file] of pageFiles) {
     app.get(route, async (_request, reply) => reply.type(file.type).header('Cache-Control', 'no-cache')
@@ -338,6 +339,11 @@ function renderMs(row: RenderRow): number | null {
     ? row.completed_at - row.started_at : null;
 }
 
+/** Average render speed (1 = real time), completed renders only. */
+function avgSpeed(row: RenderRow): number | null {
+  return row.status === 'completed' ? row.avg_speed ?? null : null;
+}
+
 function requireRender(row: RenderRow | undefined): RenderRow {
   if (!row) throw new AppError('INTERNAL_ERROR', 'Render job was not found.', 404);
   return row;
@@ -414,7 +420,7 @@ function serializeHistory(row: RenderRow): object {
     } : null,
     player: row.player_name, mods: row.mods,
     resolution: `${row.height}p`, encoder: row.encoder,
-    renderMs: renderMs(row),
+    renderMs: renderMs(row), avgSpeed: avgSpeed(row),
     videoAvailable: videoAvailable(row),
     filesDeleted: deleted,
     error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
@@ -436,6 +442,7 @@ function serializeRender(row: RenderRow, queuePosition: number | null): object {
     options: parseRenderOptions(row.options_json),
     error: row.error_code ? { code: row.error_code, message: row.error_message } : null,
     createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, renderMs: renderMs(row),
+    avgSpeed: avgSpeed(row),
     expiresAt: row.expires_at,
   };
 }

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { DanserRenderer, OutputTail, buildDanserArguments, createProgressParser } from '../src/renderer.js';
+import { DanserRenderer, OutputTail, SpeedTracker, buildDanserArguments, createProgressParser } from '../src/renderer.js';
 import type { Paths, RenderRow } from '../src/types.js';
 import { parseRenderOptions } from '../src/render-options.js';
 
@@ -88,7 +88,7 @@ function job(id: string): RenderRow {
 
 async function withRenderer(
   script: string,
-  options: { timeoutMs?: number },
+  options: { timeoutMs?: number; stallTimeoutMs?: number },
   run: (renderer: DanserRenderer, paths: Paths) => Promise<void>,
 ): Promise<void> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'osu-render-renderer-'));
@@ -100,7 +100,8 @@ async function withRenderer(
     logs: path.join(data, 'logs'), diagnostics: path.join(data, 'diagnostics'),
   };
   const renderer = new DanserRenderer({
-    danserDir: root, paths, timeoutMs: options.timeoutMs ?? 30_000, terminateGraceMs: 200, logTailBytes: 4096,
+    danserDir: root, paths, timeoutMs: options.timeoutMs ?? 30_000, stallTimeoutMs: options.stallTimeoutMs,
+    terminateGraceMs: 200, logTailBytes: 4096,
     spawnProcess: (_command, _args, spawnOptions) => spawn(process.execPath, ['-e', script], spawnOptions),
   });
   try { await run(renderer, paths); } finally { await rm(root, { recursive: true, force: true }); }
@@ -127,6 +128,43 @@ test('timed out renders are killed and reported as RENDER_TIMEOUT', async () => 
     assert.match(log, /started/);
     assert.match(log, /danser timeout/);
   });
+});
+
+test('a silent danser is killed by the watchdog and reported as RENDER_STALLED', async () => {
+  const script = `console.log('Progress: 5%, Speed: 1.00x, ETA: 9s'); setInterval(() => {}, 1000);`;
+  await withRenderer(script, { stallTimeoutMs: 600 }, async (renderer, paths) => {
+    const started = Date.now();
+    await assert.rejects(renderer.render(job('stalled-job'), () => undefined),
+      (error: Error & { code?: string }) => error.code === 'RENDER_STALLED' && /no output for 1 s/.test(error.message));
+    assert.ok(Date.now() - started < 10_000);
+    const log = await readFile(path.join(paths.logs, 'stalled-job.log'), 'utf8');
+    assert.match(log, /Progress: 5%/);
+    assert.match(log, /\[osu-render\] danser stalled \((signal SIGKILL|code \d+)\)/);
+  });
+});
+
+test('any output line keeps the watchdog from firing', async () => {
+  // Loads silently for longer than the stall timeout in total, but prints a non-progress line in between.
+  const script = `let n = 0; const timer = setInterval(() => { console.log('loading storyboard ' + n);`
+    + ` if (++n === 6) { clearInterval(timer); process.exitCode = 3; } }, 200);`;
+  await withRenderer(script, { stallTimeoutMs: 700 }, async (renderer, paths) => {
+    await assert.rejects(renderer.render(job('busy-job'), () => undefined), { code: 'RENDER_FAILED' });
+    assert.match(await readFile(path.join(paths.logs, 'busy-job.log'), 'utf8'), /danser failed \(code 3\)/);
+  });
+});
+
+test('speed tracker reports the harmonic mean, the last speed and the ffmpeg frame total', () => {
+  const tracker = new SpeedTracker();
+  assert.deepEqual(tracker.summary(), { avg: null, last: null, frames: null });
+  for (const speed of [2, null, 0, 4, 4]) tracker.record(speed);
+  tracker.observe('frame=  120 fps=60\rframe=  240 fps=61\n');
+  tracker.observe('frame=12041 fps=0.0 q=-1.0 Lsize=  444979KiB speed= 990x\nframe=5\n');
+  // 3 equal-work samples at 2x, 4x, 4x: 3 / (1/2 + 1/4 + 1/4) = 3x.
+  assert.deepEqual(tracker.summary(), { avg: 3, last: 4, frames: 12041 });
+  const rounded = new SpeedTracker();
+  rounded.record(1.234);
+  rounded.record(2.5);
+  assert.deepEqual(rounded.summary(), { avg: 1.65, last: 2.5, frames: null });
 });
 
 test('cancelled renders stop the process tree and log the cancellation', async () => {

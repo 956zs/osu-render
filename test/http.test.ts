@@ -94,7 +94,7 @@ test('diagnostics endpoint skips encoder probes while a render is active', async
 
 test('health reports whether webhook reporting is enabled', async () => {
   await withServer(async (app) => {
-    assert.deepEqual((await app.inject({ method: 'GET', url: '/health' })).json(), { status: 'ok', reportWebhook: false });
+    assert.deepEqual((await app.inject({ method: 'GET', url: '/health' })).json(), { status: 'ok', reportWebhook: false, bloomOffProfiles: ['fast'] });
   });
   await withServer(async (app) => {
     assert.equal((await app.inject({ method: 'GET', url: '/health' })).json().reportWebhook, true);

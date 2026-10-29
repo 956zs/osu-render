@@ -79,6 +79,8 @@ const doneAnother = $('#doneAnother');
 const skinSelect = $('#skin');
 const skipIntro = $('#skipIntro');
 const skipIntroState = $('#skipIntroState');
+const bloomToggle = $('#bloom');
+const bloomOff = $('#bloomOff');
 const moreCount = $('#moreCount');
 const moreSettings = $('#moreSettings');
 const drawer = $('#settingsDrawer');
@@ -276,6 +278,7 @@ function applyOptions(options) {
     const radios = optionControls.filter((control) => control.type === 'radio' && control.dataset.option === key);
     if (radios.length && !radios.some((radio) => radio.checked)) radios.forEach((radio) => { radio.checked = radio.value === value; });
   }
+  syncBloomOverride();
   rememberOptions();
 }
 function syncOutput(control) {
@@ -286,7 +289,14 @@ function syncOutput(control) {
 function renderSwitchState() {
   skipIntroState.textContent = skipIntro.checked ? t('quick.on', {}, 'On') : t('quick.off', {}, 'Off');
 }
+function syncBloomOverride() {
+  // Profiles listed by /health (config speedProfiles.disableBloom) render without bloom whatever the toggle says.
+  const forced = Array.isArray(health?.bloomOffProfiles) && health.bloomOffProfiles.includes(renderOptions().speedProfile);
+  bloomToggle.disabled = forced;
+  bloomOff.hidden = !forced;
+}
 function optionsChanged() {
+  syncBloomOverride();
   rememberOptions();
   if (activePreset && JSON.stringify(presets()[activePreset]) !== JSON.stringify(renderOptions())) { activePreset = null; renderPresets(); }
 }
@@ -532,6 +542,7 @@ function jobTagElements(data, withSize) {
   if (data.output?.height) tags.push(element('span', 'tag', `${data.output.height}p`));
   if (data.output?.encoder) tags.push(element('span', 'tag', encoderLabel(data.output.encoder)));
   if (withSize && typeof data.videoBytes === 'number') tags.push(element('span', 'tag', formatSize(data.videoBytes)));
+  if (withSize && typeof data.avgSpeed === 'number') tags.push(element('span', 'tag', t('history.avgSpeed', { speed: data.avgSpeed.toFixed(2) })));
   return tags;
 }
 function retentionHours(data) {
@@ -618,6 +629,7 @@ function historyEntry(item) {
   const facts = [
     relativeTime(item.createdAt), item.resolution, encoderLabel(item.encoder),
     item.error ? errorText(item.error) : item.renderMs ? t('history.renderTime', { duration: formatDuration(item.renderMs) }) : null,
+    typeof item.avgSpeed === 'number' ? t('history.avgSpeed', { speed: item.avgSpeed.toFixed(2) }) : null,
     item.videoAvailable && typeof item.videoBytes === 'number' ? formatSize(item.videoBytes) : null,
   ];
   if (item.player || item.mods) facts.splice(1, 0, [item.player, item.mods].filter(Boolean).join(' · '));
@@ -763,7 +775,7 @@ async function loadHealth() {
     const response = await fetch('/health', { cache: 'no-store' });
     const data = await response.json();
     if (data?.status !== 'ok' && data?.status !== 'degraded') return;
-    health = data; renderHealth();
+    health = data; renderHealth(); syncBloomOverride();
   } catch { /* informational only: keep the last known state */ }
 }
 function encoderLabel(encoder) {

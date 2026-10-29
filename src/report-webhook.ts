@@ -54,6 +54,7 @@ export function buildWebhookMessage(
   const header = [
     `**osu-render ${report.app.version}** · ${TRIGGER_LABELS[trigger]}`,
     ...(focus ? [`Render #${focus.index}: ${renderSummary(focus)}`] : []),
+    ...(focus?.status === 'failed' && focus.errorDetail ? [`Detail: ${focus.errorDetail.replaceAll('`', "'")}`] : []),
   ].join('\n');
   const body = report.issue.body.replace(/^### .*\n/, '').replaceAll('```', "'''");
   const room = CONTENT_MAX_CHARS - header.length - '\n```\n\n```'.length;

@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises';
-import { AppError, publicError } from './errors.js';
+import { AppError, internalErrorDetail, publicError } from './errors.js';
 import type { RenderDatabase } from './database.js';
 import type { BeatmapResolver } from './beatmap-resolver.js';
 import type { DanserRenderer, ProgressDetail } from './renderer.js';
@@ -78,7 +78,7 @@ export class RenderQueue {
     try {
       await this.storage.guardNewRender();
       if (!this.database.markRendering(job.id)) return;
-      const output = await this.renderer.render(this.database.getRender(job.id) as RenderRow,
+      const { path: output, speed } = await this.renderer.render(this.database.getRender(job.id) as RenderRow,
         (progress, detail) => {
           this.database.setProgress(job.id, progress);
           this.stats.set(job.id, detail);
@@ -89,17 +89,20 @@ export class RenderQueue {
         return;
       }
       this.database.setStatus(job.id, 'finalizing', 100);
-      if (!this.database.markCompleted(job.id, output, Date.now() + limits.videoRetentionMs)) {
+      if (!this.database.markCompleted(job.id, output, Date.now() + limits.videoRetentionMs, speed.avg)) {
         await rm(output, { force: true });
         return;
       }
-      log('info', 'render_completed', { component: 'worker', jobId: job.id, ...renderStats(this.database.getRender(job.id)) });
+      log('info', 'render_completed', {
+        component: 'worker', jobId: job.id, ...renderStats(this.database.getRender(job.id)),
+        avgSpeed: speed.avg, lastSpeed: speed.last, frames: speed.frames,
+      });
       this.report(job.id, 'completed');
     } catch (error) {
       this.stats.delete(job.id);
       if (this.database.getRender(job.id)?.status === 'cancelled') return;
       const safe = publicError(error);
-      this.database.markFailed(job.id, safe.code, safe.publicMessage);
+      this.database.markFailed(job.id, safe.code, safe.publicMessage, internalErrorDetail(error));
       await removeReplay(this.database.getRender(job.id));
       log('error', 'render_failed', {
         component: 'worker', jobId: job.id, code: safe.code, message: safe.message,
@@ -120,7 +123,7 @@ export class RenderQueue {
     } catch (error) {
       if (this.database.getRender(id)?.status === 'cancelled') return;
       const safe = publicError(error);
-      this.database.markFailed(id, safe.code, safe.publicMessage);
+      this.database.markFailed(id, safe.code, safe.publicMessage, internalErrorDetail(error));
       await removeReplay(this.database.getRender(id));
       log('error', 'beatmap_resolution_failed', {
         component: 'resolver', jobId: id, code: safe.code, ...debugError(error),

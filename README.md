@@ -21,6 +21,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 - [Features](#features)
 - [Platform & GPU support](#platform--gpu-support)
 - [Windows quick start: portable zip (recommended)](#windows-quick-start-portable-zip-recommended)
+- [Speed profiles](#speed-profiles)
 - [Custom skins](#custom-skins)
 - [Render history and retention](#render-history-and-retention)
 - [Local osu! Songs folder](#local-osu-songs-folder)
@@ -53,6 +54,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 - Upload only the replay. The beatmap is found by its checksum through the osu! API, downloaded from
   configurable mirrors (with fallback) and checked against the replay's MD5 before rendering.
 - 720p or 1080p at 60 FPS, H.264 video with AAC audio.
+- Speed profiles (**Speed**, **Balanced**, **Quality**) that trade render time for image quality.
 - Per-render visual options: skip intro, volumes, background dim/blur/parallax, bloom, playfield scale,
   cursor size/trail/effects, skin or beatmap colours, HUD elements and hit object details.
 - Custom skins: upload an `.osk` on the **Skins** tab (or drop it into `data/skins`) and pick it per render.
@@ -144,6 +146,29 @@ on the first run.
 The bundled third-party software keeps its own license: Node.js (MIT and others), danser-go (GPL-3.0) and the
 FFmpeg build shipped inside danser, plus the npm packages in `node_modules`. `THIRD_PARTY_NOTICES.txt` in the zip
 lists them.
+
+## Speed profiles
+
+**Quick settings** has a **Speed profile** switch. It sets the encoder preset and quality level for the
+encoder the render uses; the default is **Balanced**.
+
+| Profile | NVIDIA NVENC | AMD AMF | Intel Quick Sync | x264 (CPU) |
+| --- | --- | --- | --- | --- |
+| **Speed** | `p1`, CQ 24 | `speed`, QP 22 | `veryfast`, ICQ 23 | `veryfast`, CRF 20 |
+| **Balanced** | `p4`, CQ 22 | `balanced`, QP 20 | `faster`, ICQ 20 | `faster`, CRF 18 |
+| **Quality** | `p7`, CQ 20 | `quality`, QP 18 | `slow`, ICQ 15 | `medium`, CRF 16 |
+
+HEVC encoders use the same presets with the quality number 2 higher. A lower number means a sharper image and
+a bigger file. **Speed** also turns **bloom** off for that render, whatever the **Bloom** switch under **All
+settings** says (the switch is greyed out while **Speed** is selected).
+
+Measured on an Intel Iris Xe laptop (Quick Sync) with a 3:20 map at 1080p: **Speed** 50 s (4.2x real time,
+296 MB), **Balanced** 61 s (3.4x, 391 MB), **Quality** 73 s (2.9x, 711 MB).
+
+The tables live in `config/defaults.json` under `speedProfiles` (preset and quality per profile and encoder
+family, the HEVC offset and the profiles that turn bloom off) and can be changed in `config/local.json`. The
+render option is `speedProfile` (`fast`, `balanced` or `quality`); any other value is rejected with
+`INVALID_OPTIONS`.
 
 ## Custom skins
 
@@ -252,7 +277,9 @@ shows the real name.
 From then on, every finished render (successful, failed or timed out; not cancelled) sends a redacted report
 to the maintainer's Discord channel, and the **Diagnostics** tab gets a **Send to developer** button for
 sending one by hand (for example after a startup problem). Automatic reports reuse the startup encoder
-self-test instead of running a new one, so they never interrupt rendering. If the URL is wrong, the service
+self-test instead of running a new one, so they never interrupt rendering. The message names the render's
+encoder, resolution, render time and average speed (for example `41.0 s, 1.82x avg`); for a render that failed
+with an unexpected internal error it adds a `Detail:` line with the short error message. If the URL is wrong, the service
 prints a warning at startup (and logs `report_webhook_invalid`) and keeps running without reporting; with a valid
 URL it logs `report_webhook_enabled`.
 
@@ -284,8 +311,9 @@ when, and what the page showed.
   versions, danser and FFmpeg versions and FFmpeg's encoder list, encoder self-test results (with the end of
   FFmpeg's error output), the startup check result, a config summary (host, port, encoder setting, mirror host
   names, and only *whether* OAuth credentials, `AUTH_TOKEN` and `REPORT_WEBHOOK_URL` are set), free disk space,
-  metadata of the last 20 renders (status, encoder, resolution, timings, error code and a short tail of danser's
-  log, which can mention beatmap titles), and a summary of danser's `danser.log` (versions, GPU used for OpenGL).
+  metadata of the last 20 renders (status, encoder, resolution, timings, average render speed, error code, for
+  unexpected internal errors a short error message with folder paths removed, and a short tail of danser's log,
+  which can mention beatmap titles), and a summary of danser's `danser.log` (versions, GPU used for OpenGL).
 - **Excluded:** the OAuth client ID and secret, `AUTH_TOKEN`, the webhook URL, IP addresses, player names, replay and beatmap
   files. Your home folder is replaced with `~` and your user name with `<user>`.
 - **Nothing is sent automatically unless you set `REPORT_WEBHOOK_URL`.** Without it, the service never uploads
@@ -503,8 +531,10 @@ run `danser-cli -noupdatecheck` once from the danser folder: it creates `setting
 Tunables that are not secrets live in [`config/defaults.json`](config/defaults.json): the encoder auto order
 per platform, self-test size and timeout, diagnostics sizes, the issue link, and the report webhook's
 timeout, 429 retry cap, spacing between messages and log tail sizes (`reportWebhook`), and the update checks
-(`update`: on/off, GitHub repository, check interval, download size limits and allowed download hosts), and how
-long signed video preview links stay valid (`preview.ttlSeconds`, default 3600). To change them, create
+(`update`: on/off, GitHub repository, check interval, download size limits and allowed download hosts), how
+long signed video preview links stay valid (`preview.ttlSeconds`, default 3600), the
+[speed profiles](#speed-profiles) (`speedProfiles`) and the stall watchdog (`render.stallTimeoutMs`, default
+120000: a render whose danser prints nothing for that long is stopped with `RENDER_STALLED`). To change them, create
 `config/local.json` with only the keys you want to override; it is merged over the defaults and ignored by
 git. Example:
 
@@ -536,10 +566,10 @@ If `AUTH_TOKEN` is set, add `-H "Authorization: Bearer $AUTH_TOKEN"` to every `/
 | Method & path | Description |
 | --- | --- |
 | `POST /api/renders` | Multipart upload: `replay` (the `.osr`, max 5 MiB) and optional `options` (JSON string). Returns `{ "id", "status" }`. |
-| `GET /api/renders/:id` | Job status, progress, queue position, beatmap (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), output format, `startedAt`, `renderMs` and error. While rendering, `speed` (a number such as `1.42`) and `eta` (text as printed by danser); once completed, `previewUrl` (a signed video link, see below). |
+| `GET /api/renders/:id` | Job status, progress, queue position, beatmap (`id`, `beatmapsetId`, `checksum`, `title`, `artist`, `version`), output format, `startedAt`, `renderMs` and error. While rendering, `speed` (a number such as `1.42`) and `eta` (text as printed by danser); once completed, `avgSpeed` (average render speed, e.g. `1.82`) and `previewUrl` (a signed video link, see below). |
 | `GET /api/renders/:id/video` | The finished MP4, named `Artist - Title [Version].mp4`. Supports HTTP `Range`. Also accepts the signed `previewUrl` (`?exp=<unix seconds>&sig=<hex>`) instead of the Bearer header, so a `<video>` element can play it. Signed links expire after `preview.ttlSeconds` (default 1 hour) and stop working when the service restarts (the key is random per process); an invalid or expired link returns `UNAUTHORIZED` (403). |
 | `DELETE /api/renders/:id` | Cancel a job. |
-| `GET /api/renders?limit=N` | Your recent renders (same client address only, default 20, max 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
+| `GET /api/renders?limit=N` | Your recent renders (same client address only, default 20, max 100): `{ "renders": [{ "id", "status", "createdAt", "completedAt", "expiresAt", "beatmap": { "id", "beatmapsetId", "title", "artist", "version" }, "player", "mods", "resolution", "encoder", "renderMs", "avgSpeed", "videoAvailable", "filesDeleted", "error", "previewUrl" }] }`. |
 | `DELETE /api/renders/:id/files` | Deletes the video, replay and log of your own finished render now; the history entry stays. Error `RENDER_ACTIVE` (409) while it is still running. A deleted video returns `RENDER_EXPIRED` (410). |
 | `GET /api/skins` | Installed skins: `{ "skins": [{ "name" }] }`, built-in `default` first. |
 | `POST /api/skins` | Multipart upload: `skin` (an `.osk`). Installs it and returns `{ "name" }`, or error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
@@ -547,7 +577,7 @@ If `AUTH_TOKEN` is set, add `-H "Authorization: Bearer $AUTH_TOKEN"` to every `/
 | `POST /api/update/apply` | Portable zip started by `start.bat` only: downloads, verifies and stages the newest release, answers `{ "applying": true, "version" }`, then restarts through `start.bat` to install it. Errors: `UPDATE_NOT_PORTABLE` (409), `UPDATE_BUSY` (409, a render is unfinished or an update is running), `UPDATE_FAILED` (502, nothing was changed). |
 | `GET /api/diagnostics` | Diagnostics report (same JSON as `npm run doctor`). |
 | `POST /api/diagnostics/send` | Sends the diagnostics report to `REPORT_WEBHOOK_URL`. Returns `{ "sent": true }`, or error `REPORT_WEBHOOK_DISABLED` (409, not configured) / `REPORT_SEND_FAILED` (502). |
-| `GET /health` | Service health (no auth): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`. |
+| `GET /health` | Service health (no auth): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`, `bloomOffProfiles` (speed profiles that turn bloom off). |
 
 ```sh
 curl -F replay=@my-play.osr -F 'options={"resolution":"720p","skipIntro":true}' http://127.0.0.1:3030/api/renders
@@ -610,6 +640,11 @@ frames), and the FFmpeg path and arguments. Per-render logs are kept in `data/lo
 
 **`RENDER_TIMEOUT`.** A render took longer than 30 minutes and was stopped. This mostly happens with the CPU
 fallback on a slow machine; try 720p, fix the GPU encoder, or check the render log in `data/logs/`.
+
+**`RENDER_STALLED`.** danser printed nothing (no progress and no other output) for 2 minutes, so the render was
+stopped. A wrong encoder option can make danser hang like this. Check the render log in `data/logs/`, try
+another speed profile and send a report. If danser only needs longer to load a huge map or storyboard, raise
+`render.stallTimeoutMs` in `config/local.json`.
 
 **`start.bat` or `doctor.bat` says "osu-render files are missing".** The zip was opened in Explorer's zip view or
 only partly extracted. Right-click the zip → **Extract All**, then run the `.bat` from the extracted folder.
