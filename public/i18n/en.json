@@ -66,7 +66,12 @@
     "skipIntro": "Skip intro",
     "on": "On",
     "off": "Off",
-    "moreHint": "{n} more: audio, cursor, HUD, hit objects…"
+    "moreHint": "{n} more: audio, cursor, HUD, hit objects…",
+    "speed": "Speed profile",
+    "speedFast": "Speed",
+    "speedBalanced": "Balanced",
+    "speedQuality": "Quality",
+    "speedHint": "Speed renders fastest at slightly lower image quality, with bloom off. Quality is slowest, with the sharpest image and bigger files."
   },
   "presets": {
     "label": "Presets",
@@ -153,6 +158,7 @@
     "BEATMAP_CHECKSUM_MISMATCH": "The downloaded beatmap doesn't match the replay's version.",
     "RENDER_FAILED": "The render failed.",
     "RENDER_TIMEOUT": "The render took too long and was stopped.",
+    "RENDER_STALLED": "The renderer stopped responding, so the render was stopped.",
     "INTERNAL_ERROR": "The server ran into an internal error.",
     "REPORT_WEBHOOK_DISABLED": "Sending reports to the developer isn't set up on this server.",
     "REPORT_SEND_FAILED": "Couldn't send the report to the developer. Try again later, or download it and send the file instead.",
@@ -188,7 +194,8 @@
       "videos": "Background video",
       "storyboards": "Storyboard",
       "parallax": "Background parallax",
-      "bloom": "Bloom"
+      "bloom": "Bloom",
+      "bloomOff": "Off with the Speed profile"
     },
     "cursor": {
       "legend": "Cursor & colors",
@@ -245,7 +252,8 @@
     "download": "Download",
     "deleteFiles": "Delete files",
     "confirmDelete": "Delete the video, replay and log of this render? This can't be undone.",
-    "done": "Done"
+    "done": "Done",
+    "avgSpeed": "{speed}× avg"
   },
   "skins": {
     "title": "Skins",

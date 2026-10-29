@@ -66,7 +66,12 @@
     "skipIntro": "跳過前奏",
     "on": "開啟",
     "off": "關閉",
-    "moreHint": "還有 {n} 項：音訊、游標、HUD、物件…"
+    "moreHint": "還有 {n} 項：音訊、游標、HUD、物件…",
+    "speed": "速度設定",
+    "speedFast": "速度",
+    "speedBalanced": "平衡",
+    "speedQuality": "畫質",
+    "speedHint": "「速度」最快，畫質稍低並關閉 Bloom；「畫質」最慢，畫面最清晰、檔案較大。"
   },
   "presets": {
     "label": "預設組合",
@@ -153,6 +158,7 @@
     "BEATMAP_CHECKSUM_MISMATCH": "下載的圖譜版本與 replay 不符。",
     "RENDER_FAILED": "渲染失敗。",
     "RENDER_TIMEOUT": "渲染時間過長，已中止。",
+    "RENDER_STALLED": "渲染器停止回應，已中止渲染。",
     "INTERNAL_ERROR": "伺服器發生內部錯誤。",
     "REPORT_WEBHOOK_DISABLED": "此伺服器沒有設定傳送報告給開發者的功能。",
     "REPORT_SEND_FAILED": "無法把報告傳送給開發者，請稍後再試，或改為下載報告後傳送檔案。",
@@ -188,7 +194,8 @@
       "videos": "背景影片",
       "storyboards": "Storyboard",
       "parallax": "背景視差",
-      "bloom": "Bloom 光暈"
+      "bloom": "Bloom 光暈",
+      "bloomOff": "「速度」設定下固定關閉"
     },
     "cursor": {
       "legend": "游標與顏色",
@@ -245,7 +252,8 @@
     "download": "下載",
     "deleteFiles": "刪除檔案",
     "confirmDelete": "要刪除這次渲染的影片、replay 與日誌嗎？刪除後無法復原。",
-    "done": "完成"
+    "done": "完成",
+    "avgSpeed": "平均 {speed}×"
   },
   "skins": {
     "title": "Skin",

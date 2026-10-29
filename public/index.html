@@ -90,6 +90,15 @@
                 <label class="switch"><span id="skipIntroState" data-i18n="quick.on">On</span><input id="skipIntro" data-option="skipIntro" type="checkbox" class="tog-input" aria-labelledby="skipIntroLabel" checked><span class="tog" aria-hidden="true"></span></label>
               </div>
             </div>
+            <fieldset class="field">
+              <legend class="lbl" data-i18n="quick.speed">Speed profile</legend>
+              <div class="seg">
+                <label><input type="radio" name="speedProfile" id="speedProfile-fast" value="fast" data-option="speedProfile" aria-describedby="speedHint"><span data-i18n="quick.speedFast">Speed</span></label>
+                <label><input type="radio" name="speedProfile" id="speedProfile-balanced" value="balanced" data-option="speedProfile" aria-describedby="speedHint" checked><span data-i18n="quick.speedBalanced">Balanced</span></label>
+                <label><input type="radio" name="speedProfile" id="speedProfile-quality" value="quality" data-option="speedProfile" aria-describedby="speedHint"><span data-i18n="quick.speedQuality">Quality</span></label>
+              </div>
+              <p class="note" id="speedHint" data-i18n="quick.speedHint">Speed renders fastest at slightly lower image quality, with bloom off. Quality is slowest, with the sharpest image and bigger files.</p>
+            </fieldset>
             <div class="field"><label class="lbl" for="backgroundDim" data-i18n="settings.background.dim">Background dim</label>
               <div class="range"><input id="backgroundDim" data-option="backgroundDim" type="range" min="0" max="100" value="30"><output id="backgroundDimValue" for="backgroundDim">30%</output></div>
             </div>
@@ -183,7 +192,7 @@
             <label class="setting switch"><span data-i18n="settings.background.videos">Background video</span><input id="loadVideos" data-option="loadVideos" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
             <label class="setting switch"><span data-i18n="settings.background.storyboards">Storyboard</span><input id="loadStoryboards" data-option="loadStoryboards" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
             <label class="setting switch"><span data-i18n="settings.background.parallax">Background parallax</span><input id="backgroundParallax" data-option="backgroundParallax" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
-            <label class="setting switch"><span data-i18n="settings.background.bloom">Bloom</span><input id="bloom" data-option="bloom" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting switch"><span class="setting-name"><span data-i18n="settings.background.bloom">Bloom</span><span class="note sub" id="bloomOff" data-i18n="settings.background.bloomOff" hidden>Off with the Speed profile</span></span><input id="bloom" data-option="bloom" type="checkbox" class="tog-input" aria-describedby="bloomOff" checked><span class="tog" aria-hidden="true"></span></label>
           </fieldset>
           <fieldset>
             <legend data-i18n="settings.cursor.legend">Cursor &amp; colors</legend>
