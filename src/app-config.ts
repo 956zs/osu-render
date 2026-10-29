@@ -8,6 +8,15 @@ export interface AppConfig {
     selfTest: { width: number; height: number; timeoutMs: number };
   };
   preflight: { retryIntervalMs: number; softwareFallbackRetryMs: number };
+  render: { stallTimeoutMs: number };
+  speedProfiles: {
+    default: SpeedProfile;
+    /** Added to the quality value for HEVC encoders (same preset ladder). */
+    hevcQualityOffset: number;
+    /** Profiles that force Playfield.Bloom off regardless of the bloom option. */
+    disableBloom: readonly SpeedProfile[];
+    families: Readonly<Record<EncoderFamily, EncoderFamilyProfiles>>;
+  };
   diagnostics: {
     logTailBytes: number;
     reportLogTailBytes: number;
@@ -41,6 +50,16 @@ export interface AppConfig {
   i18n: { languages: readonly string[]; fallback: string };
 }
 
+export const SPEED_PROFILES = ['fast', 'balanced', 'quality'] as const;
+export type SpeedProfile = typeof SPEED_PROFILES[number];
+export const ENCODER_FAMILIES = ['nvenc', 'amf', 'qsv', 'x264'] as const;
+export type EncoderFamily = typeof ENCODER_FAMILIES[number];
+
+export interface EncoderProfileSetting { preset: string; quality: number }
+
+/** danser Recording.<encoder> values per profile: RateControl, the quality key (CQ, Quality or CRF) and Preset. */
+export type EncoderFamilyProfiles = { rateControl: string; qualityKey: string } & Record<SpeedProfile, EncoderProfileSetting>;
+
 type DeepReadonly<T> = { readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K] };
 type Json = Record<string, unknown>;
 
@@ -55,12 +74,15 @@ export function loadAppConfig(defaultsFile = DEFAULTS_FILE, localFile = LOCAL_CO
 }
 
 export function validateAppConfig(value: unknown): AppConfig {
-  const root = object(value, '(root)', ['encoders', 'preflight', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'preview', 'i18n']);
+  const root = object(value, '(root)', ['encoders', 'preflight', 'render', 'speedProfiles', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'preview', 'i18n']);
   const encoders = object(root.encoders, 'encoders', ['autoOrder', 'selfTest']);
   const autoOrder = object(encoders.autoOrder, 'encoders.autoOrder');
   if (!('default' in autoOrder)) throw configError('encoders.autoOrder.default', 'is required');
   const selfTest = object(encoders.selfTest, 'encoders.selfTest', ['width', 'height', 'timeoutMs']);
   const preflight = object(root.preflight, 'preflight', ['retryIntervalMs', 'softwareFallbackRetryMs']);
+  const render = object(root.render, 'render', ['stallTimeoutMs']);
+  const speedProfiles = object(root.speedProfiles, 'speedProfiles', ['default', 'hevcQualityOffset', 'disableBloom', 'families']);
+  const families = object(speedProfiles.families, 'speedProfiles.families', [...ENCODER_FAMILIES]);
   const diagnostics = object(root.diagnostics, 'diagnostics',
     ['logTailBytes', 'reportLogTailBytes', 'recentRenders', 'issueUrl', 'issueTemplate']);
   const reportWebhook = object(root.reportWebhook, 'reportWebhook',
@@ -89,6 +111,14 @@ export function validateAppConfig(value: unknown): AppConfig {
     preflight: {
       retryIntervalMs: integer(preflight.retryIntervalMs, 'preflight.retryIntervalMs', 1),
       softwareFallbackRetryMs: integer(preflight.softwareFallbackRetryMs, 'preflight.softwareFallbackRetryMs', 1),
+    },
+    render: { stallTimeoutMs: integer(render.stallTimeoutMs, 'render.stallTimeoutMs', 1000) },
+    speedProfiles: {
+      default: speedProfile(speedProfiles.default, 'speedProfiles.default'),
+      hevcQualityOffset: integer(speedProfiles.hevcQualityOffset, 'speedProfiles.hevcQualityOffset', 0),
+      disableBloom: speedProfileList(speedProfiles.disableBloom, 'speedProfiles.disableBloom'),
+      families: Object.fromEntries(ENCODER_FAMILIES
+        .map((family) => [family, encoderFamily(families[family], `speedProfiles.families.${family}`)])) as Record<EncoderFamily, EncoderFamilyProfiles>,
     },
     diagnostics: {
       logTailBytes: integer(diagnostics.logTailBytes, 'diagnostics.logTailBytes', 1),
@@ -168,6 +198,32 @@ function object(value: unknown, key: string, allowed?: string[]): Json {
   const unknown = allowed && Object.keys(value).find((name) => !allowed.includes(name));
   if (unknown) throw configError(key === '(root)' ? unknown : `${key}.${unknown}`, 'is not a known setting');
   return value;
+}
+
+function speedProfile(value: unknown, key: string): SpeedProfile {
+  if (!(SPEED_PROFILES as readonly unknown[]).includes(value)) throw configError(key, `must be one of ${SPEED_PROFILES.join(', ')}`);
+  return value as SpeedProfile;
+}
+
+function speedProfileList(value: unknown, key: string): SpeedProfile[] {
+  if (!Array.isArray(value)) throw configError(key, 'must be an array');
+  return value.map((item, index) => speedProfile(item, `${key}[${index}]`));
+}
+
+function encoderFamily(value: unknown, key: string): EncoderFamilyProfiles {
+  const family = object(value, key, ['rateControl', 'qualityKey', ...SPEED_PROFILES]);
+  const profiles = Object.fromEntries(SPEED_PROFILES.map((profile) => {
+    const setting = object(family[profile], `${key}.${profile}`, ['preset', 'quality']);
+    return [profile, {
+      preset: string(setting.preset, `${key}.${profile}.preset`, /^[a-z0-9]{1,20}$/),
+      quality: integer(setting.quality, `${key}.${profile}.quality`, 0),
+    }];
+  })) as Record<SpeedProfile, EncoderProfileSetting>;
+  return {
+    rateControl: string(family.rateControl, `${key}.rateControl`, /^[a-z]{1,10}$/),
+    qualityKey: string(family.qualityKey, `${key}.qualityKey`, /^[A-Za-z]{1,20}$/),
+    ...profiles,
+  };
 }
 
 function integer(value: unknown, key: string, minimum: number): number {

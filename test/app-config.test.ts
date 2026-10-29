@@ -91,3 +91,23 @@ test('deepMerge merges nested objects without mutating the base', () => {
   assert.deepEqual(base, { a: { b: 1, c: [1, 2] }, d: 'x' });
   assert.deepEqual(deepMerge({}, {}), {});
 });
+
+test('speed profile tables and the stall timeout are validated', async () => {
+  assert.equal(appConfig.render.stallTimeoutMs, 120000);
+  assert.equal(appConfig.speedProfiles.default, 'balanced');
+  assert.deepEqual(appConfig.speedProfiles.disableBloom, ['fast']);
+  const cases: Array<[unknown, RegExp]> = [
+    [{ speedProfiles: { default: 'turbo' } }, /speedProfiles\.default must be one of fast, balanced, quality/],
+    [{ speedProfiles: { disableBloom: ['slow'] } }, /speedProfiles\.disableBloom\[0\]/],
+    [{ speedProfiles: { families: { nvenc: { fast: { quality: -1 } } } } }, /speedProfiles\.families\.nvenc\.fast\.quality/],
+    [{ speedProfiles: { families: { qsv: { turbo: { preset: 'x', quality: 1 } } } } }, /speedProfiles\.families\.qsv\.turbo is not a known setting/],
+    [{ speedProfiles: { families: { av1: {} } } }, /speedProfiles\.families\.av1 is not a known setting/],
+    [{ speedProfiles: { families: { amf: { balanced: { preset: 'bad preset' } } } } }, /speedProfiles\.families\.amf\.balanced\.preset/],
+    [{ render: { stallTimeoutMs: 10 } }, /render\.stallTimeoutMs/],
+  ];
+  for (const [local, message] of cases) {
+    await withConfig(local, (defaults, localFile) => {
+      assert.throws(() => loadAppConfig(defaults, localFile), message, JSON.stringify(local));
+    });
+  }
+});

@@ -8,6 +8,38 @@
     "selfTest": { "width": 240, "height": 144, "timeoutMs": 20000 }
   },
   "preflight": { "retryIntervalMs": 5000, "softwareFallbackRetryMs": 300000 },
+  "render": { "stallTimeoutMs": 120000 },
+  "speedProfiles": {
+    "default": "balanced",
+    "hevcQualityOffset": 2,
+    "disableBloom": ["fast"],
+    "families": {
+      "nvenc": {
+        "rateControl": "cq", "qualityKey": "CQ",
+        "fast": { "preset": "p1", "quality": 24 },
+        "balanced": { "preset": "p4", "quality": 22 },
+        "quality": { "preset": "p7", "quality": 20 }
+      },
+      "amf": {
+        "rateControl": "cqp", "qualityKey": "CQ",
+        "fast": { "preset": "speed", "quality": 22 },
+        "balanced": { "preset": "balanced", "quality": 20 },
+        "quality": { "preset": "quality", "quality": 18 }
+      },
+      "qsv": {
+        "rateControl": "icq", "qualityKey": "Quality",
+        "fast": { "preset": "veryfast", "quality": 23 },
+        "balanced": { "preset": "faster", "quality": 20 },
+        "quality": { "preset": "slow", "quality": 15 }
+      },
+      "x264": {
+        "rateControl": "crf", "qualityKey": "CRF",
+        "fast": { "preset": "veryfast", "quality": 20 },
+        "balanced": { "preset": "faster", "quality": 18 },
+        "quality": { "preset": "medium", "quality": 16 }
+      }
+    }
+  },
   "diagnostics": {
     "logTailBytes": 65536,
     "reportLogTailBytes": 4096,

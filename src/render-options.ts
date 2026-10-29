@@ -1,4 +1,5 @@
-import { appConfig } from './app-config.js';
+import { SPEED_PROFILES, appConfig, type SpeedProfile } from './app-config.js';
+import { encoderFamily, isHevcEncoder, isSupportedEncoder, type VideoEncoder } from './encoders.js';
 import { AppError } from './errors.js';
 import { DEFAULT_SKIN, isValidSkinName } from './skins.js';
 
@@ -54,15 +55,24 @@ export interface RenderOptions {
   /** Skin folder name; existence is checked against the skins folder when the job is submitted. */
   readonly skin: string;
   readonly useSkinCursor: boolean;
+  /** Encoder preset/quality trade-off; 'fast' also turns bloom off. */
+  readonly speedProfile: SpeedProfile;
 }
 
 interface TogglePatch { readonly Show: boolean }
+
+/** danser Recording.<encoder> block; the quality key is CQ, Quality or CRF depending on the encoder. */
+export interface EncoderPatch {
+  readonly RateControl: string;
+  readonly Preset: string;
+  readonly [qualityKey: string]: string | number;
+}
 
 export interface DanserPatch {
   readonly Recording: {
     readonly FrameWidth: number;
     readonly FrameHeight: number;
-  };
+  } & { readonly [encoder in VideoEncoder]?: EncoderPatch };
   readonly Audio: {
     readonly GeneralVolume: number;
     readonly MusicVolume: number;
@@ -121,6 +131,7 @@ export const DEFAULT_RENDER_OPTIONS: Readonly<RenderOptions> = Object.freeze({
   resolution: '1080p',
   skin: DEFAULT_SKIN,
   useSkinCursor: false,
+  speedProfile: appConfig.speedProfiles.default,
   skipIntro: true,
   masterVolume: 50,
   musicVolume: 50,
@@ -171,7 +182,7 @@ const NUMERIC_OPTIONS = [
   'masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim',
   'backgroundBlur', 'playfieldScale', 'cursorSize', 'cursorTrailStyle',
 ] as const;
-const STRING_OPTIONS = ['resolution', 'skin'] as const;
+const STRING_OPTIONS = ['resolution', 'skin', 'speedProfile'] as const;
 const ALLOWED_OPTIONS = new Set<keyof RenderOptions>([
   ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...STRING_OPTIONS,
 ]);
@@ -186,6 +197,7 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
     ...DEFAULT_RENDER_OPTIONS,
     resolution: resolutionOption(input),
     skin: skinOption(input),
+    speedProfile: speedProfileOption(input),
     masterVolume: boundedInteger(input, 'masterVolume', { min: 0, max: 100 }),
     musicVolume: boundedInteger(input, 'musicVolume', { min: 0, max: 100 }),
     sampleVolume: boundedInteger(input, 'sampleVolume', { min: 0, max: 100 }),
@@ -226,9 +238,10 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
   return Object.freeze(options);
 }
 
-export function buildDanserPatch(options: Readonly<RenderOptions>): DanserPatch {
+/** `encoder` is the job's encoder (renders.encoder); unknown values get no encoder block. */
+export function buildDanserPatch(options: Readonly<RenderOptions>, encoder: string): DanserPatch {
   return {
-    Recording: buildRecordingPatch(options),
+    Recording: buildRecordingPatch(options, encoder),
     Audio: buildAudioPatch(options),
     Skin: {
       CurrentSkin: options.skin,
@@ -243,9 +256,24 @@ export function buildDanserPatch(options: Readonly<RenderOptions>): DanserPatch 
   };
 }
 
-function buildRecordingPatch(options: Readonly<RenderOptions>): DanserPatch['Recording'] {
+function buildRecordingPatch(options: Readonly<RenderOptions>, encoder: string): DanserPatch['Recording'] {
   const dimensions = RESOLUTION_DIMENSIONS[options.resolution];
-  return { FrameWidth: dimensions.width, FrameHeight: dimensions.height };
+  const frame = { FrameWidth: dimensions.width, FrameHeight: dimensions.height };
+  if (!isSupportedEncoder(encoder)) return frame;
+  return { ...frame, [encoder]: buildEncoderPatch(encoder, options.speedProfile) };
+}
+
+export function buildEncoderPatch(encoder: VideoEncoder, profile: SpeedProfile): EncoderPatch {
+  const { speedProfiles } = appConfig;
+  const family = speedProfiles.families[encoderFamily(encoder)];
+  const setting = family[profile];
+  const quality = setting.quality + (isHevcEncoder(encoder) ? speedProfiles.hevcQualityOffset : 0);
+  return { RateControl: family.rateControl, [family.qualityKey]: quality, Preset: setting.preset };
+}
+
+/** Bloom as rendered: profiles listed in speedProfiles.disableBloom override the bloom option. */
+export function effectiveBloom(options: Readonly<RenderOptions>): boolean {
+  return options.bloom && !appConfig.speedProfiles.disableBloom.includes(options.speedProfile);
 }
 
 function buildAudioPatch(options: Readonly<RenderOptions>): DanserPatch['Audio'] {
@@ -270,7 +298,7 @@ function buildCursorPatch(options: Readonly<RenderOptions>): DanserPatch['Cursor
 function buildPlayfieldPatch(options: Readonly<RenderOptions>): DanserPatch['Playfield'] {
   return {
     Scale: options.playfieldScale / 100,
-    Bloom: { Enabled: options.bloom },
+    Bloom: { Enabled: effectiveBloom(options) },
     Background: {
       LoadStoryboards: options.loadStoryboards,
       LoadVideos: options.loadVideos,
@@ -343,6 +371,14 @@ function skinOption(input: Record<string, unknown>): string {
   const value = input.skin ?? DEFAULT_RENDER_OPTIONS.skin;
   if (!isValidSkinName(value, appConfig.skins.maxNameLength)) throw invalidOptions('skin must be the name of an installed skin.');
   return value;
+}
+
+function speedProfileOption(input: Record<string, unknown>): SpeedProfile {
+  const value = input.speedProfile ?? DEFAULT_RENDER_OPTIONS.speedProfile;
+  if (!(SPEED_PROFILES as readonly unknown[]).includes(value)) {
+    throw invalidOptions(`speedProfile must be one of ${SPEED_PROFILES.join(', ')}.`);
+  }
+  return value as SpeedProfile;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
