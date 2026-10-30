@@ -11,7 +11,7 @@ import { settings } from '../src/config.js';
 import { AppError } from '../src/errors.js';
 import { createHttpServer, type HttpDependencies } from '../src/http.js';
 import {
-  LAUNCHER_ENV, Updater, compareVersions, isAllowedDownloadUrl, isPortableLayout, parseChecksumFile, selectAssets,
+  LAUNCHER_ENV, Updater, compareVersions, isAllowedDownloadUrl, isPortableLayout, parseChecksumFile, parseReleaseNotes, selectAssets,
   type LatestRelease, type UpdaterOptions,
 } from '../src/updater.js';
 
@@ -21,6 +21,15 @@ const ZIP_URL = `https://github.com/956zs/osu-render/releases/download/v${NEW}/$
 const CDN_URL = `https://objects.githubusercontent.com/release/${ZIP_NAME}`;
 const API_URL = 'https://api.github.com/repos/956zs/osu-render/releases/latest';
 const SUPERVISED = { [LAUNCHER_ENV]: 'start.bat' };
+/** Release body as release.yml publishes it: generated changelog, then the packaging/release-notes.md template. */
+const RELEASE_BODY = [
+  "## What's changed", '', '### New', '- Report update status (report)', '- Show **release notes** in the [update banner](https://x/y) (ui)',
+  '', '### Fixes', '* Keep `h264_amf` and snake_case_names intact', '', '### Speed', '- Faster AMF preset', '',
+  '## Windows portable package', '', '- osu-render 0.5.0 (web UI + render queue)', '', '**Checksum (SHA-256)**', '', '```', 'abc  osu-render.zip', '```',
+].join('\r\n');
+const RELEASE_NOTES = [
+  'Report update status (report)', 'Show release notes in the update banner (ui)', 'Keep h264_amf and snake_case_names intact', 'Faster AMF preset',
+];
 
 function storeZip(entries: Array<{ name: string; data?: string }>): Buffer {
   const parts: Buffer[] = [];
@@ -81,6 +90,7 @@ function releaseJson(zip: Buffer, extraAssets: object[] = []): object {
   return {
     tag_name: `v${NEW}`,
     html_url: `https://github.com/956zs/osu-render/releases/tag/v${NEW}`,
+    body: RELEASE_BODY,
     assets: [
       ...extraAssets,
       { name: ZIP_NAME, browser_download_url: ZIP_URL, size: zip.length },
@@ -157,7 +167,7 @@ test('selectAssets picks the zip and checksum by exact name only', () => {
     { name: `${ZIP_NAME}.sig`, browser_download_url: 'https://github.com/y', size: 1 },
   ]) as { assets: Array<{ name: string; browser_download_url: string; size: number }> };
   const release: LatestRelease = {
-    version: NEW, notesUrl: '', assets: body.assets.map((asset) => ({ name: asset.name, url: asset.browser_download_url, size: asset.size })),
+    version: NEW, notesUrl: '', notes: [], assets: body.assets.map((asset) => ({ name: asset.name, url: asset.browser_download_url, size: asset.size })),
   };
   const selected = selectAssets(release);
   assert.equal(selected.zip.url, ZIP_URL);
@@ -215,7 +225,7 @@ test('checkLatest reports a newer release and caches it', async () => {
     const status = await updater.checkLatest();
     assert.deepEqual(status, {
       current: '0.4.0', latest: NEW, available: true, portable: true, enabled: true,
-      notesUrl: `https://github.com/956zs/osu-render/releases/tag/v${NEW}`, checkedAt: 1_000,
+      notesUrl: `https://github.com/956zs/osu-render/releases/tag/v${NEW}`, notes: RELEASE_NOTES, checkedAt: 1_000,
     });
     await Promise.all([updater.checkLatest(), updater.checkLatest()]);
     assert.equal(network.calls.length, 1);
@@ -247,6 +257,28 @@ test('checkLatest never throws and reports errors', async () => {
     const older = makeUpdater(root, { fetch: async () => Response.json({ tag_name: 'v0.3.0', assets: [] }) });
     assert.equal((await older.checkLatest()).available, false);
   });
+});
+
+test('parseReleaseNotes keeps New/Fixes/Speed bullets as plain text', () => {
+  const limits = appConfig.update;
+  assert.deepEqual(parseReleaseNotes(RELEASE_BODY, limits), RELEASE_NOTES);
+  assert.deepEqual(parseReleaseNotes(RELEASE_BODY.replaceAll('\r\n', '\n'), limits), RELEASE_NOTES);
+  assert.deepEqual(parseReleaseNotes(undefined, limits), []);
+  assert.deepEqual(parseReleaseNotes('', limits), []);
+  assert.deepEqual(parseReleaseNotes(42, limits), []);
+  assert.deepEqual(parseReleaseNotes('- outside any section\n## Quick start\n- step one', limits), [], 'other sections are ignored');
+  assert.deepEqual(parseReleaseNotes('### Fixes ###\n- `<img src=x onerror=alert(1)>` <b>bold</b> ~~old~~ *it*\n-\n- \t\n', limits),
+    ['bold old it'], 'HTML is dropped, empty bullets skipped');
+  assert.deepEqual(parseReleaseNotes('### New\n- a\n### Docs\n- b\n### speed\n- c', limits), ['a', 'c'], 'headings match case-insensitively');
+});
+
+test('parseReleaseNotes caps the body, the item count and the item length', () => {
+  const many = `### New\n${Array.from({ length: 30 }, (_, index) => `- item ${index}`).join('\n')}`;
+  assert.equal(parseReleaseNotes(many, appConfig.update).length, appConfig.update.notesMaxItems);
+  assert.deepEqual(parseReleaseNotes(many, { notesMaxChars: 20, notesMaxItems: 12, notesItemChars: 50 }), ['item 0'], 'a cut-off last line is dropped');
+  const long = parseReleaseNotes(`### New\n- ${'x'.repeat(500)}`, { notesMaxChars: 4000, notesMaxItems: 12, notesItemChars: 10 });
+  assert.deepEqual(long, [`${'x'.repeat(9)}…`]);
+  assert.deepEqual(parseReleaseNotes('### New\n- a', { notesMaxChars: 4000, notesMaxItems: 0, notesItemChars: 10 }), []);
 });
 
 test('disabled checks never touch the network', async () => {

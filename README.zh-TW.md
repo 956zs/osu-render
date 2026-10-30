@@ -202,6 +202,8 @@ Bloom 的設定），可以在 `config/local.json` 覆寫。渲染選項名稱�
    checksum，並解壓縮到 `data\update\staging\`。其中任何一步失敗都不會改動任何檔案，頁面也會顯示失敗。
 2. osu-render 停止，`start.bat` 在同一個視窗裡安裝新檔案並重新啟動。頁面會自動重新整理，並顯示「已更新到 osu-render X」。
 
+橫幅下方的 **更新內容** 會列出該版本的新功能、修正與加速（取自 release notes），並附上 GitHub 上完整說明的連結。
+
 會保留不動的：`.env`、`data` 資料夾（影片、上傳的皮膚、圖譜快取、日誌）、`config\local.json`，以及 danser 的
 `settings` 資料夾、`danser.db` 與 `skins` 資料夾。只有新版附帶不同版本的 danser 時才會替換 danser 本身。舊的程式檔案會移到
 `data\update\backup-<舊版本>`（只保留最新一份備份）。安裝失敗時會自動放回舊檔案並重新啟動舊版本，詳細資訊在
@@ -248,7 +250,7 @@ npm run build
 
 之後每次渲染結束（成功、失敗或逾時；取消的不算）都會把一份遮蔽過個人資訊的報告送到維護者的 Discord 頻道，「**診斷**」
 分頁也會多出「**傳送給開發者**」按鈕，可以手動傳送（例如啟動時就出問題）。自動報告會沿用啟動時的編碼器自我測試結果，
-不會重新測試，所以不會干擾渲染。訊息會寫出這次渲染的編碼器、解析度、耗時與平均速度（例如 `41.0 s, 1.82x avg`）；
+不會重新測試，所以不會干擾渲染。訊息會寫出這次渲染的編碼器、解析度、耗時、平均速度與速度設定（例如 `41.0 s, 1.82x avg, fast`），另有一行 `Update:` 說明是否有新版本；
 因非預期內部錯誤而失敗的渲染，還會多一行 `Detail:` 寫出簡短的錯誤訊息。網址錯誤時，服務會在啟動時顯示警告（並記錄 `report_webhook_invalid`），並在不回報的狀態下繼續執行；網址有效時會記錄 `report_webhook_enabled`。
 
 請不要把網址給別人：任何拿到網址的人都能在那個頻道發訊息。
@@ -514,7 +516,7 @@ danser 只檢查編碼器名稱是否存在於 FFmpeg；如果 GPU 或驅動其�
 | `GET /api/skins` | 已安裝的皮膚：`{ "skins": [{ "name" }] }`，內建的 `default` 排第一。 |
 | `POST /api/skins` | multipart 上傳：`skin`（`.osk` 檔）。安裝後回傳 `{ "name" }`，或錯誤 `SKIN_INVALID`（422）／`SKIN_TOO_LARGE`（413）。 |
 | `GET /api/diagnostics` | 診斷報告（與 `npm run doctor` 相同的 JSON）。 |
-| `GET /api/update` | 更新狀態：`{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`，上次查詢 GitHub 失敗時另有 `error`。最多每 `update.checkIntervalMs` 查詢 GitHub 一次。 |
+| `GET /api/update` | 更新狀態：`{ "current", "latest", "available", "portable", "enabled", "notesUrl", "notes", "checkedAt" }`，上次查詢 GitHub 失敗時另有 `error`。`notes` 是最新 release notes 中 New、Fixes、Speed 段落的純文字項目（最多 12 條）。最多每 `update.checkIntervalMs` 查詢 GitHub 一次。 |
 | `POST /api/update/apply` | 僅限用 `start.bat` 啟動的可攜版 zip：下載、驗證並準備最新版本，回傳 `{ "applying": true, "version" }`，然後透過 `start.bat` 重新啟動來安裝。錯誤：`UPDATE_NOT_PORTABLE`（409）、`UPDATE_BUSY`（409，有未完成的算圖或正在更新）、`UPDATE_FAILED`（502，沒有改動任何檔案）。 |
 | `POST /api/diagnostics/send` | 把診斷報告送到 `REPORT_WEBHOOK_URL`。回傳 `{ "sent": true }`，或錯誤 `REPORT_WEBHOOK_DISABLED`（409，未設定）／`REPORT_SEND_FAILED`（502）。 |
 | `GET /health` | 服務健康狀態（不需驗證）：`status`、`renderer`、`display`、`encoder`、`encoderKind`、`platform`、`queue`、`freeDiskBytes`、`reason`、`reportWebhook`、`bloomOffProfiles`（會關閉 Bloom 的速度設定）。 |
@@ -622,6 +624,11 @@ Node 22），並有一個 smoke job 在兩個平台下載 danser 0.12.1，檢查
 smoke test（包含程式內更新：保留與替換 danser 兩種情況、失敗回復，以及 `start.bat` 在 exit code 75 時重新啟動），
 然後建立 tag 與 GitHub Release，附上 zip 與它的 SHA-256 checksum。沒有改版本號的 push 不會發佈任何東西。手動 push
 `v*` tag 也仍然可以，release 只會建立一次。
+
+Release notes 由 commit 訊息自動產生，所以 **請使用 conventional commits**。Release 會列出上一個 tag 之後的 commit
+（`scripts/release-changelog.mjs`，不含 merge）：`feat:` 放在 *New*，`fix:` 放在 *Fixes*，`perf:` 放在 *Speed*；
+`docs:`、`chore:`、`test:`、`refactor:` 和其他類型都不列出。scope 會移到最後：`feat(ui): add x` 變成「Add x (ui)」。
+程式內更新橫幅的 *更新內容* 也是顯示這三個段落。預覽 notes：`node scripts/release-changelog.mjs v0.5.3 HEAD`。
 
 ## 授權與致謝
 

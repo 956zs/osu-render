@@ -97,6 +97,18 @@ test('rail footer holds the update card, a live renderer status and the language
   assert.match(startTag(foot, 'language'), /role="group"/);
 });
 
+test('update card lists the release note bullets as text under "What\'s new" next to the full notes link', async () => {
+  const { markup, script } = await page();
+  const banner = /<section class="update" id="updateBanner"[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
+  assert.match(startTag(banner, 'updateWhatsNew'), /<details\b[^>]*\shidden/);
+  assert.match(banner, /<summary data-i18n="update\.whatsNew">/);
+  startTag(banner, 'updateNoteList');
+  assert.match(startTag(banner, 'updateNotes'), /data-i18n="update\.notes"/);
+  assert.ok(banner.indexOf('updateWhatsNew') < banner.indexOf('id="updateNotes"'), 'bullets come before the full notes link');
+  assert.match(script, /item\.textContent = note;/);
+  assert.match(script, /updateWhatsNew\.hidden = notes\.length === 0;/);
+});
+
 test('render tab has the drop zone, quick settings, drawer and presets', async () => {
   const { markup, script } = await page();
   const render = section(markup, 'view-render');

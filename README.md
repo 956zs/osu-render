@@ -221,6 +221,9 @@ says *osu-render X is available*. Click **Update now** and confirm:
 2. osu-render stops, `start.bat` installs the new files in the same window and starts it again. The page reloads by
    itself and says *Updated to osu-render X*.
 
+Under the banner, **What's new** lists the new features, fixes and speed-ups of that release (taken from its
+release notes), with a link to the full notes on GitHub.
+
 Kept as they are: `.env`, the `data` folder (renders, uploaded skins, beatmap cache, logs), `config\local.json`, and
 danser's `settings` folder, `danser.db` and `skins` folder. danser itself is only replaced when the new release
 ships a different danser version. The previous app files are moved to `data\update\backup-<old version>` (only the
@@ -278,7 +281,7 @@ From then on, every finished render (successful, failed or timed out; not cancel
 to the maintainer's Discord channel, and the **Diagnostics** tab gets a **Send to developer** button for
 sending one by hand (for example after a startup problem). Automatic reports reuse the startup encoder
 self-test instead of running a new one, so they never interrupt rendering. The message names the render's
-encoder, resolution, render time and average speed (for example `41.0 s, 1.82x avg`); for a render that failed
+encoder, resolution, render time, average speed and speed profile (for example `41.0 s, 1.82x avg, fast`), plus an `Update:` line saying whether a newer version is out; for a render that failed
 with an unexpected internal error it adds a `Detail:` line with the short error message. If the URL is wrong, the service
 prints a warning at startup (and logs `report_webhook_invalid`) and keeps running without reporting; with a valid
 URL it logs `report_webhook_enabled`.
@@ -573,7 +576,7 @@ If `AUTH_TOKEN` is set, add `-H "Authorization: Bearer $AUTH_TOKEN"` to every `/
 | `DELETE /api/renders/:id/files` | Deletes the video, replay and log of your own finished render now; the history entry stays. Error `RENDER_ACTIVE` (409) while it is still running. A deleted video returns `RENDER_EXPIRED` (410). |
 | `GET /api/skins` | Installed skins: `{ "skins": [{ "name" }] }`, built-in `default` first. |
 | `POST /api/skins` | Multipart upload: `skin` (an `.osk`). Installs it and returns `{ "name" }`, or error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
-| `GET /api/update` | Update status: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`, plus `error` when the last GitHub check failed. GitHub is asked at most every `update.checkIntervalMs`. |
+| `GET /api/update` | Update status: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "notes", "checkedAt" }`, plus `error` when the last GitHub check failed. `notes` is up to 12 plain-text lines from the New, Fixes and Speed sections of the latest release notes. GitHub is asked at most every `update.checkIntervalMs`. |
 | `POST /api/update/apply` | Portable zip started by `start.bat` only: downloads, verifies and stages the newest release, answers `{ "applying": true, "version" }`, then restarts through `start.bat` to install it. Errors: `UPDATE_NOT_PORTABLE` (409), `UPDATE_BUSY` (409, a render is unfinished or an update is running), `UPDATE_FAILED` (502, nothing was changed). |
 | `GET /api/diagnostics` | Diagnostics report (same JSON as `npm run doctor`). |
 | `POST /api/diagnostics/send` | Sends the diagnostics report to `REPORT_WEBHOOK_URL`. Returns `{ "sent": true }`, or error `REPORT_WEBHOOK_DISABLED` (409, not configured) / `REPORT_SEND_FAILED` (502). |
@@ -694,6 +697,12 @@ does not, it assembles the Windows portable zip from the files in `packaging/` o
 extracted copy (including an in-app update with danser kept and replaced, a rollback, and the `start.bat` restart on
 exit code 75), then creates the tag and the GitHub Release with the zip and its SHA-256 checksum. Pushes that leave
 the version alone publish nothing. Pushing a `v*` tag by hand still works; the release is only created once.
+
+Release notes are generated from commit messages, so **use conventional commits**. The release lists the commits
+since the previous tag (`scripts/release-changelog.mjs`, merges left out): `feat:` goes under *New*, `fix:` under
+*Fixes* and `perf:` under *Speed*; `docs:`, `chore:`, `test:`, `refactor:` and anything else is left out. The scope
+moves to the end: `feat(ui): add x` becomes "Add x (ui)". These three sections are also what the in-app update
+banner shows under *What's new*. To preview the notes: `node scripts/release-changelog.mjs v0.5.3 HEAD`.
 
 ## License & credits
 

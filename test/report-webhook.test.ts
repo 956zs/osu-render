@@ -28,7 +28,8 @@ function fakeReport(overrides: Partial<DiagnosticsReport> = {}): DiagnosticsRepo
     storage: { freeBytes: 1 },
     renders: [{
       index: 1, status: 'failed', encoder: 'h264_nvenc', width: 1920, height: 1080, createdAt: 1, startedAt: 1000,
-      completedAt: 13300, renderMs: 12300, errorCode: 'RENDER_FAILED', errorDetail: null, avgSpeed: null, logTail: 'nvenc init failed',
+      completedAt: 13300, renderMs: 12300, errorCode: 'RENDER_FAILED', errorDetail: null, avgSpeed: null, speedProfile: 'balanced', resolution: '1080p',
+      logTail: 'nvenc init failed',
     }],
     errors: [],
     ...overrides,
@@ -77,7 +78,7 @@ test('buildWebhookMessage: summary content, no mentions, attachment, secrets scr
   assert.equal(message.payload.username, 'osu-render');
   const content = message.payload.content;
   assert.ok(content.length <= 2000);
-  assert.match(content, /^\*\*osu-render 0\.3\.0\*\* · render failed\nRender #1: failed \(h264_nvenc, 1920x1080, 12\.3 s, RENDER_FAILED\)\n```\n/);
+  assert.match(content, /^\*\*osu-render 0\.3\.0\*\* · render failed\nRender #1: failed \(h264_nvenc, 1920x1080, 12\.3 s, balanced, RENDER_FAILED\)\n```\n/);
   assert.match(content, /- Platform: win32 10\.0\.22631/);
   assert.match(content, /- GPUs: NVIDIA GeForce RTX 3060/);
   assert.match(content, /- Encoder: h264_nvenc \(hardware\)/);
@@ -103,14 +104,27 @@ test('buildWebhookMessage adds the internal detail of failed renders and the ave
   const failed = fakeReport({ focusRender: 1 });
   failed.renders[0] = { ...failed.renders[0], errorCode: 'INTERNAL_ERROR', errorDetail: 'TypeError: x is `undefined`' };
   const content = buildWebhookMessage(failed, 'render_failed', { username: 'u', secrets: [] }).payload.content;
-  assert.match(content, /\nRender #1: failed \(h264_nvenc, 1920x1080, 12\.3 s, INTERNAL_ERROR\)\nDetail: TypeError: x is 'undefined'\n```\n/);
+  assert.match(content, /\nRender #1: failed \(h264_nvenc, 1920x1080, 12\.3 s, balanced, INTERNAL_ERROR\)\nDetail: TypeError: x is 'undefined'\n```\n/);
   assert.equal(content.match(/```/g)?.length, 2);
 
   const completed = fakeReport({ focusRender: 1 });
   completed.renders[0] = { ...completed.renders[0], status: 'completed', errorCode: null, errorDetail: 'stale', avgSpeed: 1.8234 };
   const ok = buildWebhookMessage(completed, 'render_completed', { username: 'u', secrets: [] }).payload.content;
-  assert.match(ok, /\nRender #1: completed \(h264_nvenc, 1920x1080, 12\.3 s, 1\.82x avg\)\n```\n/);
+  assert.match(ok, /\nRender #1: completed \(h264_nvenc, 1920x1080, 12\.3 s, 1\.82x avg, balanced\)\n```\n/);
   assert.doesNotMatch(ok, /Detail:/);
+});
+
+test('buildWebhookMessage carries the update status line', () => {
+  const update = { current: '0.5.3', latest: '0.5.4', available: true, portable: true, enabled: true, checkedAt: 1 };
+  const available = buildWebhookMessage(fakeReport({ update }), 'manual', { username: 'u', secrets: [] }).payload.content;
+  assert.match(available, /\n- Update: 0\.5\.3 \(latest 0\.5\.4, available\)\n```$/);
+  const current = buildWebhookMessage(fakeReport({ update: { ...update, latest: '0.5.3', available: false } }), 'manual', { username: 'u', secrets: [] });
+  assert.match(current.payload.content, /\n- Update: up to date\n/);
+  const failed = fakeReport({ update: { ...update, latest: null, available: false, error: `HTTP 403 ${TOKEN}` } });
+  const failedMessage = buildWebhookMessage(failed, 'manual', { username: 'u', secrets: webhookSecrets(URL_OK) });
+  assert.match(failedMessage.payload.content, /\n- Update: check failed: HTTP 403 <secret>\n/);
+  assert.ok(!failedMessage.fileJson.includes(TOKEN));
+  assert.equal((JSON.parse(failedMessage.fileJson) as DiagnosticsReport).update?.latest, null);
 });
 
 test('buildWebhookMessage caps content at 2000 characters and neutralizes code fences', () => {

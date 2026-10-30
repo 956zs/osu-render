@@ -6,6 +6,7 @@ import { RenderDatabase } from './database.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { PreflightService } from './preflight.js';
 import { redactText } from './platform.js';
+import { Updater } from './updater.js';
 
 // stdout carries only the JSON report in --json mode; route any stray console output to stderr.
 console.log = console.error;
@@ -25,7 +26,9 @@ if (existsSync(paths.db)) {
 }
 
 try {
-  const report = await collectDiagnostics({ preflight, settings, paths, database });
+  // Read-only use: doctor never applies updates, it only asks GitHub for the newest release.
+  const updater = new Updater({ isBusy: () => false, restart: () => undefined });
+  const report = await collectDiagnostics({ preflight, settings, paths, database, updateStatus: () => updater.checkLatest(true) });
   const file = path.join(paths.diagnostics, `doctor-${report.generatedAt.replace(/[:.]/g, '-')}.json`);
   const text = `${JSON.stringify(report, null, 2)}\n`;
   let written = false;

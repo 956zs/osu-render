@@ -40,7 +40,11 @@
         <strong id="updateTitle"></strong>
         <span class="update-detail" id="updateDetail"></span>
         <button type="button" id="updateApply" class="btn primary small" hidden data-i18n="update.apply">Update now</button>
-        <a id="updateNotes" class="update-notes" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">What's new</a>
+        <details class="update-whatsnew" id="updateWhatsNew" hidden>
+          <summary data-i18n="update.whatsNew">What's new</summary>
+          <ul id="updateNoteList"></ul>
+        </details>
+        <a id="updateNotes" class="update-notes" target="_blank" rel="noopener noreferrer" hidden data-i18n="update.notes">Full release notes</a>
       </section>
       <div class="status" id="rendererStatus" role="status" aria-live="polite" hidden>
         <span class="dot" aria-hidden="true"></span>

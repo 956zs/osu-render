@@ -44,7 +44,8 @@
   "update": {
     "available": "Version {version} is out",
     "apply": "Update now",
-    "notes": "What's new",
+    "notes": "Full release notes",
+    "whatsNew": "What's new",
     "gitHint": "To update a source install, run git pull, npm ci and npm run build, then restart osu-render.",
     "confirm": "Download osu-render {version} and restart? Your settings and files are kept, and this page reloads by itself.",
     "downloading": "Downloading and checking the update. This can take a few minutes…",

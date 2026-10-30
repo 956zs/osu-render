@@ -231,6 +231,9 @@ dice *Ya está disponible osu-render X*. Haz clic en **Actualizar ahora** y conf
 2. osu-render se detiene, `start.bat` instala los archivos nuevos en la misma ventana y lo vuelve a iniciar. La
    página se recarga sola y dice *Actualizado a osu-render X*.
 
+Debajo del aviso, **Novedades** muestra las funciones nuevas, correcciones y mejoras de velocidad de esa versión
+(tomadas de sus notas de la release), con un enlace a las notas completas en GitHub.
+
 Se conservan tal cual: `.env`, la carpeta `data` (videos, skins subidos, caché de beatmaps, logs),
 `config\local.json`, y de danser la carpeta `settings`, `danser.db` y la carpeta `skins`. danser solo se reemplaza
 cuando la versión nueva trae otra versión de danser. Los archivos anteriores de la app se mueven a
@@ -290,8 +293,8 @@ Desde entonces, cada render terminado (correcto, fallido o que excedió el tiemp
 reporte anonimizado al canal de Discord del mantenedor, y la pestaña **Diagnóstico** muestra el botón **Enviar al
 desarrollador** para enviar uno a mano (por ejemplo, si hay un problema al arrancar). Los reportes automáticos
 reutilizan la prueba de codificadores del arranque en lugar de hacer una nueva, así que nunca interrumpen un
-render. El mensaje indica el codificador, la resolución, el tiempo y la velocidad media del render (por ejemplo
-`41.0 s, 1.82x avg`); si un render falló por un error interno inesperado, añade una línea `Detail:` con el mensaje
+render. El mensaje indica el codificador, la resolución, el tiempo, la velocidad media y el perfil de velocidad del render (por ejemplo
+`41.0 s, 1.82x avg, fast`), además de una línea `Update:` que dice si hay una versión nueva; si un render falló por un error interno inesperado, añade una línea `Detail:` con el mensaje
 de error corto. Si la URL no es válida, el servicio muestra una advertencia al arrancar (y registra `report_webhook_invalid`) y
 sigue funcionando sin reportar; con una URL válida registra `report_webhook_enabled`.
 
@@ -597,7 +600,7 @@ Si `AUTH_TOKEN` está definido, agrega `-H "Authorization: Bearer $AUTH_TOKEN"` 
 | `GET /api/skins` | Skins instalados: `{ "skins": [{ "name" }] }`, con el `default` integrado primero. |
 | `POST /api/skins` | Subida multipart: `skin` (un `.osk`). Lo instala y devuelve `{ "name" }`, o el error `SKIN_INVALID` (422) / `SKIN_TOO_LARGE` (413). |
 | `GET /api/diagnostics` | Reporte de diagnóstico (el mismo JSON que `npm run doctor`). |
-| `GET /api/update` | Estado de actualización: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "checkedAt" }`, más `error` si falló la última consulta a GitHub. Consulta GitHub como mucho cada `update.checkIntervalMs`. |
+| `GET /api/update` | Estado de actualización: `{ "current", "latest", "available", "portable", "enabled", "notesUrl", "notes", "checkedAt" }`, más `error` si falló la última consulta a GitHub. `notes` son hasta 12 líneas de texto de las secciones New, Fixes y Speed de las notas de la última release. Consulta GitHub como mucho cada `update.checkIntervalMs`. |
 | `POST /api/update/apply` | Solo el zip portable iniciado con `start.bat`: descarga, verifica y prepara la versión más nueva, responde `{ "applying": true, "version" }` y luego reinicia con `start.bat` para instalarla. Errores: `UPDATE_NOT_PORTABLE` (409), `UPDATE_BUSY` (409, hay un render sin terminar o ya se está actualizando), `UPDATE_FAILED` (502, no se cambió nada). |
 | `POST /api/diagnostics/send` | Envía el reporte de diagnóstico a `REPORT_WEBHOOK_URL`. Devuelve `{ "sent": true }`, o el error `REPORT_WEBHOOK_DISABLED` (409, no configurado) / `REPORT_SEND_FAILED` (502). |
 | `GET /health` | Estado del servicio (sin autenticación): `status`, `renderer`, `display`, `encoder`, `encoderKind`, `platform`, `queue`, `freeDiskBytes`, `reason`, `reportWebhook`, `bloomOffProfiles` (perfiles de velocidad que desactivan el bloom). |
@@ -723,6 +726,12 @@ copia descomprimida (incluida una actualización desde la app conservando y reem
 un fallo y el reinicio de `start.bat` con el código de salida 75), y luego crea el tag y la release de GitHub con el
 zip y su checksum SHA-256. Los push que no cambian la versión no publican nada. Hacer push de un tag `v*` a mano
 también funciona; la release se crea una sola vez.
+
+Las notas de la release se generan a partir de los mensajes de commit, así que **usa conventional commits**. La
+release lista los commits desde el tag anterior (`scripts/release-changelog.mjs`, sin merges): `feat:` va en *New*,
+`fix:` en *Fixes* y `perf:` en *Speed*; `docs:`, `chore:`, `test:`, `refactor:` y cualquier otro tipo se omiten. El
+scope pasa al final: `feat(ui): add x` queda como "Add x (ui)". Estas tres secciones son también lo que el aviso de
+actualización de la app muestra en *Novedades*. Para ver las notas antes: `node scripts/release-changelog.mjs v0.5.3 HEAD`.
 
 ## Licencia y créditos
 

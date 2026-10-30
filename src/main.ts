@@ -70,7 +70,7 @@ const reporter = reportWebhookUrl ? new WebhookReporter({
   secrets: webhookSecrets(settings.reportWebhookUrl),
   collect: (focusRender) => collectDiagnostics({
     preflight, preflightResult: preflightState.current(), settings, paths, database, storage, localSongs,
-    skipProbes: 'auto_report', focusRender,
+    skipProbes: 'auto_report', focusRender, updateStatus: () => updater.checkLatest(),
   }),
 }) : undefined;
 const queue = new RenderQueue({ database, resolver, renderer, storage, reporter });

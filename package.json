@@ -1,6 +1,6 @@
 {
   "name": "osu-render",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Self-hosted osu! replay (.osr) to MP4 render service powered by danser-go, with NVIDIA/AMD/Intel GPU encoding on Windows and Linux",
   "private": true,
   "license": "MIT",
