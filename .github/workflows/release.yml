@@ -69,6 +69,10 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The release notes list the commits since the previous tag.
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_MAJOR }}
@@ -167,6 +171,8 @@ jobs:
           [IO.File]::WriteAllText("$env:STAGE/VERSION.json", ($info | ConvertTo-Json) + "`n")
 
       - name: Create zip
+        env:
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $name = "osu-render-$version-win-x64.zip"
@@ -178,7 +184,13 @@ jobs:
           Pop-Location
           $hash = (Get-FileHash -Algorithm SHA256 "$out/$name").Hash.ToLowerInvariant()
           [IO.File]::WriteAllText("$out/$name.sha256", "$hash  $name`n")
-          $notes = (Get-Content packaging/release-notes.md -Raw).Replace('@VERSION@', $version).Replace('@NODE_VERSION@', $env:NODE_VERSION).Replace('@DANSER_VERSION@', $env:DANSER_VERSION).Replace('@SHA256@', $hash)
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $changelog = (node scripts/release-changelog.mjs auto $env:COMMIT_SHA) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw "release-changelog.mjs failed" }
+          Write-Host "Changelog:`n$changelog"
+          $template = Get-Content packaging/release-notes.md -Raw
+          if ($changelog.Trim()) { $template = "$($changelog.TrimEnd())`n`n$template" }
+          $notes = $template.Replace('@VERSION@', $version).Replace('@NODE_VERSION@', $env:NODE_VERSION).Replace('@DANSER_VERSION@', $env:DANSER_VERSION).Replace('@SHA256@', $hash)
           [IO.File]::WriteAllText("$out/release-notes.md", $notes)
           "ZIP=$out/$name" >> $env:GITHUB_ENV
           "OUT=$out" >> $env:GITHUB_ENV
