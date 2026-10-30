@@ -19,6 +19,8 @@ const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_CHECKSUM_BYTES = 4096;
 const MAX_REDIRECTS = 5;
+/** Section headings scripts/release-changelog.mjs writes; only these feed the in-app "What's new" list. */
+const NOTES_SECTIONS = new Set(['new', 'fixes', 'speed']);
 
 type UpdateConfig = AppConfig['update'];
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
@@ -27,7 +29,9 @@ export interface VersionInfo { app: string; node?: string; danser?: string }
 
 export interface ReleaseAsset { name: string; url: string; size: number }
 
-export interface LatestRelease { version: string; notesUrl: string; assets: ReleaseAsset[] }
+export interface LatestRelease { version: string; notesUrl: string; notes: string[]; assets: ReleaseAsset[] }
+
+type NotesLimits = Pick<UpdateConfig, 'notesMaxChars' | 'notesMaxItems' | 'notesItemChars'>;
 
 export interface UpdateStatus {
   current: string;
@@ -36,6 +40,8 @@ export interface UpdateStatus {
   portable: boolean;
   enabled: boolean;
   notesUrl: string | null;
+  /** Plain-text bullets from the New/Fixes/Speed sections of the latest release notes. */
+  notes: string[];
   checkedAt: number | null;
   error?: string;
 }
@@ -231,6 +237,7 @@ export class Updater {
       portable: this.portable,
       enabled: this.config.enabled,
       notesUrl: release?.notesUrl || null,
+      notes: release?.notes ?? [],
       checkedAt: this.cached?.at ?? null,
       ...(this.cached?.error ? { error: this.cached.error } : {}),
     };
@@ -279,7 +286,7 @@ export class Updater {
     });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`GitHub API returned HTTP ${response.status}`);
-    return parseRelease(await response.json());
+    return parseRelease(await response.json(), this.config);
   }
 
   private async stage(release: LatestRelease): Promise<void> {
@@ -350,8 +357,44 @@ function hostOf(value: string): string {
   try { return new URL(value).host; } catch { return 'invalid URL'; }
 }
 
-function parseRelease(value: unknown): LatestRelease {
-  const body = value as { tag_name?: unknown; html_url?: unknown; assets?: unknown };
+/**
+ * Turns a release body (markdown) into plain-text bullets: only "- " / "* " lines under a New, Fixes or Speed heading,
+ * with links, code spans, emphasis and HTML reduced to their text. Reads at most notesMaxChars of the body.
+ */
+export function parseReleaseNotes(body: unknown, limits: NotesLimits): string[] {
+  if (typeof body !== 'string') return [];
+  const notes: string[] = [];
+  let inSection = false;
+  // A cut-off last line would end mid-sentence, so a capped body drops it.
+  const text = body.length > limits.notesMaxChars ? body.slice(0, limits.notesMaxChars).replace(/[^\n]*$/, '') : body;
+  for (const line of text.split(/\r?\n/)) {
+    if (notes.length >= limits.notesMaxItems) break;
+    const heading = /^ {0,3}#{1,6}\s+(.*?)[\s#]*$/.exec(line);
+    if (heading) {
+      inSection = NOTES_SECTIONS.has(markdownToText(heading[1]).toLowerCase());
+      continue;
+    }
+    const bullet = inSection ? /^\s*[-*+]\s+(.*)$/.exec(line) : null;
+    const item = bullet ? markdownToText(bullet[1]) : '';
+    if (item) notes.push(item.length <= limits.notesItemChars ? item : `${item.slice(0, limits.notesItemChars - 1)}…`);
+  }
+  return notes;
+}
+
+function markdownToText(markdown: string): string {
+  return markdown
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]*>/g, '')
+    .replace(/`+/g, '')
+    .replace(/(\*\*|\*|~~)(?=\S)(.+?)(?<=\S)\1/g, '$2')
+    .replace(/(?<![\p{L}\p{N}])(__|_)(?=\S)(.+?)(?<=\S)\1(?![\p{L}\p{N}])/gu, '$2')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseRelease(value: unknown, limits: NotesLimits): LatestRelease {
+  const body = value as { tag_name?: unknown; html_url?: unknown; body?: unknown; assets?: unknown };
   const version = typeof body?.tag_name === 'string' ? body.tag_name.replace(/^v/, '') : '';
   if (!parseVersion(version)) throw new Error('latest release has an invalid tag');
   const notesUrl = typeof body.html_url === 'string' && body.html_url.startsWith('https://github.com/') ? body.html_url : '';
@@ -360,5 +403,5 @@ function parseRelease(value: unknown): LatestRelease {
     return typeof entry?.name === 'string' && typeof entry.browser_download_url === 'string' && Number.isSafeInteger(entry.size)
       ? [{ name: entry.name, url: entry.browser_download_url, size: entry.size as number }] : [];
   });
-  return { version, notesUrl, assets };
+  return { version, notesUrl, notes: parseReleaseNotes(body.body, limits), assets };
 }

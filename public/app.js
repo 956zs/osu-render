@@ -42,6 +42,8 @@ const updateTitle = $('#updateTitle');
 const updateDetail = $('#updateDetail');
 const updateApply = $('#updateApply');
 const updateNotes = $('#updateNotes');
+const updateWhatsNew = $('#updateWhatsNew');
+const updateNoteList = $('#updateNoteList');
 const renderIdle = $('#renderIdle');
 const drop = $('#drop');
 const fileInput = $('#file');
@@ -944,6 +946,16 @@ function renderUpdate() {
   const notesUrl = typeof update?.notesUrl === 'string' && update.notesUrl.startsWith(ISSUE_URL_PREFIX) ? update.notesUrl : null;
   updateNotes.hidden = !available || !notesUrl;
   if (notesUrl) updateNotes.href = notesUrl;
+  const notes = available && Array.isArray(update.notes) ? update.notes.filter((note) => typeof note === 'string' && note !== '') : [];
+  updateWhatsNew.hidden = notes.length === 0;
+  const shown = [...updateNoteList.children].map((item) => item.textContent);
+  if (shown.length !== notes.length || shown.some((text, index) => text !== notes[index])) {
+    updateNoteList.replaceChildren(...notes.map((note) => {
+      const item = document.createElement('li');
+      item.textContent = note;
+      return item;
+    }));
+  }
 }
 async function applyUpdate() {
   if (updateBusy || update?.available !== true) return;

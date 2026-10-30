@@ -43,6 +43,10 @@ export interface AppConfig {
     maxExtractedBytes: number;
     maxEntries: number;
     downloadHosts: readonly string[];
+    /** Release body chars read for "What's new", bullets shown, and chars per bullet. */
+    notesMaxChars: number;
+    notesMaxItems: number;
+    notesItemChars: number;
   };
   history: { defaultLimit: number; maxLimit: number };
   localSongs: { autoDetect: boolean; maxFiles: number; progressEvery: number };
@@ -90,7 +94,8 @@ export function validateAppConfig(value: unknown): AppConfig {
   const autoLogTail = object(reportWebhook.autoLogTailBytes, 'reportWebhook.autoLogTailBytes', ['failed', 'completed']);
   const skins = object(root.skins, 'skins', ['maxOskBytes', 'maxExtractedBytes', 'maxEntries', 'maxNameLength']);
   const update = object(root.update, 'update', ['enabled', 'checkOnStartup', 'repo', 'checkIntervalMs', 'apiTimeoutMs',
-    'downloadTimeoutMs', 'maxDownloadBytes', 'maxExtractedBytes', 'maxEntries', 'downloadHosts']);
+    'downloadTimeoutMs', 'maxDownloadBytes', 'maxExtractedBytes', 'maxEntries', 'downloadHosts',
+    'notesMaxChars', 'notesMaxItems', 'notesItemChars']);
   const history = object(root.history, 'history', ['defaultLimit', 'maxLimit']);
   const localSongs = object(root.localSongs, 'localSongs', ['autoDetect', 'maxFiles', 'progressEvery']);
   const preview = object(root.preview, 'preview', ['ttlSeconds']);
@@ -154,6 +159,9 @@ export function validateAppConfig(value: unknown): AppConfig {
       maxExtractedBytes: integer(update.maxExtractedBytes, 'update.maxExtractedBytes', 1),
       maxEntries: integer(update.maxEntries, 'update.maxEntries', 1),
       downloadHosts: stringArray(update.downloadHosts, 'update.downloadHosts', /^[a-z0-9-]+(\.[a-z0-9-]+)+$/),
+      notesMaxChars: integer(update.notesMaxChars, 'update.notesMaxChars', 1),
+      notesMaxItems: integer(update.notesMaxItems, 'update.notesMaxItems', 0),
+      notesItemChars: integer(update.notesItemChars, 'update.notesItemChars', 2),
     },
     history: {
       defaultLimit: integer(history.defaultLimit, 'history.defaultLimit', 1),

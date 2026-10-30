@@ -65,7 +65,10 @@
     "maxDownloadBytes": 1073741824,
     "maxExtractedBytes": 4294967296,
     "maxEntries": 50000,
-    "downloadHosts": ["github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]
+    "downloadHosts": ["github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"],
+    "notesMaxChars": 4000,
+    "notesMaxItems": 12,
+    "notesItemChars": 160
   },
   "history": { "defaultLimit": 20, "maxLimit": 100 },
   "localSongs": { "autoDetect": true, "maxFiles": 300000, "progressEvery": 5000 },

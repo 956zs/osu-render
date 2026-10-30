@@ -44,7 +44,8 @@
   "update": {
     "available": "Nueva versión {version}",
     "apply": "Actualizar ahora",
-    "notes": "Novedades",
+    "notes": "Notas completas de la versión",
+    "whatsNew": "Novedades",
     "gitHint": "Para actualizar una instalación desde el código fuente, ejecuta git pull, npm ci y npm run build, y reinicia osu-render.",
     "confirm": "¿Descargar osu-render {version} y reiniciar? Tu configuración y tus archivos se conservan, y esta página se recarga sola.",
     "downloading": "Descargando y verificando la actualización. Puede tardar unos minutos…",
