@@ -70,12 +70,14 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   let diagnosticsInFlight: Promise<DiagnosticsReport> | undefined;
   let diagnosticsCache: { at: number; report: DiagnosticsReport } | undefined;
   let manualSend: Promise<void> | undefined;
+  const updater = dependencies.updater;
   const diagnostics = async (): Promise<DiagnosticsReport> => {
     if (!diagnosticsCache || Date.now() - diagnosticsCache.at >= DIAGNOSTICS_CACHE_MS) {
       diagnosticsInFlight ??= collectDiagnostics({
         preflight: dependencies.preflight, preflightResult: dependencies.preflightState.current(),
         settings, paths: dependencies.paths, database: dependencies.database, storage: dependencies.storage,
         localSongs: dependencies.localSongs,
+        ...(updater ? { updateStatus: () => updater.checkLatest() } : {}),
         ...(renderActive(dependencies.database) ? { skipProbes: 'render_active' as const } : {}),
       }).then((report) => {
         diagnosticsCache = { at: Date.now(), report };
@@ -129,7 +131,6 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
   app.get('/api/skins', async (_request, reply) => reply.header('Cache-Control', 'no-store')
     .send({ skins: (await syncSkins(skinsDirOf(dependencies), appConfig.skins)).map((name) => ({ name })) }));
   app.post('/api/skins', async (request) => uploadSkin(request, dependencies));
-  const updater = dependencies.updater;
   if (updater) {
     app.get('/api/update', async (_request, reply) => reply.header('Cache-Control', 'no-store').send(await updater.checkLatest()));
     // The restart runs from onResponse so the browser gets the answer before the server goes away.

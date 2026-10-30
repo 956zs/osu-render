@@ -6,8 +6,8 @@ import test from 'node:test';
 import {
   ISSUE_OS_OPTIONS, ISSUE_RESULT_OPTIONS, buildIssueUrl, classifyHost, collectDiagnostics, createScrubber, issueOsOption,
   issueResultOption, parseDanserLog, parseFfmpegEncoders, parseLspciName, parseNvidiaProcVersion, parseNvidiaSmi,
-  parseWindowsGpuJson, pciVendorName, readLinuxGpus, readLogTail, scrubIpAddresses, scrubPlayerNames, scrubSecrets,
-  type DiagnosticsCommandRunner, type DiagnosticsSettings,
+  parseWindowsGpuJson, pciVendorName, readLinuxGpus, readLogTail, renderSummary, scrubIpAddresses, scrubPlayerNames, scrubSecrets,
+  updateSummary, type DiagnosticsCommandRunner, type DiagnosticsSettings, type RenderDiagnostics,
 } from '../src/diagnostics.js';
 import type { DanserTools } from '../src/platform.js';
 import type { PreflightResult, RenderRow } from '../src/types.js';
@@ -290,16 +290,29 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
             id: failedId, status: 'failed', player_name: 'SecretPlayer', error_code: 'RENDER_FAILED', started_at: 1000, completed_at: 4000,
             created_at: 900, error_detail: `TypeError: SecretPlayer at 10.1.2.3 token ${SECRET}`,
           }),
-          row({ id: okId, status: 'completed', player_name: 'OtherPlayer', started_at: 100, completed_at: 600, created_at: 50, avg_speed: 1.82 }),
+          row({
+            id: okId, status: 'completed', player_name: 'OtherPlayer', started_at: 100, completed_at: 600, created_at: 50, avg_speed: 1.82,
+            options_json: '{"speedProfile":"fast","resolution":"720p","skin":"default"}',
+          }),
         ].slice(0, limit),
       },
       storage: { freeBytes: async () => 42 },
       runCommand,
       platform: 'win32',
       now: new Date('2026-10-28T00:00:00Z'),
+      updateStatus: async () => ({
+        current: '0.5.3', latest: '0.5.4', available: true, portable: true, enabled: true, notesUrl: 'https://github.com/x', notes: ['New thing'],
+        checkedAt: 77, error: `GitHub said no to ${SECRET}`,
+      }),
     });
 
     assert.equal(probeAllCalls, 1);
+    assert.deepEqual(report.update, {
+      current: '0.5.3', latest: '0.5.4', available: true, portable: true, enabled: true, checkedAt: 77, error: 'GitHub said no to <secret>',
+    });
+    assert.match(report.issue.body, /\n- Update: 0\.5\.3 \(latest 0\.5\.4, available\)$/);
+    assert.equal(JSON.parse(new URL(report.issue.url).searchParams.get('diagnostics') ?? '{}').update, '0.5.3 (latest 0.5.4, available)');
+    assert.deepEqual(report.renders.map((render) => [render.speedProfile, render.resolution]), [[null, null], ['fast', '720p']]);
     assert.equal(report.schema, 1);
     assert.equal(report.generatedAt, '2026-10-28T00:00:00.000Z');
     assert.equal(report.system.platform, 'win32');
@@ -384,7 +397,59 @@ test('collectDiagnostics tolerates every probe failing', async () => {
       assert.ok(sources.includes(source), `missing error for ${source}: ${sources.join(', ')}`);
     }
     assert.equal(new URL(report.issue.url).searchParams.get('result'), ISSUE_RESULT_OPTIONS.selfTestFailed);
+    assert.equal(report.update, undefined, 'no update source, no update field');
+    assert.doesNotMatch(report.issue.body, /Update:/);
   });
+});
+
+test('collectDiagnostics survives a throwing update source and damaged render options', async () => {
+  await withTempDir(async (directory) => {
+    const report = await collectDiagnostics({
+      preflight: {
+        run: async () => ({ renderer: true, display: true, encoder: 'libx264', probes: [] }),
+        probeAll: async () => [],
+        tools: async () => fakeTools(path.join(directory, 'danser')),
+      },
+      settings: settingsFor(path.join(directory, 'danser')),
+      paths: { data: directory, logs: directory },
+      database: {
+        recentRenders: () => [
+          row({ id: '66666666-6666-4666-8666-666666666661', options_json: 'not json' }),
+          row({ id: '66666666-6666-4666-8666-666666666662', options_json: '[1]' }),
+          row({ id: '66666666-6666-4666-8666-666666666663', options_json: '{"speedProfile":7,"resolution":"  "}' }),
+        ],
+      },
+      runCommand: async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); },
+      platform: 'darwin',
+      updateStatus: async () => { throw new Error('updater exploded'); },
+    });
+    assert.equal(report.update, undefined);
+    assert.deepEqual(report.errors.find((error) => error.source === 'update'), { source: 'update', error: 'updater exploded' });
+    assert.deepEqual(report.renders.map((render) => [render.speedProfile, render.resolution]), [[null, null], [null, null], [null, null]]);
+  });
+});
+
+test('updateSummary covers every update state', () => {
+  const base = { current: '0.5.3', latest: '0.5.3', available: false, portable: false, enabled: true, checkedAt: 1 };
+  assert.equal(updateSummary({ ...base, latest: '0.5.4', available: true }), '0.5.3 (latest 0.5.4, available)');
+  assert.equal(updateSummary({ ...base, latest: '0.5.4', available: true, error: 'later failure' }), '0.5.3 (latest 0.5.4, available)');
+  assert.equal(updateSummary(base), 'up to date');
+  assert.equal(updateSummary({ ...base, latest: null, error: 'HTTP 403' }), 'check failed: HTTP 403');
+  assert.equal(updateSummary({ ...base, error: 'HTTP 500' }), 'check failed: HTTP 500');
+  assert.equal(updateSummary({ ...base, latest: null, checkedAt: null }), 'not checked yet');
+  assert.equal(updateSummary({ ...base, enabled: false }), 'checks disabled');
+  assert.equal(updateSummary(undefined), 'unknown');
+});
+
+test('renderSummary shows the speed profile after the average speed', () => {
+  const render: RenderDiagnostics = {
+    index: 1, status: 'completed', encoder: 'h264_amf', width: 1920, height: 1080, createdAt: 1, startedAt: 0, completedAt: 116_700,
+    renderMs: 116_700, errorCode: null, errorDetail: null, avgSpeed: 1.92, speedProfile: 'fast', resolution: '1080p',
+  };
+  assert.equal(renderSummary(render), 'completed (h264_amf, 1920x1080, 116.7 s, 1.92x avg, fast)');
+  assert.equal(renderSummary({ ...render, speedProfile: null, avgSpeed: null }), 'completed (h264_amf, 1920x1080, 116.7 s)');
+  assert.equal(renderSummary({ ...render, status: 'failed', errorCode: 'RENDER_STALLED' }),
+    'failed (h264_amf, 1920x1080, 116.7 s, 1.92x avg, fast, RENDER_STALLED)');
 });
 
 test('player names matching encoder or GPU words only scrub free text', async () => {

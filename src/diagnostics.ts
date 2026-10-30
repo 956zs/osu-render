@@ -10,6 +10,7 @@ import { libraryEnvironment, redactText, type DanserTools } from './platform.js'
 import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 import type { EncoderProbe, Paths, PreflightResult, RenderRow } from './types.js';
 import type { LocalSongsStatus } from './local-songs.js';
+import type { UpdateStatus } from './updater.js';
 
 const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -76,6 +77,8 @@ export interface DiagnosticsOptions {
   focusRender?: { id: string; logTailBytes: number };
   /** Local osu!stable Songs index (counts only, no paths). */
   localSongs?: { status(): LocalSongsStatus };
+  /** Update check result (e.g. Updater.checkLatest); errors end up in the report, never thrown. */
+  updateStatus?: () => Promise<UpdateStatus>;
 }
 
 export type ProbesSkipped = 'render_active' | 'auto_report';
@@ -114,6 +117,9 @@ export interface RenderDiagnostics {
   errorDetail: string | null;
   /** Average render speed danser reported (1 = real time). */
   avgSpeed: number | null;
+  /** Speed profile and resolution option the render was submitted with (null for renders that predate them). */
+  speedProfile: string | null;
+  resolution: string | null;
   logTail?: string;
 }
 
@@ -144,10 +150,13 @@ export interface DiagnosticsReport {
   };
   storage: { freeBytes: number | null };
   localSongs?: LocalSongsStatus;
+  update?: UpdateReport;
   renders: RenderDiagnostics[];
   errors: Array<{ source: string; error: string }>;
   issue: { url: string; title: string; body: string };
 }
+
+export type UpdateReport = Pick<UpdateStatus, 'current' | 'latest' | 'available' | 'portable' | 'enabled' | 'checkedAt' | 'error'>;
 
 type Errors = DiagnosticsReport['errors'];
 export type HostScope = 'loopback' | 'any' | 'other';
@@ -178,12 +187,13 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     const focused = options.database?.getRender?.(focusId);
     return focused ? [...recent, focused] : recent;
   });
-  const [gpus, danser, freeBytes, renders, version] = await Promise.all([
+  const [gpus, danser, freeBytes, renders, version, update] = await Promise.all([
     collectGpus({ platform, env, runCommand, errors, sysDrmDir: options.sysDrmDir ?? '/sys/class/drm' }),
     collectDanser(options.settings.danserDir, tools, toolEnv, runCommand, errors),
     attempt<number | null>('storage', null, () => options.storage?.freeBytes() ?? freeBytesOf(options.paths.data)),
     collectRenders(rows, options.paths.logs, errors, options.focusRender),
     appVersion(),
+    options.updateStatus ? collectUpdate(options.updateStatus, errors) : undefined,
   ]);
   const playerNames = rows.map((row) => row.player_name ?? '').filter(Boolean);
 
@@ -212,6 +222,7 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     },
     storage: { freeBytes },
     ...(options.localSongs ? { localSongs: options.localSongs.status() } : {}),
+    ...(update ? { update } : {}),
     renders,
     errors,
   };
@@ -534,6 +545,7 @@ async function collectRenders(
       createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at,
       renderMs: row.started_at !== null && row.completed_at !== null ? Math.max(0, row.completed_at - row.started_at) : null,
       errorCode: row.error_code, errorDetail: row.error_detail ?? null, avgSpeed: row.avg_speed ?? null,
+      ...submittedOptions(row.options_json),
     };
     const tailBytes = row.id === focus?.id ? focus.logTailBytes
       : row.status === 'failed' ? appConfig.diagnostics.reportLogTailBytes : 0;
@@ -548,6 +560,40 @@ async function collectRenders(
     renders.push(render);
   }
   return renders;
+}
+
+/** Reads the options as stored, without defaults: older renders have no speed profile and must not look like they had one. */
+function submittedOptions(json: string | undefined): Pick<RenderDiagnostics, 'speedProfile' | 'resolution'> {
+  let options: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(json ?? '{}');
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) options = parsed as Record<string, unknown>;
+  } catch { /* stored by an old version or damaged: report nothing */ }
+  return { speedProfile: field(options.speedProfile) ?? null, resolution: field(options.resolution) ?? null };
+}
+
+// ---------------------------------------------------------------- update
+
+async function collectUpdate(source: () => Promise<UpdateStatus>, errors: Errors): Promise<UpdateReport | undefined> {
+  try {
+    const status = await source();
+    return {
+      current: status.current, latest: status.latest, available: status.available, portable: status.portable,
+      enabled: status.enabled, checkedAt: status.checkedAt, ...(status.error ? { error: truncate(status.error, FIELD_CHARS) } : {}),
+    };
+  } catch (error) {
+    errors.push({ source: 'update', error: errorText(error) });
+    return undefined;
+  }
+}
+
+export function updateSummary(update: UpdateReport | undefined): string {
+  if (!update) return 'unknown';
+  if (!update.enabled) return 'checks disabled';
+  if (update.available && update.latest) return `${update.current} (latest ${update.latest}, available)`;
+  if (update.error) return `check failed: ${update.error}`;
+  if (update.latest === null) return 'not checked yet';
+  return 'up to date';
 }
 
 // ---------------------------------------------------------------- issue
@@ -587,6 +633,7 @@ export function buildIssueBody(report: IssueInput): string {
     `- ffmpeg: ${report.danser.ffmpegVersion ?? 'not found'}; encoders: ${report.danser.ffmpegEncoders.join(', ') || 'none'}`,
     `- Last render: ${lastRender ? renderSummary(lastRender) : 'none'}`,
     `- App: ${report.app.version}, Node ${report.app.node}`,
+    ...(report.update ? [`- Update: ${updateSummary(report.update)}`] : []),
   ];
   return truncate(lines.join('\n'), ISSUE_BODY_CHARS);
 }
@@ -610,8 +657,10 @@ export function issueSummary(report: IssueInput): Record<string, unknown> {
     probes: Object.fromEntries(report.encoderProbes.map((probe) => [probe.encoder, probe.ok ? 'ok' : `fail: ${(probe.error ?? '').slice(-160)}`])),
     lastRender: lastRender ? compact({
       status: lastRender.status, encoder: lastRender.encoder, size: `${lastRender.width}x${lastRender.height}`,
-      renderMs: lastRender.renderMs, avgSpeed: lastRender.avgSpeed, errorCode: lastRender.errorCode,
+      renderMs: lastRender.renderMs, avgSpeed: lastRender.avgSpeed, speedProfile: lastRender.speedProfile ?? undefined,
+      errorCode: lastRender.errorCode,
     }) : null,
+    update: report.update ? updateSummary(report.update) : undefined,
     errors: report.errors.map((error) => error.source),
   };
 }
@@ -686,7 +735,8 @@ function driverSummary(report: IssueInput): string {
 export function renderSummary(render: RenderDiagnostics): string {
   const seconds = render.renderMs === null ? '' : `, ${(render.renderMs / 1000).toFixed(1)} s`;
   const speed = render.avgSpeed === null ? '' : `, ${render.avgSpeed.toFixed(2)}x avg`;
-  return `${render.status} (${render.encoder}, ${render.width}x${render.height}${seconds}${speed}${render.errorCode ? `, ${render.errorCode}` : ''})`;
+  const profile = render.speedProfile ? `, ${render.speedProfile}` : '';
+  return `${render.status} (${render.encoder}, ${render.width}x${render.height}${seconds}${speed}${profile}${render.errorCode ? `, ${render.errorCode}` : ''})`;
 }
 
 // ---------------------------------------------------------------- helpers
