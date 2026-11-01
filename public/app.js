@@ -122,6 +122,8 @@ const previewTitle = $('#previewTitle');
 const previewVideo = $('#previewVideo');
 const previewClose = $('#previewClose');
 const optionControls = [...document.querySelectorAll('[data-option]')];
+let plugins = [];
+let pluginValues = {};
 const DEFAULT_OPTIONS = renderOptions();
 
 let messages = null;
@@ -129,8 +131,6 @@ let languageRequest = 0;
 let currentLanguage = FALLBACK_LANGUAGE;
 let route = null;
 let health = null;
-let plugins = [];
-let pluginValues = {};
 let jobId = null;
 let jobTimer = null;
 let currentJob = null;
