@@ -155,7 +155,8 @@ export class BeatmapResolver {
   }
 }
 
-async function findMatchingOsu(root: string, checksum: string): Promise<string | null> {
+/** The .osu file under `root` whose MD5 is `checksum`. */
+export async function findMatchingOsu(root: string, checksum: string): Promise<string | null> {
   for (const entry of await readdir(root, { withFileTypes: true })) {
     const current = path.join(root, entry.name);
     if (entry.isDirectory()) {

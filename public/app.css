@@ -408,6 +408,11 @@ dialog::backdrop { background: var(--color-backdrop); }
 .setting.switch { padding: 10px 12px; font-size: 14px; font-weight: 600; }
 .setting.switch .tog-input { right: 12px; }
 .setting-name { display: flex; flex-direction: column; gap: 2px; }
+#pluginList { display: contents; }
+.plugin { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#pluginsNone { grid-column: 1 / -1; }
+.plugin-title { grid-column: 1 / -1; margin: 6px 0 0; font-weight: 700; }
+.plugin > .note { grid-column: 1 / -1; margin: 0; }
 .note.sub { margin-top: 0; font-size: 12.5px; font-weight: 400; }
 .tog-input:disabled, .switch:has(.tog-input:disabled) { cursor: not-allowed; }
 .tog-input:disabled + .tog { opacity: .5; }
@@ -462,7 +467,7 @@ dialog::backdrop { background: var(--color-backdrop); }
   }
   .tabbar a[aria-current="page"] { background: var(--color-pink); color: var(--color-on-pink); }
   .drawer { width: 100vw; height: auto; max-height: 88vh; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; }
-  .drawer-body fieldset { grid-template-columns: minmax(0, 1fr); }
+  .drawer-body fieldset, .plugin { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

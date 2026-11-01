@@ -28,6 +28,8 @@ const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv
 const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
 const PERCENT_RANGES = ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale'];
 const SKIN_SWATCHES = 4;
+// The switch every plugin gets (its option key on the server).
+const PLUGIN_ENABLED = 'enabled';
 const RING_CIRCUMFERENCE = 2 * Math.PI * 88;
 
 const languageButtons = [...document.querySelectorAll('#language [data-lang]')];
@@ -89,6 +91,8 @@ const drawer = $('#settingsDrawer');
 const drawerClose = $('#drawerClose');
 const settingsSearch = $('#settingsSearch');
 const settingsNoMatch = $('#settingsNoMatch');
+const pluginList = $('#pluginList');
+const pluginsNone = $('#pluginsNone');
 const presetList = $('#presetList');
 const presetSave = $('#presetSave');
 const presetReset = $('#presetReset');
@@ -125,6 +129,8 @@ let languageRequest = 0;
 let currentLanguage = FALLBACK_LANGUAGE;
 let route = null;
 let health = null;
+let plugins = [];
+let pluginValues = {};
 let jobId = null;
 let jobTimer = null;
 let currentJob = null;
@@ -162,7 +168,7 @@ function storageJson(storage, key) {
 token.value = storageGet(sessionStorage, TOKEN_STORAGE_KEY) ?? '';
 token.addEventListener('change', () => {
   storageSet(sessionStorage, TOKEN_STORAGE_KEY, token.value || null);
-  loadSkins(); loadHistory(); loadUpdate();
+  loadSkins(); loadPlugins(); loadHistory(); loadUpdate();
 });
 for (const control of optionControls) {
   control.addEventListener('input', () => { syncOutput(control); optionsChanged(); });
@@ -225,6 +231,7 @@ loadUpdate();
 setInterval(loadUpdate, UPDATE_REFRESH_MS);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadUpdate(); });
 loadSkins();
+loadPlugins();
 loadHistory();
 resumeJob();
 
@@ -257,10 +264,13 @@ function renderOptions() {
     else if (control.type === 'range' || control.dataset.type === 'number') options[key] = Number(control.value);
     else options[key] = control.value;
   }
+  options.plugins = pluginOptions();
   return options;
 }
 function applyOptions(options) {
   if (!options || typeof options !== 'object') return;
+  pluginValues = options.plugins && typeof options.plugins === 'object' && !Array.isArray(options.plugins) ? options.plugins : {};
+  renderPlugins();
   for (const control of optionControls) {
     const key = control.dataset.option;
     const value = options[key];
@@ -697,6 +707,103 @@ function formatSize(bytes) {
   return bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
 }
 
+// ---- plugins (All settings → Plugins, built from /api/plugins manifests) ----
+async function loadPlugins() {
+  try {
+    const response = await api('/api/plugins', { cache: 'no-store' });
+    const data = await readJson(response);
+    if (response.ok && Array.isArray(data?.plugins)) plugins = data.plugins.filter((plugin) => typeof plugin?.id === 'string');
+  } catch { /* keep what is shown */ }
+  renderPlugins();
+}
+// Manifest strings in the page language, then English, then the manifest's own text.
+function pluginText(plugin, pick, fallback) {
+  for (const language of [currentLanguage, 'en']) {
+    const strings = plugin.i18n?.[language];
+    const text = strings ? pick(strings) : undefined;
+    if (typeof text === 'string' && text) return text;
+  }
+  return fallback;
+}
+function pluginValue(plugin, option) {
+  const value = pluginValues[plugin.id]?.[option.key];
+  if (option.type === 'toggle') return typeof value === 'boolean' ? value : option.default;
+  if (option.type === 'select') return option.values.includes(value) ? value : option.default;
+  return typeof value === 'number' && value >= option.min && value <= option.max ? value : option.default;
+}
+function setPluginValue(id, key, value) {
+  pluginValues = { ...pluginValues, [id]: { ...pluginValues[id], [key]: value } };
+  optionsChanged();
+}
+function renderPlugins() {
+  pluginsNone.hidden = plugins.length > 0;
+  pluginList.replaceChildren(...plugins.map((plugin) => {
+    const block = document.createElement('div');
+    block.className = 'plugin';
+    const title = document.createElement('p');
+    title.className = 'plugin-title';
+    title.textContent = `${pluginText(plugin, (s) => s.name, plugin.name)} ${plugin.version ?? ''}`.trim();
+    const about = document.createElement('p');
+    about.className = 'note';
+    about.textContent = plugin.available ? pluginText(plugin, (s) => s.description, plugin.description ?? '')
+      : t('settings.plugins.unavailable', { reason: plugin.reason ?? '' });
+    const enabled = { key: PLUGIN_ENABLED, type: 'toggle', default: false };
+    const controls = [enabled, ...(Array.isArray(plugin.options) ? plugin.options : [])].map((option) => pluginControl(plugin, option));
+    block.replaceChildren(title, about, ...controls);
+    return block;
+  }));
+  if (settingsSearch.value) filterSettings();
+}
+function pluginControl(plugin, option) {
+  const label = document.createElement('label');
+  const name = document.createElement('span');
+  name.textContent = option.key === PLUGIN_ENABLED ? t('settings.plugins.enable')
+    : pluginText(plugin, (s) => s.options?.[option.key]?.label, option.key);
+  const value = pluginValue(plugin, option);
+  let input;
+  if (option.type === 'toggle') {
+    label.className = 'setting switch';
+    input = document.createElement('input');
+    input.type = 'checkbox'; input.className = 'tog-input'; input.checked = value;
+    input.addEventListener('change', () => setPluginValue(plugin.id, option.key, input.checked));
+    const knob = document.createElement('span'); knob.className = 'tog'; knob.setAttribute('aria-hidden', 'true');
+    label.append(name, input, knob);
+  } else if (option.type === 'select') {
+    label.className = 'setting choice';
+    input = document.createElement('select');
+    input.className = 'select';
+    input.append(...option.values.map((choice) => {
+      const item = document.createElement('option');
+      item.value = choice;
+      item.textContent = pluginText(plugin, (s) => s.options?.[option.key]?.values?.[choice], choice);
+      return item;
+    }));
+    input.value = value;
+    input.addEventListener('change', () => setPluginValue(plugin.id, option.key, input.value));
+    label.append(name, input);
+  } else {
+    label.className = 'setting slider';
+    const range = document.createElement('span'); range.className = 'range';
+    input = document.createElement('input');
+    input.type = 'range'; input.min = String(option.min); input.max = String(option.max); input.step = String(option.step ?? 1);
+    input.value = String(value);
+    const output = document.createElement('output');
+    const show = () => { output.value = `${input.value}${option.unit ?? ''}`; };
+    show();
+    input.addEventListener('input', () => { show(); setPluginValue(plugin.id, option.key, Number(input.value)); });
+    range.append(input, output);
+    label.append(name, range);
+  }
+  input.dataset.plugin = plugin.id;
+  input.dataset.pluginKey = option.key;
+  input.disabled = !plugin.available;
+  return label;
+}
+// The options of every plugin the page knows (also ones from a preset whose plugin is not listed yet).
+function pluginOptions() {
+  return JSON.parse(JSON.stringify(pluginValues));
+}
+
 // ---- skins ----
 async function loadSkins() {
   let names = [];
@@ -1013,7 +1120,7 @@ async function setLanguage(language) {
   applyTranslations();
   renderSwitchState(); renderPresets(); renderPresetStatus();
   renderHealth(); renderJob(); renderHistory(); renderSkins(); renderSkinStatus();
-  renderDiagnosticsStatus(); renderProbes(); renderUpdate();
+  renderDiagnosticsStatus(); renderProbes(); renderUpdate(); renderPlugins();
   if (settingsSearch.value) filterSettings();
 }
 async function loadMessages(language) {

@@ -236,6 +236,12 @@
       "sliderEnds": "Círculo final del Slider",
       "followCircle": "Follow circle del Slider",
       "ticks": "Ticks del Slider"
+    },
+    "plugins": {
+      "legend": "Plugins",
+      "none": "No hay plugins instalados en este servidor. El dueño del servidor los instala con npm run plugin.",
+      "enable": "Usar en este render",
+      "unavailable": "No disponible en este servidor: {reason}"
     }
   },
   "history": {

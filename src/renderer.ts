@@ -9,6 +9,8 @@ import {
 } from './platform.js';
 import type { Paths, RenderRow } from './types.js';
 import { buildDanserPatch, parseRenderOptions } from './render-options.js';
+import type { PluginHost } from './plugins/host.js';
+import { log } from './logger.js';
 
 const execFileAsync = promisify(execFile);
 const PROGRESS_PATTERN = /Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)?x?(?:,\s*ETA:\s*([^,]*))?/g;
@@ -52,6 +54,8 @@ export interface RendererOptions {
   logTailBytes?: number;
   terminateGraceMs?: number;
   spawnProcess?: ProcessSpawner;
+  /** Installed plugins; renders that enable one run its video stage after danser. */
+  plugins?: Pick<PluginHost, 'runVideoStage' | 'wants'>;
 }
 
 interface ActiveRender {
@@ -64,6 +68,7 @@ type Outcome = 'completed' | 'failed' | 'cancelled' | 'timeout' | 'stalled';
 
 export class DanserRenderer {
   private active: ActiveRender | null = null;
+  private stage: { jobId: string; abort: AbortController } | null = null;
   private readonly platform: NodeJS.Platform;
 
   constructor(private readonly options: RendererOptions) {
@@ -80,6 +85,7 @@ export class DanserRenderer {
     try {
       const speed = await this.runDanser(job.id, tools, args, onProgress);
       await access(danserOutput);
+      await this.runPlugins(job, danserOutput, tools);
       await renameWithRetry(danserOutput, partOutput);
       await this.validateVideo(tools, partOutput);
       await renameWithRetry(partOutput, finalOutput);
@@ -91,6 +97,11 @@ export class DanserRenderer {
   }
 
   async cancel(jobId: string): Promise<void> {
+    if (this.stage?.jobId === jobId) {
+      this.stage.abort.abort();
+      await this.cleanupOutputs(jobId).catch(() => undefined);
+      return;
+    }
     const active = this.active;
     if (!active || active.jobId !== jobId) return;
     active.cancelled = true;
@@ -102,6 +113,23 @@ export class DanserRenderer {
     await exited;
     clearTimeout(force);
     await this.cleanupOutputs(jobId).catch(() => undefined);
+  }
+
+  /** The plugins' video stage; a plugin problem is logged by the host and never fails the render. */
+  private async runPlugins(job: RenderRow, video: string, tools: DanserTools): Promise<void> {
+    const options = parseRenderOptions(job.options_json);
+    if (!this.options.plugins?.wants(options)) return;
+    const stage = { jobId: job.id, abort: new AbortController() };
+    this.stage = stage;
+    try {
+      await this.options.plugins.runVideoStage(job, video, options, tools, stage.abort.signal);
+    } catch (error) {
+      if (stage.abort.signal.aborted) throw error;
+      // the host isolates each plugin; this is the host itself failing (e.g. no ffprobe): keep danser's video
+      log('warn', 'plugin_stage_failed', { component: 'render', jobId: job.id, error: redactText(String(error)) });
+    } finally {
+      if (this.stage === stage) this.stage = null;
+    }
   }
 
   private async runDanser(

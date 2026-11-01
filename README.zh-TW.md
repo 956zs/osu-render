@@ -24,6 +24,7 @@
 - [自訂皮膚](#自訂皮膚)
 - [渲染歷史與保存期限](#渲染歷史與保存期限)
 - [本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)
+- [外掛](#外掛)
 - [更新](#更新)
 - [回報測試結果（給測試者）](#回報測試結果給測試者)
 - [常見問題](#常見問題)
@@ -192,6 +193,21 @@ Bloom 的設定），可以在 `config/local.json` 覆寫。渲染選項名稱�
 - 圖譜會複製到 `data/songs`，不會修改你的 osu! 資料夾。連結（symlink／junction）資料夾會被略過。
 - 本機複製因任何原因失敗時，會改回用 osu! API 與 mirror。
 - 不支援 osu!lazer（它用雜湊值存放檔案，沒有 Songs 資料夾）。
+
+## 外掛
+
+外掛會在 danser 渲染完後加一個步驟，例如跟 replay 同步的覆蓋層。外掛是含 `plugin.json` 與 JavaScript 模組的資料夾，
+由伺服器擁有者用命令列安裝（不能從網頁上傳，因為外掛以服務的權限執行）：
+
+```sh
+npm run plugin -- install 外掛資料夾或.zip
+npm run plugin -- list
+npm run plugin -- remove <id>
+```
+
+裝好後重新啟動服務。已安裝的外掛會出現在「**所有設定 → 外掛**」，附上它的選項（無法在這台機器執行時會變灰並說明原因）。
+外掛失敗不會讓渲染失敗：保留 danser 的影片，任務日誌會寫原因。撰寫外掛、API 與信任模型見
+[docs/plugins.md](docs/plugins.md)（英文），範例在 [examples/plugins/border](examples/plugins/border)。
 
 ## 更新
 
@@ -464,6 +480,7 @@ journalctl --user -u osu-render.service -f
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | 傳給 danser 的 Skin 資料夾。 |
 | `OSU_SONGS_DIRS` | Windows：`%LOCALAPPDATA%\osu!\Songs`（存在時） | 下載前先使用的 osu!stable `Songs` 資料夾，以 `;`（Windows）或 `:`（Linux）分隔。見[本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)。 |
 | `VIDEO_RETENTION_HOURS` | `24` | 完成渲染的影片、replay 與日誌保留幾小時，1 到 720。 |
+| `PLUGINS_DIR` | `<DATA_DIR>/plugins` | 已安裝[外掛](#外掛)的資料夾。 |
 | `DANSER_SETTINGS_NAME` | `service` | 服務寫出的設定檔名稱：`<DANSER_DIR>/settings/<name>.json`。只能用英數字、`-` 與 `_`。 |
 | `RENDER_ENCODER` | `auto` | `auto`、`h264_nvenc`、`hevc_nvenc`、`h264_amf`、`hevc_amf`、`h264_qsv`、`hevc_qsv` 或 `libx264`。其他值會讓啟動失敗並顯示錯誤。 |
 | `OSU_CLIENT_ID` | 空 | osu! OAuth client ID。必填。 |

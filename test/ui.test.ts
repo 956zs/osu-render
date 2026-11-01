@@ -28,9 +28,10 @@ test('render option controls map one-to-one to the allowlisted options and their
   const { markup } = await page();
   const controls = [...markup.matchAll(/<(input|select)\b([^>]*)\sdata-option="(\w+)"([^>]*)>/g)];
   const keys = controls.map((match) => match[3]);
-  assert.deepEqual([...new Set(keys)].sort(), Object.keys(DEFAULT_RENDER_OPTIONS).sort());
+  // plugins: controls built at runtime from /api/plugins (see the plugin settings test)
+  assert.deepEqual([...new Set(keys)].sort(), Object.keys(DEFAULT_RENDER_OPTIONS).filter((key) => key !== 'plugins').sort());
   for (const [tag, tagName, before, key, after] of controls) {
-    const expected = DEFAULT_RENDER_OPTIONS[key as keyof typeof DEFAULT_RENDER_OPTIONS];
+    const expected = DEFAULT_RENDER_OPTIONS[key as Exclude<keyof typeof DEFAULT_RENDER_OPTIONS, 'plugins'>];
     const attributes = `${before} ${after}`;
     if (/type="radio"/.test(attributes)) {
       // A radio group: one control per value, id "<key>-<value>", the default value checked.
@@ -225,4 +226,20 @@ test('theme values live in :root custom properties', async () => {
   assert.deepEqual(rules.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|gradient\(|url\(/gi) ?? [], [],
     'colours, gradients and images outside :root must come from tokens');
   assert.doesNotMatch(css, /backdrop-filter|text-shadow|background-clip:\s*text/);
+});
+
+test('plugin settings are built from /api/plugins with text only and sent as options.plugins', async () => {
+  const { markup, script } = await page();
+  const fieldset = /<fieldset id="pluginSettings">([\s\S]*?)<\/fieldset>/.exec(markup)?.[1] ?? '';
+  assert.match(fieldset, /data-i18n="settings\.plugins\.legend"/);
+  startTag(fieldset, 'pluginList');
+  startTag(fieldset, 'pluginsNone');
+  assert.doesNotMatch(fieldset, /data-option=/, 'plugin controls are not data-option controls');
+  assert.match(script, /api\('\/api\/plugins'/);
+  assert.match(script, /options\.plugins = pluginOptions\(\);/);
+  // manifest strings never go through innerHTML
+  const body = /\/\/ ---- plugins[\s\S]*?\n\/\/ ---- skins/.exec(script)?.[0] ?? '';
+  assert.ok(body.length > 0);
+  assert.doesNotMatch(body, /innerHTML|insertAdjacentHTML/);
+  assert.match(body, /input\.disabled = !plugin\.available;/);
 });

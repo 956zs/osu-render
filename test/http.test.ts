@@ -13,6 +13,7 @@ async function withServer(
   run: (app: Awaited<ReturnType<typeof createHttpServer>>, counters: { probeAll: number }) => Promise<void>,
   rendering = false,
   reporter?: HttpDependencies['reporter'],
+  extra: Partial<HttpDependencies> = {},
 ): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'osu-render-http-'));
   const counters = { probeAll: 0 };
@@ -39,6 +40,7 @@ async function withServer(
     preflightState: { current: () => READY, refreshIfNeeded: async () => READY },
     paths: { replays: directory, videos: directory, data: directory, logs: directory },
     reporter,
+    ...extra,
   } as unknown as HttpDependencies;
   const app = await createHttpServer(dependencies);
   try { await run(app, counters); } finally {
@@ -162,5 +164,20 @@ test('page assets come from an allowlist with a strict content security policy',
       assert.equal(response.statusCode, 404, url);
       assert.ok(!response.body.includes('"version"'), url);
     }
+  });
+});
+
+test('lists installed plugins for the settings UI', async () => {
+  const listed = [{ id: 'demo', name: 'Demo', version: '1.0.0', description: '', options: [], i18n: {}, available: false, reason: 'tool not found' }];
+  let refreshed = 0;
+  const plugins = { list: () => listed, refresh: async () => { refreshed += 1; }, normalize: () => ({}) };
+  await withServer(async (app) => {
+    const response = await app.inject({ method: 'GET', url: '/api/plugins', headers: auth });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { apiVersion: 1, plugins: listed });
+    assert.equal(refreshed, 1);
+  }, false, undefined, { plugins } as Partial<HttpDependencies>);
+  await withServer(async (app) => {
+    assert.deepEqual((await app.inject({ method: 'GET', url: '/api/plugins', headers: auth })).json(), { apiVersion: 1, plugins: [] });
   });
 });

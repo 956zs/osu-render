@@ -73,5 +73,6 @@
   "history": { "defaultLimit": 20, "maxLimit": 100 },
   "localSongs": { "autoDetect": true, "maxFiles": 300000, "progressEvery": 5000 },
   "preview": { "ttlSeconds": 3600 },
+  "plugins": { "stageTimeoutMs": 1800000, "availableTimeoutMs": 10000, "availabilityTtlMs": 60000 },
   "i18n": { "languages": ["en", "zh-TW", "es"], "fallback": "en" }
 }

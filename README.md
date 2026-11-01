@@ -25,6 +25,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 - [Custom skins](#custom-skins)
 - [Render history and retention](#render-history-and-retention)
 - [Local osu! Songs folder](#local-osu-songs-folder)
+- [Plugins](#plugins)
 - [Updating](#updating)
 - [Reporting results (for testers)](#reporting-results-for-testers)
 - [FAQ](#faq)
@@ -208,6 +209,23 @@ being looked up and downloaded, so unsubmitted and local-only maps render too an
 - The beatmap set is copied into `data/songs`; your osu! folder is never changed. Linked folders are skipped.
 - If the local copy fails for any reason, the service falls back to the osu! API and mirrors.
 - osu!lazer is not supported (it stores files by hash, not in a Songs folder).
+
+## Plugins
+
+Plugins add a step after danser renders, for example an overlay drawn in sync with the replay. They are folders
+with a `plugin.json` and a JavaScript module, installed by the server owner from the command line (never from
+the web page, because a plugin runs with the service's permissions):
+
+```sh
+npm run plugin -- install path/to/plugin-folder-or.zip
+npm run plugin -- list
+npm run plugin -- remove <id>
+```
+
+Restart the service afterwards. Installed plugins appear under **All settings → Plugins** with their options
+(greyed out with the reason when they cannot run here). A plugin that fails never breaks a render: danser's
+video is kept and the job log says why. Writing plugins, the API and the trust model:
+[docs/plugins.md](docs/plugins.md); a small example is in [examples/plugins/border](examples/plugins/border).
 
 ## Updating
 
@@ -516,6 +534,7 @@ relative to that folder. Empty values count as unset. Restart the service after 
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | Skins folder passed to danser. |
 | `OSU_SONGS_DIRS` | Windows: `%LOCALAPPDATA%\osu!\Songs` if it exists | osu!stable `Songs` folders to use before downloading, separated by `;` (Windows) or `:` (Linux). See [Local osu! Songs folder](#local-osu-songs-folder). |
 | `VIDEO_RETENTION_HOURS` | `24` | Hours to keep videos, replays and logs of finished renders, 1 to 720. |
+| `PLUGINS_DIR` | `<DATA_DIR>/plugins` | Folder of installed [plugins](#plugins). |
 | `DANSER_SETTINGS_NAME` | `service` | Name of the settings file the service writes: `<DANSER_DIR>/settings/<name>.json`. Letters, digits, `-` and `_` only. |
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` or `libx264`. Any other value stops startup with an error. |
 | `OSU_CLIENT_ID` | empty | osu! OAuth client ID. Required. |

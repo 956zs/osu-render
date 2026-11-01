@@ -4,7 +4,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { DanserRenderer, OutputTail, SpeedTracker, buildDanserArguments, createProgressParser } from '../src/renderer.js';
+import {
+  DanserRenderer, OutputTail, SpeedTracker, buildDanserArguments, createProgressParser, type RendererOptions,
+} from '../src/renderer.js';
 import type { Paths, RenderRow } from '../src/types.js';
 import { parseRenderOptions } from '../src/render-options.js';
 
@@ -88,7 +90,7 @@ function job(id: string): RenderRow {
 
 async function withRenderer(
   script: string,
-  options: { timeoutMs?: number; stallTimeoutMs?: number },
+  options: { timeoutMs?: number; stallTimeoutMs?: number; plugins?: RendererOptions['plugins'] },
   run: (renderer: DanserRenderer, paths: Paths) => Promise<void>,
 ): Promise<void> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'osu-render-renderer-'));
@@ -101,7 +103,7 @@ async function withRenderer(
   };
   const renderer = new DanserRenderer({
     danserDir: root, paths, timeoutMs: options.timeoutMs ?? 30_000, stallTimeoutMs: options.stallTimeoutMs,
-    terminateGraceMs: 200, logTailBytes: 4096,
+    terminateGraceMs: 200, logTailBytes: 4096, plugins: options.plugins,
     spawnProcess: (_command, _args, spawnOptions) => spawn(process.execPath, ['-e', script], spawnOptions),
   });
   try { await run(renderer, paths); } finally { await rm(root, { recursive: true, force: true }); }
@@ -177,5 +179,43 @@ test('cancelled renders stop the process tree and log the cancellation', async (
     await renderer.cancel('cancel-job');
     await outcome;
     assert.match(await readFile(path.join(paths.logs, 'cancel-job.log'), 'utf8'), /danser cancelled/);
+  });
+});
+
+test('the plugin stage runs only for renders that enable a plugin and stops on cancel', async () => {
+  const seen: string[] = [];
+  const plugins: RendererOptions['plugins'] = {
+    wants: (options) => Object.values(options.plugins).some((values) => values.enabled === true),
+    runVideoStage: async (row, _video, _options, _tools, signal) => {
+      seen.push(row.id);
+      await new Promise((_resolve, reject) => signal?.addEventListener('abort', () => reject(new Error('cancelled'))));
+      return [];
+    },
+  };
+  const script = "const fs = require('fs'); fs.mkdirSync('data/temp/danser-output', { recursive: true });"
+    + "for (const id of ['plain-job', 'plugin-job']) fs.writeFileSync(`data/temp/danser-output/${id}.mp4`, 'x');";
+  await withRenderer(script, { plugins }, async (renderer) => {
+    // no plugin enabled: the stage is skipped (the fake video then fails validation)
+    await assert.rejects(renderer.render(job('plain-job'), () => undefined));
+    assert.deepEqual(seen, []);
+    const asking = { ...job('plugin-job'), options_json: JSON.stringify(parseRenderOptions('{"plugins":{"demo":{"enabled":true}}}')) };
+    const rendering = assert.rejects(renderer.render(asking, () => undefined), /cancelled/);
+    while (seen.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+    await renderer.cancel('plugin-job');
+    await rendering;
+    assert.deepEqual(seen, ['plugin-job']);
+  });
+});
+
+test('a failing plugin host never fails the render step', async () => {
+  const plugins: RendererOptions['plugins'] = {
+    wants: () => true,
+    runVideoStage: async () => { throw new Error('host broke'); },
+  };
+  const script = "const fs = require('fs'); fs.mkdirSync('data/temp/danser-output', { recursive: true });"
+    + "fs.writeFileSync('data/temp/danser-output/host-job.mp4', 'x');";
+  await withRenderer(script, { plugins }, async (renderer) => {
+    // the render continues to validation (which fails on the fake video), not with the host error
+    await assert.rejects(renderer.render(job('host-job'), () => undefined), (error: Error) => !/host broke/.test(error.message));
   });
 });

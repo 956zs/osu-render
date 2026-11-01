@@ -232,6 +232,11 @@
             <label class="setting switch"><span data-i18n="settings.objects.followCircle">Slider follow circle</span><input id="showSliderFollowCircle" data-option="showSliderFollowCircle" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
             <label class="setting switch"><span data-i18n="settings.objects.ticks">Slider ticks</span><input id="showSliderScorePoints" data-option="showSliderScorePoints" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
           </fieldset>
+          <fieldset id="pluginSettings">
+            <legend data-i18n="settings.plugins.legend">Plugins</legend>
+            <p class="note" id="pluginsNone" data-i18n="settings.plugins.none">No plugins installed on this server. The server owner installs them with npm run plugin.</p>
+            <div id="pluginList"></div>
+          </fieldset>
           <p class="note" id="settingsNoMatch" hidden></p>
         </div>
         <p class="drawer-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>
