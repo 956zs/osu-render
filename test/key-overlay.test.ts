@@ -142,9 +142,11 @@ test('aulactl lookup: off on Windows or when disabled, explicit path, PATH and ~
     assert.equal(resolveAulactl({ PATH: '', HOME: home }, 'linux'), null);
     await writeFile(path.join(home, '.local', 'bin', 'aulactl'), '#!/bin/sh\n', { mode: 0o755 });
     assert.equal(resolveAulactl({ PATH: '', HOME: home }, 'linux'), path.join(home, '.local', 'bin', 'aulactl'));
-    // not executable
-    await chmod(exe, 0o644);
-    assert.equal(resolveAulactl({ PATH: bin, HOME: dir }, 'linux'), null);
+    // not executable (Windows has no execute bit: X_OK is F_OK there)
+    if (process.platform !== 'win32') {
+      await chmod(exe, 0o644);
+      assert.equal(resolveAulactl({ PATH: bin, HOME: dir }, 'linux'), null);
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -334,9 +336,9 @@ test('runProcess pipes a producer into the tool and reports both', async () => {
   const failing = await runProcess(node, ['-e', 'process.exitCode = 4'], { timeoutMs: 10_000 });
   assert.equal(failing.code, 4);
   assert.equal(failing.producer, undefined);
-  // killed on timeout
+  // killed on timeout (a signal on Linux, taskkill's exit code 1 on Windows)
   const slow = await runProcess(node, ['-e', 'setInterval(() => {}, 1000)'], { timeoutMs: 200 });
-  assert.equal(slow.code, null);
+  assert.notEqual(slow.code, 0);
   // aborted: rejects
   const abort = new AbortController();
   const pending = runProcess(node, ['-e', 'setInterval(() => {}, 1000)'], { timeoutMs: 10_000, signal: abort.signal });
