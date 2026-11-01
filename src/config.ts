@@ -51,6 +51,8 @@ export const settings = Object.freeze({
   danserBaseSettings: rootPath(env('DANSER_BASE_SETTINGS') ?? path.join(DANSER_DIR, 'settings', 'default.json')),
   danserSkinsDir: rootPath(env('DANSER_SKINS_DIR') ?? path.join(DATA_DIR, 'skins')),
   danserSettingsName: DANSER_SETTINGS_NAME,
+  /** Installed plugins (one folder each); see docs/plugins.md. */
+  pluginsDir: rootPath(env('PLUGINS_DIR') ?? path.join(DATA_DIR, 'plugins')),
   renderEncoder: RENDER_ENCODER,
   osuClientId: process.env.OSU_CLIENT_ID ?? '',
   osuClientSecret: process.env.OSU_CLIENT_SECRET ?? '',

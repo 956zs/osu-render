@@ -13,6 +13,7 @@
     "start": "node dist/src/main.js",
     "build": "tsc -p tsconfig.json",
     "doctor": "node dist/src/doctor.js",
+    "plugin": "node dist/src/plugin-cli.js",
     "test": "npm run build && node --test \"dist/test/*.test.js\""
   },
   "dependencies": {

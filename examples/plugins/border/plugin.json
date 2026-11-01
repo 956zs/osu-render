@@ -1,0 +1,29 @@
+{
+  "id": "border",
+  "name": "Border",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "Example plugin: draws a coloured frame around the video.",
+  "entry": "index.mjs",
+  "options": [
+    { "key": "color", "type": "select", "values": ["white", "pink", "black"], "default": "pink" },
+    { "key": "thickness", "type": "number", "min": 2, "max": 40, "step": 2, "default": 8, "unit": " px" }
+  ],
+  "i18n": {
+    "en": {
+      "name": "Border",
+      "description": "Example plugin: draws a coloured frame around the video.",
+      "options": { "color": { "label": "Colour", "values": { "white": "White", "pink": "Pink", "black": "Black" } }, "thickness": { "label": "Thickness" } }
+    },
+    "zh-TW": {
+      "name": "邊框",
+      "description": "範例外掛：在影片周圍畫一圈彩色邊框。",
+      "options": { "color": { "label": "顏色", "values": { "white": "白", "pink": "粉紅", "black": "黑" } }, "thickness": { "label": "粗細" } }
+    },
+    "es": {
+      "name": "Borde",
+      "description": "Plugin de ejemplo: dibuja un marco de color alrededor del video.",
+      "options": { "color": { "label": "Color", "values": { "white": "Blanco", "pink": "Rosa", "black": "Negro" } }, "thickness": { "label": "Grosor" } }
+    }
+  }
+}

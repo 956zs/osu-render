@@ -2,6 +2,7 @@ import { SPEED_PROFILES, appConfig, type SpeedProfile } from './app-config.js';
 import { encoderFamily, isHevcEncoder, isSupportedEncoder, type VideoEncoder } from './encoders.js';
 import { AppError } from './errors.js';
 import { DEFAULT_SKIN, isValidSkinName } from './skins.js';
+import { PLUGIN_ID_PATTERN, type OptionValue } from './plugins/manifest.js';
 
 export type RenderResolution = '720p' | '1080p';
 
@@ -57,6 +58,11 @@ export interface RenderOptions {
   readonly useSkinCursor: boolean;
   /** Encoder preset/quality trade-off; 'fast' also turns bloom off. */
   readonly speedProfile: SpeedProfile;
+  /**
+   * Per-plugin options by plugin id (`enabled` plus the plugin's own options). Only the shape is checked here;
+   * the plugin host checks values against the installed manifests (PluginHost.normalize).
+   */
+  readonly plugins: Readonly<Record<string, Readonly<Record<string, OptionValue>>>>;
 }
 
 interface TogglePatch { readonly Show: boolean }
@@ -167,6 +173,7 @@ export const DEFAULT_RENDER_OPTIONS: Readonly<RenderOptions> = Object.freeze({
   showSliderEndCircles: true,
   showSliderFollowCircle: true,
   showSliderScorePoints: true,
+  plugins: Object.freeze({}),
 });
 
 const BOOLEAN_OPTIONS = [
@@ -184,8 +191,11 @@ const NUMERIC_OPTIONS = [
 ] as const;
 const STRING_OPTIONS = ['resolution', 'skin', 'speedProfile'] as const;
 const ALLOWED_OPTIONS = new Set<keyof RenderOptions>([
-  ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...STRING_OPTIONS,
+  ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...STRING_OPTIONS, 'plugins',
 ]);
+const MAX_PLUGINS = 20;
+const MAX_PLUGIN_OPTIONS = 21;
+const PLUGIN_OPTION_KEY = /^[A-Za-z][A-Za-z0-9]{0,31}$/;
 
 export function parseRenderOptions(value: string | undefined): Readonly<RenderOptions> {
   if (value === undefined || value === '') return DEFAULT_RENDER_OPTIONS;
@@ -234,6 +244,7 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
     showSliderEndCircles: booleanOption(input, 'showSliderEndCircles'),
     showSliderFollowCircle: booleanOption(input, 'showSliderFollowCircle'),
     showSliderScorePoints: booleanOption(input, 'showSliderScorePoints'),
+    plugins: pluginsOption(input),
   };
   return Object.freeze(options);
 }
@@ -379,6 +390,24 @@ function speedProfileOption(input: Record<string, unknown>): SpeedProfile {
     throw invalidOptions(`speedProfile must be one of ${SPEED_PROFILES.join(', ')}.`);
   }
   return value as SpeedProfile;
+}
+
+function pluginsOption(input: Record<string, unknown>): RenderOptions['plugins'] {
+  const value = input.plugins ?? {};
+  if (!isObject(value) || Object.keys(value).length > MAX_PLUGINS) throw invalidOptions('plugins must be an object of plugin options.');
+  const out: Record<string, Readonly<Record<string, OptionValue>>> = {};
+  for (const [id, options] of Object.entries(value)) {
+    if (!PLUGIN_ID_PATTERN.test(id) || !isObject(options) || Object.keys(options).length > MAX_PLUGIN_OPTIONS) {
+      throw invalidOptions(`plugins.${id} is invalid.`);
+    }
+    for (const [key, option] of Object.entries(options)) {
+      const ok = typeof option === 'boolean' || (typeof option === 'number' && Number.isFinite(option))
+        || (typeof option === 'string' && option.length <= 64);
+      if (!PLUGIN_OPTION_KEY.test(key) || !ok) throw invalidOptions(`plugins.${id}.${key} is invalid.`);
+    }
+    out[id] = Object.freeze({ ...(options as Record<string, OptionValue>) });
+  }
+  return Object.freeze(out);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
