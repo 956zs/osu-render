@@ -25,6 +25,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
 - [Custom skins](#custom-skins)
 - [Render history and retention](#render-history-and-retention)
 - [Local osu! Songs folder](#local-osu-songs-folder)
+- [Keyboard overlay (Linux, aulactl)](#keyboard-overlay-linux-aulactl)
 - [Updating](#updating)
 - [Reporting results (for testers)](#reporting-results-for-testers)
 - [FAQ](#faq)
@@ -193,6 +194,25 @@ your PC) and refreshes while a render is running.
 
 Videos, replays and logs of finished, failed and cancelled renders are kept for `VIDEO_RETENTION_HOURS` hours
 (default 24, from 1 to 720) and then deleted automatically. Set it in `.env` and restart.
+
+## Keyboard overlay (Linux, aulactl)
+
+If you record your keyboard with aulactl (`aulactl feed --record`, AULA WIN 60 HE
+analog keyboards), a render can show it on top of the video: each key with its live travel depth and actuation point,
+press counts, KPS, peak KPS and tapping BPM, and KeyOverlay-style bars that rise from each key (length = hold time,
+wider and brighter for deeper presses). Turn it on under **All settings → Keyboard overlay** and pick the corner,
+size and opacity.
+
+- After danser finishes, the service runs `aulactl replay overlay auto`, which finds the recorded session that
+  lines up with the uploaded replay. If none does (or the replay was played on another keyboard), the overlay is
+  skipped and the job log says so; the render still completes.
+- The overlay is timed on the replay's song clock. The service derives the song time of every video frame from the
+  danser settings it uses (skip intro, `Playfield.LeadInHold`, seizure warning, the map's first object and
+  approach rate, DT/NC/HT), so presses line up with danser's own key overlay to within one frame.
+- The overlay frames are piped straight into danser's ffmpeg and composited with the same encoder (GPU encoders
+  fall back to libx264 if they fail); the audio is copied. If the overlay step fails, danser's video is kept.
+- Linux only. The feature is off when `aulactl` is not found (`KEY_OVERLAY_AULACTL`, `PATH` or
+  `~/.local/bin`); it does not exist on Windows.
 
 ## Local osu! Songs folder
 
@@ -516,6 +536,7 @@ relative to that folder. Empty values count as unset. Restart the service after 
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | Skins folder passed to danser. |
 | `OSU_SONGS_DIRS` | Windows: `%LOCALAPPDATA%\osu!\Songs` if it exists | osu!stable `Songs` folders to use before downloading, separated by `;` (Windows) or `:` (Linux). See [Local osu! Songs folder](#local-osu-songs-folder). |
 | `VIDEO_RETENTION_HOURS` | `24` | Hours to keep videos, replays and logs of finished renders, 1 to 720. |
+| `KEY_OVERLAY_AULACTL` | `aulactl` on `PATH`, else `~/.local/bin/aulactl` | Linux: absolute path of the `aulactl` binary for the [keyboard overlay](#keyboard-overlay-linux-aulactl), or `off`. Without it the overlay controls are disabled. Ignored on Windows. |
 | `DANSER_SETTINGS_NAME` | `service` | Name of the settings file the service writes: `<DANSER_DIR>/settings/<name>.json`. Letters, digits, `-` and `_` only. |
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` or `libx264`. Any other value stops startup with an error. |
 | `OSU_CLIENT_ID` | empty | osu! OAuth client ID. Required. |

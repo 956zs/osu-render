@@ -26,6 +26,7 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - [Skins personalizados](#skins-personalizados)
 - [Historial de renders y tiempo de conservación](#historial-de-renders-y-tiempo-de-conservación)
 - [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu)
+- [Teclado superpuesto (Linux, aulactl)](#teclado-superpuesto-linux-aulactl)
 - [Actualizar](#actualizar)
 - [Reportar resultados (para testers)](#reportar-resultados-para-testers)
 - [Preguntas frecuentes](#preguntas-frecuentes)
@@ -218,6 +219,25 @@ descarga nada.
 - El set se copia a `data/songs`; tu carpeta de osu! nunca se modifica. Las carpetas enlazadas se omiten.
 - Si la copia local falla por cualquier motivo, se usa la API de osu! y los mirrors como siempre.
 - osu!lazer no es compatible (guarda los archivos por hash, no en una carpeta Songs).
+
+## Teclado superpuesto (Linux, aulactl)
+
+Si grabas tu teclado con aulactl (`aulactl feed --record`, teclados analógicos
+AULA WIN 60 HE), un render puede mostrarlo sobre el video: cada tecla con su recorrido en vivo y su punto de
+activación, el número de pulsaciones, KPS, KPS máximo y BPM de tapping, y barras al estilo KeyOverlay que suben desde
+cada tecla (largo = tiempo pulsada, más anchas y brillantes cuanto más profunda la pulsación). Actívalo en **Todos los
+ajustes → Teclado superpuesto** y elige la esquina, el tamaño y la opacidad.
+
+- Cuando danser termina, el servicio ejecuta `aulactl replay overlay auto`, que busca la sesión grabada que coincide
+  con la repetición subida. Si ninguna coincide (o se jugó con otro teclado), se omite y el log del trabajo lo indica;
+  el render se completa igual.
+- La capa usa el reloj de la canción de la repetición. El servicio calcula el tiempo de canción de cada fotograma a
+  partir de los ajustes de danser que usa (saltar intro, `Playfield.LeadInHold`, aviso de epilepsia, primer objeto y
+  AR del mapa, DT/NC/HT), así que las pulsaciones coinciden con el key overlay de danser con un margen de un fotograma.
+- Los fotogramas se envían directamente al ffmpeg de danser y se componen con el mismo codificador (si falla uno de
+  GPU se usa libx264); el audio se copia. Si el paso falla, se conserva el video de danser.
+- Solo Linux. La función se desactiva si no se encuentra `aulactl` (`KEY_OVERLAY_AULACTL`, `PATH` o
+  `~/.local/bin`); no existe en Windows.
 
 ## Actualizar
 
@@ -538,6 +558,7 @@ editar.
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | Carpeta de skins que se pasa a danser. |
 | `OSU_SONGS_DIRS` | Windows: `%LOCALAPPDATA%\osu!\Songs` si existe | Carpetas `Songs` de osu!stable que se usan antes de descargar, separadas con `;` (Windows) o `:` (Linux). Ver [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu). |
 | `VIDEO_RETENTION_HOURS` | `24` | Horas que se guardan los videos, replays y logs de los renders terminados, de 1 a 720. |
+| `KEY_OVERLAY_AULACTL` | `aulactl` en `PATH`, si no `~/.local/bin/aulactl` | Linux: ruta absoluta del binario `aulactl` para el [teclado superpuesto](#teclado-superpuesto-linux-aulactl), u `off`. Sin él los controles quedan desactivados. Se ignora en Windows. |
 | `DANSER_SETTINGS_NAME` | `service` | Nombre del archivo de configuración que escribe el servicio: `<DANSER_DIR>/settings/<name>.json`. Solo letras, dígitos, `-` y `_`. |
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` o `libx264`. Cualquier otro valor detiene el arranque con un error. |
 | `OSU_CLIENT_ID` | vacío | Client ID de OAuth de osu!. Obligatorio. |

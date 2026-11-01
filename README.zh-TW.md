@@ -24,6 +24,7 @@
 - [自訂皮膚](#自訂皮膚)
 - [渲染歷史與保存期限](#渲染歷史與保存期限)
 - [本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)
+- [鍵盤覆蓋層（Linux，aulactl）](#鍵盤覆蓋層linuxaulactl)
 - [更新](#更新)
 - [回報測試結果（給測試者）](#回報測試結果給測試者)
 - [常見問題](#常見問題)
@@ -192,6 +193,22 @@ Bloom 的設定），可以在 `config/local.json` 覆寫。渲染選項名稱�
 - 圖譜會複製到 `data/songs`，不會修改你的 osu! 資料夾。連結（symlink／junction）資料夾會被略過。
 - 本機複製因任何原因失敗時，會改回用 osu! API 與 mirror。
 - 不支援 osu!lazer（它用雜湊值存放檔案，沒有 Songs 資料夾）。
+
+## 鍵盤覆蓋層（Linux，aulactl）
+
+如果你用 aulactl 錄下鍵盤（`aulactl feed --record`，AULA WIN 60 HE 類比鍵盤），
+渲染時可以把它疊在影片上：每個按鍵的即時行程深度與觸發點、按壓次數、KPS、最高 KPS 與連打 BPM，以及 KeyOverlay
+風格、從按鍵往上升的長條（長度 = 按住時間，按得越深越寬越亮）。在「**所有設定 → 鍵盤覆蓋層**」開啟，並選擇位置、
+大小與不透明度。
+
+- danser 完成後，服務會執行 `aulactl replay overlay auto`，找出與上傳的 replay 對得上的錄製。找不到時（或這個
+  replay 是用別的鍵盤打的）會略過覆蓋層並記在任務日誌，渲染照常完成。
+- 覆蓋層以 replay 的歌曲時間為準。服務依它使用的 danser 設定（跳過開頭、`Playfield.LeadInHold`、癲癇警告、圖譜
+  第一個物件與 AR、DT/NC/HT）算出每一格影片的歌曲時間，按鍵與 danser 自己的按鍵顯示誤差在一格之內。
+- 覆蓋層的畫格直接送進 danser 的 ffmpeg，用同一個編碼器合成（GPU 編碼器失敗時改用 libx264），音訊直接複製。覆蓋層
+  步驟失敗時保留 danser 的原始影片。
+- 只支援 Linux。找不到 `aulactl`（`KEY_OVERLAY_AULACTL`、`PATH` 或 `~/.local/bin`）時這個功能會關閉；Windows
+  沒有這個功能。
 
 ## 更新
 
@@ -464,6 +481,7 @@ journalctl --user -u osu-render.service -f
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | 傳給 danser 的 Skin 資料夾。 |
 | `OSU_SONGS_DIRS` | Windows：`%LOCALAPPDATA%\osu!\Songs`（存在時） | 下載前先使用的 osu!stable `Songs` 資料夾，以 `;`（Windows）或 `:`（Linux）分隔。見[本機 osu! Songs 資料夾](#本機-osu-songs-資料夾)。 |
 | `VIDEO_RETENTION_HOURS` | `24` | 完成渲染的影片、replay 與日誌保留幾小時，1 到 720。 |
+| `KEY_OVERLAY_AULACTL` | `PATH` 上的 `aulactl`，否則 `~/.local/bin/aulactl` | Linux：[鍵盤覆蓋層](#鍵盤覆蓋層linuxaulactl)使用的 `aulactl` 絕對路徑，或 `off`。沒有時覆蓋層選項會停用。Windows 忽略。 |
 | `DANSER_SETTINGS_NAME` | `service` | 服務寫出的設定檔名稱：`<DANSER_DIR>/settings/<name>.json`。只能用英數字、`-` 與 `_`。 |
 | `RENDER_ENCODER` | `auto` | `auto`、`h264_nvenc`、`hevc_nvenc`、`h264_amf`、`hevc_amf`、`h264_qsv`、`hevc_qsv` 或 `libx264`。其他值會讓啟動失敗並顯示錯誤。 |
 | `OSU_CLIENT_ID` | 空 | osu! OAuth client ID。必填。 |
