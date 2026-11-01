@@ -18,6 +18,10 @@ import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 import { UPDATE_EXIT_CODE, Updater } from './updater.js';
 import { appConfig } from './app-config.js';
 import { LocalSongsIndex, resolveSongsDirs } from './local-songs.js';
+import { findMatchingOsu } from './beatmap-resolver.js';
+import { loadPlugins } from './plugins/loader.js';
+import { PluginHost } from './plugins/host.js';
+import { redactText } from './platform.js';
 
 const paths = getPaths();
 await ensureDirectories(paths);
@@ -50,9 +54,27 @@ const resolver = new BeatmapResolver(paths, database, osuApi, mirrors, {
   maxExtractedBytes: limits.maxOszExtractedBytes,
   maxEntries: limits.maxArchiveEntries,
 }, localSongs);
+// A plugin bug must not take the service down with it (docs/plugins.md, trust model).
+process.on('unhandledRejection', (reason) => {
+  log('error', 'unhandled_rejection', { component: 'server', error: redactText(String(reason instanceof Error ? reason.stack ?? reason.message : reason)) });
+});
+const plugins = new PluginHost(await loadPlugins(settings.pluginsDir), {
+  findBeatmapFile: async (checksum) => {
+    const cached = database.findBeatmap(checksum);
+    return cached ? findMatchingOsu(cached.map_path, checksum).catch(() => null) : null;
+  },
+  danserSettingsPath: paths.danserSettings, tempDir: paths.temp, logsDir: paths.logs,
+});
+await plugins.refresh(true);
+log('info', 'plugins_loaded', {
+  component: 'plugins', dir: redactText(settings.pluginsDir),
+  plugins: plugins.list().map(({ id, version, available, reason }) => ({ id, version, available, ...(reason ? { reason: redactText(reason) } : {}) })),
+  broken: plugins.broken().map(({ dir, error }) => ({ dir: redactText(dir), error: redactText(error) })),
+});
 const renderer = new DanserRenderer({
   danserBin: settings.danserBin, danserDir: settings.danserDir, settingsName: settings.danserSettingsName, paths,
   timeoutMs: limits.maxRenderMinutes * 60 * 1000,
+  plugins,
 });
 const reportWebhookUrl = parseWebhookUrl(settings.reportWebhookUrl);
 if (settings.reportWebhookUrl && !reportWebhookUrl) {
@@ -86,7 +108,7 @@ const updater = new Updater({
     void shutdown('update', UPDATE_EXIT_CODE);
   },
 });
-const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths, reporter, updater, localSongs });
+const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths, reporter, updater, localSongs, plugins });
 const cleanupTimer = startCleanupScheduler(database, paths, async () => {
   await storage.cleanupTemp();
   await storage.evictBeatmaps();

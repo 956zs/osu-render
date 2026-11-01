@@ -22,6 +22,8 @@ import type { LocalSongsStatus } from './local-songs.js';
 import { removeRenderFiles } from './storage.js';
 import { createPreviewSigner, type PreviewSigner } from './preview-url.js';
 import { DEFAULT_SKIN, installSkin, listSkins, skinInvalid, skinNameFromFilename, skinTooLarge, skinUploadPath, syncSkins } from './skins.js';
+import { isPluginOptionsError, type PluginHost } from './plugins/host.js';
+import { PLUGIN_API_VERSION } from './plugins/manifest.js';
 
 const uploadAttempts = new Map<string, number[]>();
 const UPLOAD_WINDOW_MS = 60_000;
@@ -54,6 +56,8 @@ export interface HttpDependencies {
   localSongs?: { status(): LocalSongsStatus };
   /** Signs the video URLs that <video> previews load without the Bearer header; defaults to a per-process key. */
   previewSigner?: PreviewSigner;
+  /** Installed plugins: GET /api/plugins and per-job plugin options. */
+  plugins?: Pick<PluginHost, 'list' | 'refresh' | 'normalize'>;
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -128,6 +132,10 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     return { sent: true };
   });
 
+  app.get('/api/plugins', async (_request, reply) => {
+    await dependencies.plugins?.refresh();
+    return reply.header('Cache-Control', 'no-store').send({ apiVersion: PLUGIN_API_VERSION, plugins: dependencies.plugins?.list() ?? [] });
+  });
   app.get('/api/skins', async (_request, reply) => reply.header('Cache-Control', 'no-store')
     .send({ skins: (await syncSkins(skinsDirOf(dependencies), appConfig.skins)).map((name) => ({ name })) }));
   app.post('/api/skins', async (request) => uploadSkin(request, dependencies));
@@ -170,7 +178,7 @@ async function createRender(request: FastifyRequest, dependencies: HttpDependenc
   try {
     const { createWriteStream } = await import('node:fs');
     await pipeline(upload.file, createWriteStream(replayPath, { flags: 'wx', mode: 0o600 }));
-    const options = renderOptionsFrom(upload.fields);
+    const options = withPlugins(renderOptionsFrom(upload.fields), dependencies.plugins);
     if (options.skin !== DEFAULT_SKIN
       && !(await listSkins(skinsDirOf(dependencies), appConfig.skins.maxNameLength)).includes(options.skin)) {
       throw new AppError('INVALID_OPTIONS', 'The selected skin is not installed on this server.', 400);
@@ -358,6 +366,17 @@ function routeId(request: FastifyRequest): string {
 
 function clientKeyFor(request: FastifyRequest): string {
   return request.ip ?? 'unknown';
+}
+
+/** Plugin options checked against the installed manifests; options of plugins not installed are dropped. */
+function withPlugins(options: Readonly<RenderOptions>, plugins: HttpDependencies['plugins']): Readonly<RenderOptions> {
+  if (!plugins) return Object.freeze({ ...options, plugins: Object.freeze({}) });
+  try {
+    return Object.freeze({ ...options, plugins: plugins.normalize(options.plugins) });
+  } catch (error) {
+    if (isPluginOptionsError(error)) throw new AppError('INVALID_OPTIONS', error.message, 400);
+    throw error;
+  }
 }
 
 function renderOptionsFrom(fields: Record<string, unknown>): Readonly<RenderOptions> {
