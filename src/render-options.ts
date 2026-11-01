@@ -2,6 +2,7 @@ import { SPEED_PROFILES, appConfig, type SpeedProfile } from './app-config.js';
 import { encoderFamily, isHevcEncoder, isSupportedEncoder, type VideoEncoder } from './encoders.js';
 import { AppError } from './errors.js';
 import { DEFAULT_SKIN, isValidSkinName } from './skins.js';
+import { KEY_OVERLAY_CORNERS, type KeyOverlayCorner } from './key-overlay-options.js';
 
 export type RenderResolution = '720p' | '1080p';
 
@@ -57,6 +58,12 @@ export interface RenderOptions {
   readonly useSkinCursor: boolean;
   /** Encoder preset/quality trade-off; 'fast' also turns bloom off. */
   readonly speedProfile: SpeedProfile;
+  /** Lay the recorded keyboard (aulactl) over the video when this server has it and a session matches. */
+  readonly keyOverlay: boolean;
+  readonly keyOverlayCorner: KeyOverlayCorner;
+  /** Overlay height in % of the video height. */
+  readonly keyOverlayScale: number;
+  readonly keyOverlayOpacity: number;
 }
 
 interface TogglePatch { readonly Show: boolean }
@@ -167,6 +174,10 @@ export const DEFAULT_RENDER_OPTIONS: Readonly<RenderOptions> = Object.freeze({
   showSliderEndCircles: true,
   showSliderFollowCircle: true,
   showSliderScorePoints: true,
+  keyOverlay: false,
+  keyOverlayCorner: 'bottom-right',
+  keyOverlayScale: 40,
+  keyOverlayOpacity: 90,
 });
 
 const BOOLEAN_OPTIONS = [
@@ -177,12 +188,14 @@ const BOOLEAN_OPTIONS = [
   'showKeyOverlay', 'showScoreboard', 'showMods', 'showResultsScreen',
   'showApproachCircles', 'showComboNumbers', 'showSliderEndCircles',
   'showSliderFollowCircle', 'showSliderScorePoints',
+  'keyOverlay',
 ] as const;
 const NUMERIC_OPTIONS = [
   'masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim',
   'backgroundBlur', 'playfieldScale', 'cursorSize', 'cursorTrailStyle',
+  'keyOverlayScale', 'keyOverlayOpacity',
 ] as const;
-const STRING_OPTIONS = ['resolution', 'skin', 'speedProfile'] as const;
+const STRING_OPTIONS = ['resolution', 'skin', 'speedProfile', 'keyOverlayCorner'] as const;
 const ALLOWED_OPTIONS = new Set<keyof RenderOptions>([
   ...NUMERIC_OPTIONS, ...BOOLEAN_OPTIONS, ...STRING_OPTIONS,
 ]);
@@ -206,6 +219,9 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
     playfieldScale: boundedInteger(input, 'playfieldScale', { min: 80, max: 120 }),
     cursorSize: boundedInteger(input, 'cursorSize', { min: 6, max: 24 }),
     cursorTrailStyle: boundedInteger(input, 'cursorTrailStyle', { min: 1, max: 4 }),
+    keyOverlayScale: boundedInteger(input, 'keyOverlayScale', { min: 20, max: 80 }),
+    keyOverlayOpacity: boundedInteger(input, 'keyOverlayOpacity', { min: 20, max: 100 }),
+    keyOverlayCorner: keyOverlayCornerOption(input),
     skipIntro: booleanOption(input, 'skipIntro'),
     loadVideos: booleanOption(input, 'loadVideos'),
     loadStoryboards: booleanOption(input, 'loadStoryboards'),
@@ -234,6 +250,7 @@ export function parseRenderOptions(value: string | undefined): Readonly<RenderOp
     showSliderEndCircles: booleanOption(input, 'showSliderEndCircles'),
     showSliderFollowCircle: booleanOption(input, 'showSliderFollowCircle'),
     showSliderScorePoints: booleanOption(input, 'showSliderScorePoints'),
+    keyOverlay: booleanOption(input, 'keyOverlay'),
   };
   return Object.freeze(options);
 }
@@ -379,6 +396,14 @@ function speedProfileOption(input: Record<string, unknown>): SpeedProfile {
     throw invalidOptions(`speedProfile must be one of ${SPEED_PROFILES.join(', ')}.`);
   }
   return value as SpeedProfile;
+}
+
+function keyOverlayCornerOption(input: Record<string, unknown>): KeyOverlayCorner {
+  const value = input.keyOverlayCorner ?? DEFAULT_RENDER_OPTIONS.keyOverlayCorner;
+  if (!(KEY_OVERLAY_CORNERS as readonly unknown[]).includes(value)) {
+    throw invalidOptions(`keyOverlayCorner must be one of ${KEY_OVERLAY_CORNERS.join(', ')}.`);
+  }
+  return value as KeyOverlayCorner;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
