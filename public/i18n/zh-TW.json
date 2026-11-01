@@ -236,6 +236,12 @@
       "sliderEnds": "Slider 尾圈",
       "followCircle": "Slider Follow Circle",
       "ticks": "Slider Tick"
+    },
+    "plugins": {
+      "legend": "外掛",
+      "none": "這台伺服器沒有安裝外掛。伺服器擁有者用 npm run plugin 安裝。",
+      "enable": "這次渲染使用",
+      "unavailable": "這台伺服器無法使用：{reason}"
     }
   },
   "history": {
