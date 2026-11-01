@@ -236,6 +236,19 @@
       "sliderEnds": "Slider 尾圈",
       "followCircle": "Slider Follow Circle",
       "ticks": "Slider Tick"
+    },
+    "keyboard": {
+      "legend": "鍵盤覆蓋層",
+      "enable": "顯示我的鍵盤",
+      "hint": "把 aulactl 錄下的鍵盤疊在影片上：按鍵行程、按壓次數、KPS 與連打 BPM。找不到對應這個 replay 的錄製時會略過。",
+      "unavailable": "這台伺服器無法使用（找不到 aulactl）。",
+      "corner": "位置",
+      "topLeft": "左上",
+      "topRight": "右上",
+      "bottomLeft": "左下",
+      "bottomRight": "右下",
+      "scale": "大小",
+      "opacity": "不透明度"
     }
   },
   "history": {

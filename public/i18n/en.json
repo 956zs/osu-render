@@ -236,6 +236,19 @@
       "sliderEnds": "Slider end circles",
       "followCircle": "Slider follow circle",
       "ticks": "Slider ticks"
+    },
+    "keyboard": {
+      "legend": "Keyboard overlay",
+      "enable": "Show my keyboard",
+      "hint": "Lays the keyboard recorded with aulactl over the video: key travel, presses, KPS and tapping BPM. Skipped when no recorded session matches the replay.",
+      "unavailable": "Not available on this server (aulactl was not found).",
+      "corner": "Position",
+      "topLeft": "Top left",
+      "topRight": "Top right",
+      "bottomLeft": "Bottom left",
+      "bottomRight": "Bottom right",
+      "scale": "Size",
+      "opacity": "Opacity"
     }
   },
   "history": {

@@ -232,6 +232,15 @@
             <label class="setting switch"><span data-i18n="settings.objects.followCircle">Slider follow circle</span><input id="showSliderFollowCircle" data-option="showSliderFollowCircle" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
             <label class="setting switch"><span data-i18n="settings.objects.ticks">Slider ticks</span><input id="showSliderScorePoints" data-option="showSliderScorePoints" type="checkbox" class="tog-input" checked><span class="tog" aria-hidden="true"></span></label>
           </fieldset>
+          <fieldset id="keyboardSettings">
+            <legend data-i18n="settings.keyboard.legend">Keyboard overlay</legend>
+            <p class="note" id="keyOverlayHint" data-i18n="settings.keyboard.hint">Lays the keyboard recorded with aulactl over the video: key travel, presses, KPS and tapping BPM. Skipped when no recorded session matches the replay.</p>
+            <p class="note" id="keyOverlayUnavailable" data-i18n="settings.keyboard.unavailable" hidden>Not available on this server (aulactl was not found).</p>
+            <label class="setting switch"><span data-i18n="settings.keyboard.enable">Show my keyboard</span><input id="keyOverlay" data-option="keyOverlay" type="checkbox" class="tog-input" aria-describedby="keyOverlayHint"><span class="tog" aria-hidden="true"></span></label>
+            <label class="setting choice"><span data-i18n="settings.keyboard.corner">Position</span><select id="keyOverlayCorner" class="select" data-option="keyOverlayCorner"><option value="top-left" data-i18n="settings.keyboard.topLeft">Top left</option><option value="top-right" data-i18n="settings.keyboard.topRight">Top right</option><option value="bottom-left" data-i18n="settings.keyboard.bottomLeft">Bottom left</option><option value="bottom-right" selected data-i18n="settings.keyboard.bottomRight">Bottom right</option></select></label>
+            <label class="setting slider"><span data-i18n="settings.keyboard.scale">Size</span><span class="range"><input id="keyOverlayScale" data-option="keyOverlayScale" type="range" min="20" max="80" value="40"><output id="keyOverlayScaleValue" for="keyOverlayScale">40%</output></span></label>
+            <label class="setting slider"><span data-i18n="settings.keyboard.opacity">Opacity</span><span class="range"><input id="keyOverlayOpacity" data-option="keyOverlayOpacity" type="range" min="20" max="100" value="90"><output id="keyOverlayOpacityValue" for="keyOverlayOpacity">90%</output></span></label>
+          </fieldset>
           <p class="note" id="settingsNoMatch" hidden></p>
         </div>
         <p class="drawer-foot" data-i18n="settings.footer">FPS, video encoder and motion blur are fixed by the server to keep renders reliable.</p>

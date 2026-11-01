@@ -26,7 +26,7 @@ const STEP_OF_STATUS = { uploaded: 0, resolving: 1, downloading: 2, queued: 3, r
 const FILE_ERRORS = ['INVALID_REPLAY', 'UNSUPPORTED_MODE', 'REPLAY_TOO_LARGE', 'BEATMAP_NOT_FOUND', 'BEATMAP_CHECKSUM_MISMATCH', 'INVALID_OPTIONS'];
 const ENCODER_FAMILIES = [[/_nvenc$/, 'nvenc'], [/_amf$/, 'amf'], [/_qsv$/, 'qsv'], [/^libx264$/, 'x264']];
 const I18N_ATTRIBUTES = ['placeholder', 'aria-label'];
-const PERCENT_RANGES = ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale'];
+const PERCENT_RANGES = ['masterVolume', 'musicVolume', 'sampleVolume', 'backgroundDim', 'backgroundBlur', 'playfieldScale', 'keyOverlayScale', 'keyOverlayOpacity'];
 const SKIN_SWATCHES = 4;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 88;
 
@@ -83,6 +83,8 @@ const skipIntro = $('#skipIntro');
 const skipIntroState = $('#skipIntroState');
 const bloomToggle = $('#bloom');
 const bloomOff = $('#bloomOff');
+const keyboardSettings = $('#keyboardSettings');
+const keyOverlayUnavailable = $('#keyOverlayUnavailable');
 const moreCount = $('#moreCount');
 const moreSettings = $('#moreSettings');
 const drawer = $('#settingsDrawer');
@@ -290,6 +292,12 @@ function syncOutput(control) {
 }
 function renderSwitchState() {
   skipIntroState.textContent = skipIntro.checked ? t('quick.on', {}, 'On') : t('quick.off', {}, 'Off');
+}
+// The keyboard overlay needs aulactl on the server (/health keyOverlay); without it the controls stay off.
+function syncKeyOverlay() {
+  const available = health?.keyOverlay === true;
+  for (const control of keyboardSettings.querySelectorAll('[data-option]')) control.disabled = !available;
+  keyOverlayUnavailable.hidden = available;
 }
 function syncBloomOverride() {
   // Profiles listed by /health (config speedProfiles.disableBloom) render without bloom whatever the toggle says.
@@ -777,7 +785,7 @@ async function loadHealth() {
     const response = await fetch('/health', { cache: 'no-store' });
     const data = await response.json();
     if (data?.status !== 'ok' && data?.status !== 'degraded') return;
-    health = data; renderHealth(); syncBloomOverride();
+    health = data; renderHealth(); syncBloomOverride(); syncKeyOverlay();
   } catch { /* informational only: keep the last known state */ }
 }
 function encoderLabel(encoder) {
