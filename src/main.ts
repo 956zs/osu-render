@@ -18,6 +18,8 @@ import { parseWebhookUrl, webhookSecrets } from './webhook-url.js';
 import { UPDATE_EXIT_CODE, Updater } from './updater.js';
 import { appConfig } from './app-config.js';
 import { LocalSongsIndex, resolveSongsDirs } from './local-songs.js';
+import { KeyOverlay, resolveAulactl } from './key-overlay.js';
+import { findMatchingOsu } from './beatmap-resolver.js';
 
 const paths = getPaths();
 await ensureDirectories(paths);
@@ -50,9 +52,20 @@ const resolver = new BeatmapResolver(paths, database, osuApi, mirrors, {
   maxExtractedBytes: limits.maxOszExtractedBytes,
   maxEntries: limits.maxArchiveEntries,
 }, localSongs);
+const aulactl = resolveAulactl();
+const keyOverlay = aulactl ? new KeyOverlay({
+  aulactl,
+  findBeatmapFile: async (checksum) => {
+    const cached = database.findBeatmap(checksum);
+    return cached ? findMatchingOsu(cached.map_path, checksum).catch(() => null) : null;
+  },
+  danserSettingsPath: paths.danserSettings, tempDir: paths.temp, logsDir: paths.logs,
+}) : undefined;
+log('info', 'key_overlay', { component: 'render', available: keyOverlay !== undefined });
 const renderer = new DanserRenderer({
   danserBin: settings.danserBin, danserDir: settings.danserDir, settingsName: settings.danserSettingsName, paths,
   timeoutMs: limits.maxRenderMinutes * 60 * 1000,
+  keyOverlay,
 });
 const reportWebhookUrl = parseWebhookUrl(settings.reportWebhookUrl);
 if (settings.reportWebhookUrl && !reportWebhookUrl) {
@@ -86,7 +99,9 @@ const updater = new Updater({
     void shutdown('update', UPDATE_EXIT_CODE);
   },
 });
-const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths, reporter, updater, localSongs });
+const app = await createHttpServer({ database, queue, storage, preflight, preflightState, paths, reporter, updater, localSongs,
+  keyOverlay: keyOverlay !== undefined,
+});
 const cleanupTimer = startCleanupScheduler(database, paths, async () => {
   await storage.cleanupTemp();
   await storage.evictBeatmaps();

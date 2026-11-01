@@ -9,6 +9,7 @@ import {
 } from './platform.js';
 import type { Paths, RenderRow } from './types.js';
 import { buildDanserPatch, parseRenderOptions } from './render-options.js';
+import type { KeyOverlay } from './key-overlay.js';
 
 const execFileAsync = promisify(execFile);
 const PROGRESS_PATTERN = /Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)?x?(?:,\s*ETA:\s*([^,]*))?/g;
@@ -52,6 +53,8 @@ export interface RendererOptions {
   logTailBytes?: number;
   terminateGraceMs?: number;
   spawnProcess?: ProcessSpawner;
+  /** Keyboard overlay step (aulactl found); renders asking for it skip it when absent. */
+  keyOverlay?: Pick<KeyOverlay, 'apply'>;
 }
 
 interface ActiveRender {
@@ -64,6 +67,7 @@ type Outcome = 'completed' | 'failed' | 'cancelled' | 'timeout' | 'stalled';
 
 export class DanserRenderer {
   private active: ActiveRender | null = null;
+  private overlay: { jobId: string; abort: AbortController } | null = null;
   private readonly platform: NodeJS.Platform;
 
   constructor(private readonly options: RendererOptions) {
@@ -80,6 +84,7 @@ export class DanserRenderer {
     try {
       const speed = await this.runDanser(job.id, tools, args, onProgress);
       await access(danserOutput);
+      await this.applyKeyOverlay(job, danserOutput, tools);
       await renameWithRetry(danserOutput, partOutput);
       await this.validateVideo(tools, partOutput);
       await renameWithRetry(partOutput, finalOutput);
@@ -91,6 +96,11 @@ export class DanserRenderer {
   }
 
   async cancel(jobId: string): Promise<void> {
+    if (this.overlay?.jobId === jobId) {
+      this.overlay.abort.abort();
+      await this.cleanupOutputs(jobId).catch(() => undefined);
+      return;
+    }
     const active = this.active;
     if (!active || active.jobId !== jobId) return;
     active.cancelled = true;
@@ -102,6 +112,18 @@ export class DanserRenderer {
     await exited;
     clearTimeout(force);
     await this.cleanupOutputs(jobId).catch(() => undefined);
+  }
+
+  private async applyKeyOverlay(job: RenderRow, video: string, tools: DanserTools): Promise<void> {
+    const options = parseRenderOptions(job.options_json);
+    if (!options.keyOverlay || !this.options.keyOverlay) return;
+    const overlay = { jobId: job.id, abort: new AbortController() };
+    this.overlay = overlay;
+    try {
+      await this.options.keyOverlay.apply(job, video, options, tools, overlay.abort.signal);
+    } finally {
+      if (this.overlay === overlay) this.overlay = null;
+    }
   }
 
   private async runDanser(

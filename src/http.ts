@@ -54,6 +54,8 @@ export interface HttpDependencies {
   localSongs?: { status(): LocalSongsStatus };
   /** Signs the video URLs that <video> previews load without the Bearer header; defaults to a per-process key. */
   previewSigner?: PreviewSigner;
+  /** The keyboard overlay step is available (aulactl found); /health tells the page. */
+  keyOverlay?: boolean;
 }
 
 export async function createHttpServer(dependencies: HttpDependencies): Promise<FastifyInstance> {
@@ -106,6 +108,7 @@ export async function createHttpServer(dependencies: HttpDependencies): Promise<
     ),
     reportWebhook: dependencies.reporter !== undefined,
     bloomOffProfiles: appConfig.speedProfiles.disableBloom,
+    keyOverlay: dependencies.keyOverlay === true,
   }));
   for (const [route, file] of pageFiles) {
     app.get(route, async (_request, reply) => reply.type(file.type).header('Cache-Control', 'no-cache')
