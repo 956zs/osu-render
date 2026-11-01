@@ -26,6 +26,7 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
 - [Skins personalizados](#skins-personalizados)
 - [Historial de renders y tiempo de conservación](#historial-de-renders-y-tiempo-de-conservación)
 - [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu)
+- [Plugins](#plugins)
 - [Actualizar](#actualizar)
 - [Reportar resultados (para testers)](#reportar-resultados-para-testers)
 - [Preguntas frecuentes](#preguntas-frecuentes)
@@ -218,6 +219,23 @@ descarga nada.
 - El set se copia a `data/songs`; tu carpeta de osu! nunca se modifica. Las carpetas enlazadas se omiten.
 - Si la copia local falla por cualquier motivo, se usa la API de osu! y los mirrors como siempre.
 - osu!lazer no es compatible (guarda los archivos por hash, no en una carpeta Songs).
+
+## Plugins
+
+Los plugins añaden un paso después del render de danser, por ejemplo una capa dibujada en sincronía con la
+repetición. Son carpetas con un `plugin.json` y un módulo JavaScript, y los instala el dueño del servidor desde la
+línea de comandos (nunca desde la página web, porque un plugin se ejecuta con los permisos del servicio):
+
+```sh
+npm run plugin -- install carpeta-o-zip-del-plugin
+npm run plugin -- list
+npm run plugin -- remove <id>
+```
+
+Reinicia el servicio después. Los plugins instalados aparecen en **Todos los ajustes → Plugins** con sus opciones
+(en gris con el motivo cuando no pueden ejecutarse aquí). Un plugin que falla nunca rompe un render: se conserva el
+video de danser y el log del trabajo explica por qué. Cómo escribir plugins, la API y el modelo de confianza:
+[docs/plugins.md](docs/plugins.md) (en inglés); hay un ejemplo en [examples/plugins/border](examples/plugins/border).
 
 ## Actualizar
 
@@ -538,6 +556,7 @@ editar.
 | `DANSER_SKINS_DIR` | `<DATA_DIR>/skins` | Carpeta de skins que se pasa a danser. |
 | `OSU_SONGS_DIRS` | Windows: `%LOCALAPPDATA%\osu!\Songs` si existe | Carpetas `Songs` de osu!stable que se usan antes de descargar, separadas con `;` (Windows) o `:` (Linux). Ver [Carpeta Songs local de osu!](#carpeta-songs-local-de-osu). |
 | `VIDEO_RETENTION_HOURS` | `24` | Horas que se guardan los videos, replays y logs de los renders terminados, de 1 a 720. |
+| `PLUGINS_DIR` | `<DATA_DIR>/plugins` | Carpeta de los [plugins](#plugins) instalados. |
 | `DANSER_SETTINGS_NAME` | `service` | Nombre del archivo de configuración que escribe el servicio: `<DANSER_DIR>/settings/<name>.json`. Solo letras, dígitos, `-` y `_`. |
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` o `libx264`. Cualquier otro valor detiene el arranque con un error. |
 | `OSU_CLIENT_ID` | vacío | Client ID de OAuth de osu!. Obligatorio. |
