@@ -156,7 +156,7 @@
     "BEATMAP_NOT_FOUND": "No se encontró el mapa de este replay.",
     "BEATMAP_DOWNLOAD_FAILED": "No se pudo descargar el mapa. Inténtalo más tarde.",
     "BEATMAP_INVALID_ARCHIVE": "El archivo del mapa descargado no es válido.",
-    "BEATMAP_CHECKSUM_MISMATCH": "El mapa descargado no coincide con la versión del replay.",
+    "BEATMAP_CHECKSUM_MISMATCH": "Ningún mirror de beatmaps tiene todavía esta versión del mapa. Pasa con mapas pending o recién actualizados; inténtalo más tarde.",
     "RENDER_FAILED": "El render falló.",
     "RENDER_TIMEOUT": "El render tardó demasiado y se detuvo.",
     "RENDER_STALLED": "El renderizador dejó de responder y se detuvo el render.",

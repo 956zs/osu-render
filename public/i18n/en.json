@@ -156,7 +156,7 @@
     "BEATMAP_NOT_FOUND": "Couldn't find the beatmap for this replay.",
     "BEATMAP_DOWNLOAD_FAILED": "Couldn't download the beatmap. Try again later.",
     "BEATMAP_INVALID_ARCHIVE": "The downloaded beatmap archive is invalid.",
-    "BEATMAP_CHECKSUM_MISMATCH": "The downloaded beatmap doesn't match the replay's version.",
+    "BEATMAP_CHECKSUM_MISMATCH": "No beatmap mirror has this version of the map yet. This happens with pending or freshly updated maps; try again later.",
     "RENDER_FAILED": "The render failed.",
     "RENDER_TIMEOUT": "The render took too long and was stopped.",
     "RENDER_STALLED": "The renderer stopped responding, so the render was stopped.",

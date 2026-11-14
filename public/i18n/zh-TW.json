@@ -156,7 +156,7 @@
     "BEATMAP_NOT_FOUND": "找不到這個 replay 對應的圖譜。",
     "BEATMAP_DOWNLOAD_FAILED": "圖譜下載失敗，請稍後再試。",
     "BEATMAP_INVALID_ARCHIVE": "下載的圖譜壓縮檔無效。",
-    "BEATMAP_CHECKSUM_MISMATCH": "下載的圖譜版本與 replay 不符。",
+    "BEATMAP_CHECKSUM_MISMATCH": "目前沒有任何圖譜 mirror 有這個版本的圖。剛更新過的 pending 圖常會這樣，晚點再試一次。",
     "RENDER_FAILED": "渲染失敗。",
     "RENDER_TIMEOUT": "渲染時間過長，已中止。",
     "RENDER_STALLED": "渲染器停止回應，已中止渲染。",
