@@ -57,20 +57,48 @@ function byteLimiter(maxBytes: number): Transform {
   });
 }
 
+/**
+ * Mirror URL templates to use: the configured ones (BEATMAP_MIRRORS, comma-separated) first, then the built-in
+ * fallbacks unless `only` is set. Mirrors lag behind osu! for freshly updated maps, so one mirror is rarely enough.
+ */
+export function mirrorTemplates(configured: string | undefined, fallback: readonly string[], only: boolean): string[] {
+  const own = (configured ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  const list = only && own.length > 0 ? own : [...own, ...fallback];
+  return [...new Set(list)];
+}
+
 export class MirrorChain {
   constructor(private readonly mirrors: readonly BeatmapMirror[]) {}
 
-  async download(beatmapsetId: number, destination: string, maxBytes: number): Promise<void> {
+  /**
+   * Downloads the set from each mirror in turn until `accept` returns a result. `accept` returns null when the
+   * archive holds another version of the map (mirror not updated yet), so the next mirror gets a chance.
+   */
+  async download<T>(
+    beatmapsetId: number, maxBytes: number, archivePath: () => string,
+    accept: (archive: string) => Promise<T | null>,
+  ): Promise<T> {
     const failures: string[] = [];
+    const outdated: string[] = [];
     for (const mirror of this.mirrors) {
+      const archive = archivePath();
       try {
-        await mirror.downloadBeatmapset(beatmapsetId, destination, maxBytes);
-        return;
+        await mirror.downloadBeatmapset(beatmapsetId, archive, maxBytes);
+        const result = await accept(archive);
+        if (result !== null) return result;
+        outdated.push(mirror.name);
+        log('warn', 'beatmap_mirror_outdated', { component: 'mirror', mirror: mirror.name, beatmapsetId });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         failures.push(`${mirror.name}: ${reason}`);
         log('warn', 'beatmap_mirror_failed', { component: 'mirror', mirror: mirror.name, beatmapsetId, reason });
+      } finally {
+        await rm(archive, { force: true });
       }
+    }
+    if (outdated.length > 0) {
+      throw new AppError('BEATMAP_CHECKSUM_MISMATCH',
+        `No mirror has this version of the beatmap yet (outdated: ${outdated.join(', ')}).`, 422);
     }
     throw new AppError('BEATMAP_DOWNLOAD_FAILED', `All beatmap mirrors failed: ${failures.join('; ')}`, 502);
   }
