@@ -4,7 +4,7 @@ import { AppError } from './errors.js';
 import { DEFAULT_SKIN, isValidSkinName } from './skins.js';
 import { PLUGIN_ID_PATTERN, type OptionValue } from './plugins/manifest.js';
 
-export type RenderResolution = '720p' | '1080p';
+export type RenderResolution = '360p' | '480p' | '720p' | '1080p';
 
 export interface RenderDimensions {
   readonly width: number;
@@ -12,6 +12,8 @@ export interface RenderDimensions {
 }
 
 export const RESOLUTION_DIMENSIONS: Readonly<Record<RenderResolution, RenderDimensions>> = Object.freeze({
+  '360p': Object.freeze({ width: 640, height: 360 }),
+  '480p': Object.freeze({ width: 854, height: 480 }),
   '720p': Object.freeze({ width: 1280, height: 720 }),
   '1080p': Object.freeze({ width: 1920, height: 1080 }),
 });
@@ -374,8 +376,10 @@ function booleanOption(input: Record<string, unknown>, key: typeof BOOLEAN_OPTIO
 
 function resolutionOption(input: Record<string, unknown>): RenderResolution {
   const value = input.resolution ?? DEFAULT_RENDER_OPTIONS.resolution;
-  if (value !== '720p' && value !== '1080p') throw invalidOptions('resolution must be 720p or 1080p.');
-  return value;
+  if (typeof value !== 'string' || !Object.hasOwn(RESOLUTION_DIMENSIONS, value)) {
+    throw invalidOptions(`resolution must be one of ${Object.keys(RESOLUTION_DIMENSIONS).join(', ')}.`);
+  }
+  return value as RenderResolution;
 }
 
 function skinOption(input: Record<string, unknown>): string {
