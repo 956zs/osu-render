@@ -46,7 +46,10 @@ const preflightState = new PreflightState(preflight, preflightResult, {
   onChange: async (result) => { await writeSettings(result.encoder); },
 });
 const osuApi = new OsuApiClient({ clientId: settings.osuClientId, clientSecret: settings.osuClientSecret });
-const mirrors = new MirrorChain(settings.mirrors.map((template) => new HttpBeatmapMirror(template)));
+const mirrors = new MirrorChain(
+  settings.mirrors.map((template) => new HttpBeatmapMirror(template, appConfig.mirrors.downloadTimeoutMs)),
+  { attempts: appConfig.mirrors.attempts, retryDelayMs: appConfig.mirrors.retryDelayMs },
+);
 const localSongs = new LocalSongsIndex(database.db,
   resolveSongsDirs(process.env, process.platform, appConfig.localSongs.autoDetect), appConfig.localSongs);
 const resolver = new BeatmapResolver(paths, database, osuApi, mirrors, {

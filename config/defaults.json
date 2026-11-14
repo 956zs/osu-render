@@ -77,7 +77,10 @@
       "https://catboy.best/d/{id}",
       "https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}",
       "https://osu.direct/api/d/{id}"
-    ]
+    ],
+    "attempts": 3,
+    "retryDelayMs": 2000,
+    "downloadTimeoutMs": 300000
   },
   "preview": { "ttlSeconds": 3600 },
   "plugins": { "stageTimeoutMs": 1800000, "availableTimeoutMs": 10000, "availabilityTtlMs": 60000 },
