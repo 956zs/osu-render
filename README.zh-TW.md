@@ -4,7 +4,7 @@
 
 自架的 osu! replay（`.osr`）轉 MP4 渲染服務，底層使用 [danser-go](https://github.com/Wieku/danser-go)。
 把 replay 拖進網頁後，服務會透過 osu! API 找到對應圖譜、從 mirror 下載、交給 danser 渲染，最後產生
-720p 或 1080p、60 FPS 的 MP4。影片編碼會盡量使用 GPU（NVIDIA NVENC、AMD AMF 或 Intel Quick Sync），
+360p、480p、720p 或 1080p、60 FPS 的 MP4。影片編碼會盡量使用 GPU（NVIDIA NVENC、AMD AMF 或 Intel Quick Sync），
 不能用時改用 CPU（x264）。
 
 <p>
@@ -51,7 +51,7 @@
   預覽影片。重新整理網頁後會接續顯示進行中的渲染。
 - 只需上傳 replay。服務會用 checksum 透過 osu! API 找圖譜，從可設定的 mirror 下載（失敗會換下一個），
   渲染前再比對 replay 的 MD5。
-- 720p 或 1080p、60 FPS，H.264 影像搭配 AAC 音訊。
+- 360p、480p、720p 或 1080p、60 FPS，H.264 影像搭配 AAC 音訊。
 - 速度設定（**速度**、**平衡**、**畫質**），在渲染時間與畫質之間取捨。
 - 每個任務可單獨調整畫面：跳過前奏、音量、背景暗度／模糊／視差、Bloom、遊戲區縮放、游標大小／軌跡／特效、
   Skin 或圖譜配色、HUD 元件與 hit object 細節。

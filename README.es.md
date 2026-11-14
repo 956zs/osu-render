@@ -4,7 +4,7 @@
 
 Servicio autoalojado que convierte replays de osu! (`.osr`) en videos MP4 usando
 [danser-go](https://github.com/Wieku/danser-go). Arrastras un replay a la página web: el servicio busca el mapa
-con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entrega un MP4 de 720p o 1080p a
+con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entrega un MP4 de 360p, 480p, 720p o 1080p a
 60 FPS. La codificación de video usa tu GPU (NVIDIA NVENC, AMD AMF o Intel Quick Sync) cuando puede y la CPU
 (x264) cuando no.
 
@@ -55,7 +55,7 @@ con la API de osu!, lo descarga de un mirror, lo renderiza con danser y te entre
   la página, el render en curso se sigue mostrando.
 - Solo subes el replay. El mapa se busca por su checksum con la API de osu!, se descarga de mirrors
   configurables (si uno falla se prueba el siguiente) y se verifica contra el MD5 del replay antes de renderizar.
-- 720p o 1080p a 60 FPS, video H.264 con audio AAC.
+- 360p, 480p, 720p o 1080p a 60 FPS, video H.264 con audio AAC.
 - Perfiles de velocidad (**Rápido**, **Equilibrado**, **Calidad**) que cambian tiempo de render por calidad de imagen.
 - Opciones visuales por render: saltar la intro, volúmenes, atenuación/desenfoque/paralaje del fondo, bloom,
   escala del área de juego, tamaño/estela/efectos del cursor, colores de la skin o del mapa, elementos del HUD y
