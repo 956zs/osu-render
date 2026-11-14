@@ -109,3 +109,20 @@ test('unknown job encoders get no encoder block', () => {
   const patch = buildDanserPatch(parseRenderOptions('{"speedProfile":"fast"}'), 'unknown');
   assert.deepEqual(patch.Recording, { FrameWidth: 1920, FrameHeight: 1080 });
 });
+
+test('low resolutions map to even 16:9 frame sizes', () => {
+  for (const [resolution, width, height] of [['360p', 640, 360], ['480p', 854, 480], ['720p', 1280, 720], ['1080p', 1920, 1080]] as const) {
+    const options = parseRenderOptions(JSON.stringify({ resolution }));
+    assert.equal(options.resolution, resolution);
+    assert.deepEqual(buildDanserPatch(options, 'libx264').Recording.FrameWidth, width);
+    assert.deepEqual(buildDanserPatch(options, 'libx264').Recording.FrameHeight, height);
+    assert.equal(width % 2, 0);
+    assert.equal(height % 2, 0);
+  }
+});
+
+test('resolution rejects unknown, non-string and inherited keys', () => {
+  for (const resolution of ['240p', '1440p', '', 'toString', '__proto__', 1080, true]) {
+    assert.throws(() => parseRenderOptions(JSON.stringify({ resolution })), /resolution/i, String(resolution));
+  }
+});

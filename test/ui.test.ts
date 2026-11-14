@@ -115,7 +115,7 @@ test('render tab has the drop zone, quick settings, drawer and presets', async (
   const render = section(markup, 'view-render');
   assert.match(startTag(render, 'file'), /type="file" accept="\.osr"/);
   const quick = /<section class="card quick"[\s\S]*?\n          <\/section>/.exec(render)?.[0] ?? '';
-  for (const id of ['skin', 'resolution-1080p', 'backgroundDim', 'skipIntro', 'token', 'moreSettings']) {
+  for (const id of ['skin', 'resolution-360p', 'resolution-480p', 'resolution-1080p', 'backgroundDim', 'skipIntro', 'token', 'moreSettings']) {
     assert.ok(quick.includes(`id="${id}"`), `${id} is in quick settings`);
   }
   assert.match(startTag(render, 'settingsDrawer'), /^<dialog /);

@@ -233,7 +233,6 @@ h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: -.02em; }
 }
 .select option { background: var(--color-card); }
 .select:hover, .input:hover { border-color: var(--color-line-strong); }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .seg { display: flex; padding: 4px; border-radius: var(--radius-field); border: 1.5px solid var(--color-line); background: var(--color-bg-2); }
 .seg label { position: relative; flex: 1; }
 .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }

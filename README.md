@@ -4,7 +4,7 @@
 
 Self-hosted osu! replay (`.osr`) to MP4 render service powered by [danser-go](https://github.com/Wieku/danser-go).
 Drop a replay into the web page: the service looks the beatmap up through the osu! API, downloads it from a
-mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video encoding runs on your GPU
+mirror, renders it with danser and gives you a 360p, 480p, 720p or 1080p, 60 FPS MP4. Video encoding runs on your GPU
 (NVIDIA NVENC, AMD AMF or Intel Quick Sync) when it can and falls back to the CPU (x264) when it cannot.
 
 <p>
@@ -54,7 +54,7 @@ mirror, renders it with danser and gives you a 720p or 1080p, 60 FPS MP4. Video 
   after a page reload.
 - Upload only the replay. The beatmap is found by its checksum through the osu! API, downloaded from
   configurable mirrors (with fallback) and checked against the replay's MD5 before rendering.
-- 720p or 1080p at 60 FPS, H.264 video with AAC audio.
+- 360p, 480p, 720p or 1080p at 60 FPS, H.264 video with AAC audio.
 - Speed profiles (**Speed**, **Balanced**, **Quality**) that trade render time for image quality.
 - Per-render visual options: skip intro, volumes, background dim/blur/parallax, bloom, playfield scale,
   cursor size/trail/effects, skin or beatmap colours, HUD elements and hit object details.
