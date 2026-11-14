@@ -306,7 +306,7 @@ doctor 會對**所有**支援的編碼器做自我測試，而不只是第一個
 ## 常見問題
 
 **它會上傳任何東西嗎？**
-沒有任何遙測。服務只會連到 osu! API（取得 token、用 checksum 查圖譜），以及 `BEATMAP_MIRRORS` 裡的圖譜 mirror
+沒有任何遙測。服務只會連到 osu! API（取得 token、用 checksum 查圖譜），以及圖譜 mirror（`BEATMAP_MIRRORS` 加上 `mirrors.fallback`）
 （下載 `.osz`）。replay 與影片都留在你的電腦上，24 小時後刪除（`VIDEO_RETENTION_HOURS`）。診斷報告只有在你自己分享，或設定了 `REPORT_WEBHOOK_URL`（每次渲染後會把遮蔽過的報告送到該 Discord webhook）時
 才會離開電腦，見[隱私](#隱私)。
 
@@ -485,7 +485,8 @@ journalctl --user -u osu-render.service -f
 | `RENDER_ENCODER` | `auto` | `auto`、`h264_nvenc`、`hevc_nvenc`、`h264_amf`、`hevc_amf`、`h264_qsv`、`hevc_qsv` 或 `libx264`。其他值會讓啟動失敗並顯示錯誤。 |
 | `OSU_CLIENT_ID` | 空 | osu! OAuth client ID。必填。 |
 | `OSU_CLIENT_SECRET` | 空 | osu! OAuth client secret。必填。 |
-| `BEATMAP_MIRRORS` | `https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}` | 以逗號分隔的 `.osz` 下載網址，依序嘗試。`{id}` 是 beatmapset ID。 |
+| `BEATMAP_MIRRORS` | （空白） | 額外的 `.osz` 下載網址，以逗號分隔，會最先嘗試。`{id}` 是 beatmapset ID。之後一律會再試 `config/defaults.json` 內建的 mirror（`mirrors.fallback`：catboy.best、hinamizawa、osu.direct）。某個 mirror 的圖比 replay 舊時（剛更新過的 pending 圖很常見），會自動改試下一個。 |
+| `BEATMAP_MIRRORS_ONLY` | （空白） | 設成 `true` 就只用 `BEATMAP_MIRRORS`，不接內建 mirror。 |
 | `AUTH_TOKEN` | 空 | 有設定時，每個 `/api/*` 請求都需要 `Authorization: Bearer <token>`。 |
 | `MAX_QUEUE` | `20` | 未完成任務的上限。 |
 | `REPORT_WEBHOOK_URL` | 空 | Discord webhook（`https://discord.com/api/webhooks/<id>/<token>`，也接受 `discordapp.com`、`ptb.` 與 `canary.`），每次渲染結束與按下「**傳送給開發者**」時會收到遮蔽過的診斷報告。其他網址會在啟動時警告並停用。屬於機密：不會寫進日誌或報告。見[回報測試結果](#回報測試結果給測試者)。 |

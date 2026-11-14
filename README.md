@@ -348,7 +348,7 @@ when, and what the page showed.
 
 **Does it upload anything?**
 No telemetry. The service only talks to the osu! API (to get a token and look up the beatmap by its checksum)
-and to the beatmap mirrors in `BEATMAP_MIRRORS` (to download the `.osz`). Replays and videos stay on your
+and to the beatmap mirrors (`BEATMAP_MIRRORS` plus `mirrors.fallback`) (to download the `.osz`). Replays and videos stay on your
 machine and are deleted after 24 hours (`VIDEO_RETENTION_HOURS`). Diagnostics reports are only shared if you share them, or if you set
 `REPORT_WEBHOOK_URL` (then a redacted report goes to that Discord webhook after each render), see
 [Privacy](#privacy).
@@ -539,7 +539,8 @@ relative to that folder. Empty values count as unset. Restart the service after 
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` or `libx264`. Any other value stops startup with an error. |
 | `OSU_CLIENT_ID` | empty | osu! OAuth client ID. Required. |
 | `OSU_CLIENT_SECRET` | empty | osu! OAuth client secret. Required. |
-| `BEATMAP_MIRRORS` | `https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}` | Comma-separated `.osz` download URLs, tried in order. `{id}` is the beatmapset ID. |
+| `BEATMAP_MIRRORS` | (empty) | Extra comma-separated `.osz` download URLs, tried first. `{id}` is the beatmapset ID. The built-in mirrors in `config/defaults.json` (`mirrors.fallback`: catboy.best, hinamizawa, osu.direct) are tried after them. If a mirror's copy is an older version of the map than the replay (common with freshly updated pending maps), the next mirror is tried. |
+| `BEATMAP_MIRRORS_ONLY` | (empty) | `true` = use only `BEATMAP_MIRRORS`, without the built-in fallbacks. |
 | `AUTH_TOKEN` | empty | If set, every `/api/*` request needs `Authorization: Bearer <token>`. |
 | `MAX_QUEUE` | `20` | Maximum number of unfinished jobs. |
 | `REPORT_WEBHOOK_URL` | empty | Discord webhook (`https://discord.com/api/webhooks/<id>/<token>`, also `discordapp.com`, `ptb.` and `canary.`) that receives a redacted diagnostics report after every finished render and from the **Send to developer** button. Other URLs are rejected with a startup warning. A secret: never logged or put in reports. See [Reporting results](#reporting-results-for-testers). |

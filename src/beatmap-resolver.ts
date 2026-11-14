@@ -29,7 +29,7 @@ interface ResolvedBeatmap {
 }
 
 export class BeatmapResolver {
-  private readonly downloads = new Map<number, Promise<string>>();
+  private readonly downloads = new Map<string, Promise<string>>();
 
   constructor(
     private readonly paths: Paths,
@@ -62,9 +62,7 @@ export class BeatmapResolver {
       return { metadata, cache };
     }
     onDownloading();
-    const mapPath = await this.withDownloadLock(metadata);
-    const matchingFile = await findMatchingOsu(mapPath, checksum);
-    if (!matchingFile) throw new AppError('BEATMAP_CHECKSUM_MISMATCH', 'Downloaded beatmap does not match replay.', 422);
+    const mapPath = await this.withDownloadLock(metadata, checksum);
     const cache = await this.saveCacheRecord(metadata, checksum, mapPath);
     return { metadata, cache };
   }
@@ -126,32 +124,35 @@ export class BeatmapResolver {
     return undefined;
   }
 
-  private async withDownloadLock(metadata: BeatmapMetadata): Promise<string> {
-    const current = this.downloads.get(metadata.beatmapsetId);
+  /** One download per set and map version; jobs for another difficulty of the same set may need a newer mirror. */
+  private async withDownloadLock(metadata: BeatmapMetadata, checksum: string): Promise<string> {
+    const key = `${metadata.beatmapsetId}:${checksum}`;
+    const current = this.downloads.get(key);
     if (current) return current;
-    const pending = this.downloadAndInstall(metadata)
-      .finally(() => this.downloads.delete(metadata.beatmapsetId));
-    this.downloads.set(metadata.beatmapsetId, pending);
+    const pending = this.downloadAndInstall(metadata, checksum)
+      .finally(() => this.downloads.delete(key));
+    this.downloads.set(key, pending);
     return pending;
   }
 
-  private async downloadAndInstall(metadata: BeatmapMetadata): Promise<string> {
-    const token = randomUUID();
-    const archive = path.join(this.paths.temp, `${metadata.beatmapsetId}-${token}.osz`);
-    const extracted = path.join(this.paths.temp, `${metadata.beatmapsetId}-${token}.extracting`);
-    const destination = path.join(this.paths.songs, `${metadata.beatmapsetId}-${token}`);
-    try {
-      await this.mirrors.download(metadata.beatmapsetId, archive, this.limits.maxCompressedBytes);
-      await extractOsz(archive, extracted, {
-        maxEntries: this.limits.maxEntries,
-        maxExtractedBytes: this.limits.maxExtractedBytes,
-      });
-      await installExtracted(extracted, destination);
-      return destination;
-    } finally {
-      await rm(archive, { force: true });
-      await rm(extracted, { recursive: true, force: true });
-    }
+  private async downloadAndInstall(metadata: BeatmapMetadata, checksum: string): Promise<string> {
+    const archivePath = (): string => path.join(this.paths.temp, `${metadata.beatmapsetId}-${randomUUID()}.osz`);
+    return this.mirrors.download(metadata.beatmapsetId, this.limits.maxCompressedBytes, archivePath, async (archive) => {
+      const token = randomUUID();
+      const extracted = path.join(this.paths.temp, `${metadata.beatmapsetId}-${token}.extracting`);
+      try {
+        await extractOsz(archive, extracted, {
+          maxEntries: this.limits.maxEntries,
+          maxExtractedBytes: this.limits.maxExtractedBytes,
+        });
+        if (!await findMatchingOsu(extracted, checksum)) return null;
+        const destination = path.join(this.paths.songs, `${metadata.beatmapsetId}-${token}`);
+        await installExtracted(extracted, destination);
+        return destination;
+      } finally {
+        await rm(extracted, { recursive: true, force: true });
+      }
+    });
   }
 }
 

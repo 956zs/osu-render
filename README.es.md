@@ -364,7 +364,7 @@ mostraba la página.
 
 **¿Sube algo a internet?**
 No hay telemetría. El servicio solo se conecta a la API de osu! (para obtener un token y buscar el mapa por su
-checksum) y a los mirrors de `BEATMAP_MIRRORS` (para descargar el `.osz`). Los replays y videos se quedan en tu
+checksum) y a los mirrors de beatmaps (`BEATMAP_MIRRORS` más `mirrors.fallback`) (para descargar el `.osz`). Los replays y videos se quedan en tu
 equipo y se borran a las 24 horas (`VIDEO_RETENTION_HOURS`). Los reportes de diagnóstico solo salen de tu equipo si tú los compartes, o si
 defines `REPORT_WEBHOOK_URL` (entonces se envía un reporte anonimizado a ese webhook de Discord después de cada
 render), ver [Privacidad](#privacidad).
@@ -561,7 +561,8 @@ editar.
 | `RENDER_ENCODER` | `auto` | `auto`, `h264_nvenc`, `hevc_nvenc`, `h264_amf`, `hevc_amf`, `h264_qsv`, `hevc_qsv` o `libx264`. Cualquier otro valor detiene el arranque con un error. |
 | `OSU_CLIENT_ID` | vacío | Client ID de OAuth de osu!. Obligatorio. |
 | `OSU_CLIENT_SECRET` | vacío | Client secret de OAuth de osu!. Obligatorio. |
-| `BEATMAP_MIRRORS` | `https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}` | URLs de descarga de `.osz` separadas por comas, en orden. `{id}` es el ID del beatmapset. |
+| `BEATMAP_MIRRORS` | (vacío) | URLs extra de descarga de `.osz`, separadas por comas, que se prueban primero. `{id}` es el ID del beatmapset. Después siempre se prueban los mirrors integrados de `config/defaults.json` (`mirrors.fallback`: catboy.best, hinamizawa, osu.direct). Si la copia de un mirror es una versión más vieja del mapa que la del replay (pasa mucho con mapas pending recién actualizados), se prueba el siguiente. |
+| `BEATMAP_MIRRORS_ONLY` | (vacío) | `true` = usar solo `BEATMAP_MIRRORS`, sin los mirrors integrados. |
 | `AUTH_TOKEN` | vacío | Si se define, cada petición a `/api/*` necesita `Authorization: Bearer <token>`. |
 | `MAX_QUEUE` | `20` | Máximo de trabajos sin terminar. |
 | `REPORT_WEBHOOK_URL` | vacío | Webhook de Discord (`https://discord.com/api/webhooks/<id>/<token>`, también `discordapp.com`, `ptb.` y `canary.`) que recibe un reporte de diagnóstico anonimizado después de cada render terminado y desde el botón **Enviar al desarrollador**. Otras URLs se rechazan con un aviso al arrancar. Es un secreto: nunca se escribe en logs ni reportes. Ver [Reportar resultados](#reportar-resultados-para-testers). |

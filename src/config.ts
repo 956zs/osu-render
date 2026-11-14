@@ -2,7 +2,9 @@ import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { loadEnvFile } from 'node:process';
+import { appConfig } from './app-config.js';
 import { encoderCandidates } from './encoders.js';
+import { mirrorTemplates } from './mirrors.js';
 import type { Paths } from './types.js';
 
 const GIB = 1024 ** 3;
@@ -56,8 +58,8 @@ export const settings = Object.freeze({
   renderEncoder: RENDER_ENCODER,
   osuClientId: process.env.OSU_CLIENT_ID ?? '',
   osuClientSecret: process.env.OSU_CLIENT_SECRET ?? '',
-  mirrors: (process.env.BEATMAP_MIRRORS ?? 'https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}')
-    .split(',').map((value) => value.trim()).filter(Boolean),
+  /** BEATMAP_MIRRORS first, then config mirrors.fallback (skipped when BEATMAP_MIRRORS_ONLY=true). */
+  mirrors: mirrorTemplates(env('BEATMAP_MIRRORS'), appConfig.mirrors.fallback, env('BEATMAP_MIRRORS_ONLY') === 'true'),
   authToken: process.env.AUTH_TOKEN ?? '',
   /** Secret: never log it. Validate with parseWebhookUrl (webhook-url.ts); invalid values disable reporting. */
   reportWebhookUrl: env('REPORT_WEBHOOK_URL') ?? '',

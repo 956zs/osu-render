@@ -50,6 +50,9 @@ export interface AppConfig {
   };
   history: { defaultLimit: number; maxLimit: number };
   localSongs: { autoDetect: boolean; maxFiles: number; progressEvery: number };
+  /** .osz download URLs (`{id}` = beatmapset id) tried after the ones in BEATMAP_MIRRORS. */
+  /** Attempts per mirror on connection errors, the pause between them, and the time limit of one download. */
+  mirrors: { fallback: readonly string[]; attempts: number; retryDelayMs: number; downloadTimeoutMs: number };
   preview: { ttlSeconds: number };
   /** Plugins: time limits of a video stage and of an available() check, and how long availability is cached. */
   plugins: { stageTimeoutMs: number; availableTimeoutMs: number; availabilityTtlMs: number };
@@ -80,7 +83,7 @@ export function loadAppConfig(defaultsFile = DEFAULTS_FILE, localFile = LOCAL_CO
 }
 
 export function validateAppConfig(value: unknown): AppConfig {
-  const root = object(value, '(root)', ['encoders', 'preflight', 'render', 'speedProfiles', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'preview', 'plugins', 'i18n']);
+  const root = object(value, '(root)', ['encoders', 'preflight', 'render', 'speedProfiles', 'diagnostics', 'reportWebhook', 'skins', 'update', 'history', 'localSongs', 'mirrors', 'preview', 'plugins', 'i18n']);
   const encoders = object(root.encoders, 'encoders', ['autoOrder', 'selfTest']);
   const autoOrder = object(encoders.autoOrder, 'encoders.autoOrder');
   if (!('default' in autoOrder)) throw configError('encoders.autoOrder.default', 'is required');
@@ -100,6 +103,7 @@ export function validateAppConfig(value: unknown): AppConfig {
     'notesMaxChars', 'notesMaxItems', 'notesItemChars']);
   const history = object(root.history, 'history', ['defaultLimit', 'maxLimit']);
   const localSongs = object(root.localSongs, 'localSongs', ['autoDetect', 'maxFiles', 'progressEvery']);
+  const mirrors = object(root.mirrors, 'mirrors', ['fallback', 'attempts', 'retryDelayMs', 'downloadTimeoutMs']);
   const preview = object(root.preview, 'preview', ['ttlSeconds']);
   const plugins = object(root.plugins, 'plugins', ['stageTimeoutMs', 'availableTimeoutMs', 'availabilityTtlMs']);
   const i18n = object(root.i18n, 'i18n', ['languages', 'fallback']);
@@ -174,6 +178,12 @@ export function validateAppConfig(value: unknown): AppConfig {
       autoDetect: boolean(localSongs.autoDetect, 'localSongs.autoDetect'),
       maxFiles: integer(localSongs.maxFiles, 'localSongs.maxFiles', 1),
       progressEvery: integer(localSongs.progressEvery, 'localSongs.progressEvery', 1),
+    },
+    mirrors: {
+      fallback: stringArray(mirrors.fallback, 'mirrors.fallback', /^https:\/\/\S*\{id\}\S*$/),
+      attempts: integer(mirrors.attempts, 'mirrors.attempts', 1),
+      retryDelayMs: integer(mirrors.retryDelayMs, 'mirrors.retryDelayMs', 0),
+      downloadTimeoutMs: integer(mirrors.downloadTimeoutMs, 'mirrors.downloadTimeoutMs', 10_000),
     },
     preview: { ttlSeconds: integer(preview.ttlSeconds, 'preview.ttlSeconds', 60) },
     plugins: {

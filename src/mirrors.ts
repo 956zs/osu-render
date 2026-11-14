@@ -15,7 +15,7 @@ export interface BeatmapMirror {
 export class HttpBeatmapMirror implements BeatmapMirror {
   readonly name: string;
 
-  constructor(private readonly template: string) {
+  constructor(private readonly template: string, private readonly timeoutMs = 300_000) {
     this.name = new URL(template.replace('{id}', '1')).hostname;
   }
 
@@ -27,7 +27,7 @@ export class HttpBeatmapMirror implements BeatmapMirror {
         'User-Agent': MIRROR_USER_AGENT,
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
     const contentLength = Number(response.headers.get('content-length') ?? 0);
@@ -57,20 +57,89 @@ function byteLimiter(maxBytes: number): Transform {
   });
 }
 
-export class MirrorChain {
-  constructor(private readonly mirrors: readonly BeatmapMirror[]) {}
+/**
+ * Mirror URL templates to use: the configured ones (BEATMAP_MIRRORS, comma-separated) first, then the built-in
+ * fallbacks unless `only` is set. Mirrors lag behind osu! for freshly updated maps, so one mirror is rarely enough.
+ */
+export function mirrorTemplates(configured: string | undefined, fallback: readonly string[], only: boolean): string[] {
+  const own = (configured ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  const list = only && own.length > 0 ? own : [...own, ...fallback];
+  return [...new Set(list)];
+}
 
-  async download(beatmapsetId: number, destination: string, maxBytes: number): Promise<void> {
-    const failures: string[] = [];
-    for (const mirror of this.mirrors) {
+/** Network codes that usually clear up on a second try (slow TLS handshakes, dropped sockets, DNS hiccups). */
+const TRANSIENT_CODES = new Set([
+  'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT',
+  'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'EPIPE', 'ECONNABORTED',
+]);
+
+/** True for connection-level failures worth retrying; HTTP errors and size limits are not. */
+export function isTransientNetworkError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { code, cause } = error as { code?: unknown; cause?: unknown };
+  if (typeof code === 'string' && TRANSIENT_CODES.has(code)) return true;
+  return cause !== undefined && cause !== error && isTransientNetworkError(cause);
+}
+
+export interface MirrorChainOptions {
+  attempts?: number;
+  retryDelayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export class MirrorChain {
+  private readonly attempts: number;
+  private readonly retryDelayMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
+
+  constructor(private readonly mirrors: readonly BeatmapMirror[], options: MirrorChainOptions = {}) {
+    this.attempts = Math.max(1, options.attempts ?? 1);
+    this.retryDelayMs = options.retryDelayMs ?? 0;
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  }
+
+  private async fetchWithRetry(mirror: BeatmapMirror, beatmapsetId: number, archive: string, maxBytes: number): Promise<void> {
+    for (let attempt = 1; ; attempt += 1) {
       try {
-        await mirror.downloadBeatmapset(beatmapsetId, destination, maxBytes);
+        await mirror.downloadBeatmapset(beatmapsetId, archive, maxBytes);
         return;
+      } catch (error) {
+        if (attempt >= this.attempts || !isTransientNetworkError(error)) throw error;
+        log('warn', 'beatmap_mirror_retry', { component: 'mirror', mirror: mirror.name, beatmapsetId, attempt });
+        await this.sleep(this.retryDelayMs * attempt);
+      }
+    }
+  }
+
+  /**
+   * Downloads the set from each mirror in turn until `accept` returns a result. `accept` returns null when the
+   * archive holds another version of the map (mirror not updated yet), so the next mirror gets a chance.
+   */
+  async download<T>(
+    beatmapsetId: number, maxBytes: number, archivePath: () => string,
+    accept: (archive: string) => Promise<T | null>,
+  ): Promise<T> {
+    const failures: string[] = [];
+    const outdated: string[] = [];
+    for (const mirror of this.mirrors) {
+      const archive = archivePath();
+      try {
+        await this.fetchWithRetry(mirror, beatmapsetId, archive, maxBytes);
+        const result = await accept(archive);
+        if (result !== null) return result;
+        outdated.push(mirror.name);
+        log('warn', 'beatmap_mirror_outdated', { component: 'mirror', mirror: mirror.name, beatmapsetId });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         failures.push(`${mirror.name}: ${reason}`);
         log('warn', 'beatmap_mirror_failed', { component: 'mirror', mirror: mirror.name, beatmapsetId, reason });
+      } finally {
+        await rm(archive, { force: true });
       }
+    }
+    if (outdated.length > 0) {
+      throw new AppError('BEATMAP_CHECKSUM_MISMATCH',
+        `No mirror has this version of the beatmap yet (outdated: ${outdated.join(', ')}).`, 422);
     }
     throw new AppError('BEATMAP_DOWNLOAD_FAILED', `All beatmap mirrors failed: ${failures.join('; ')}`, 502);
   }
