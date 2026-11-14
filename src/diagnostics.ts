@@ -54,6 +54,8 @@ export interface DiagnosticsSettings {
   osuClientSecret: string;
   authToken: string;
   mirrors: readonly string[];
+  /** MIRROR_PROXY; only whether it is set is reported. */
+  mirrorProxy?: string;
   /** Raw REPORT_WEBHOOK_URL value; only used to scrub it and to report whether reporting is on. */
   reportWebhookUrl?: string;
 }
@@ -146,7 +148,7 @@ export interface DiagnosticsReport {
   focusRender?: number;
   config: {
     host: HostScope; port: number; renderEncoder: string; oauthConfigured: boolean; authTokenSet: boolean;
-    reportWebhook: boolean; mirrors: string[];
+    reportWebhook: boolean; mirrors: string[]; mirrorProxy: boolean;
   };
   storage: { freeBytes: number | null };
   localSongs?: LocalSongsStatus;
@@ -219,6 +221,7 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
       authTokenSet: Boolean(settings.authToken),
       reportWebhook: parseWebhookUrl(settings.reportWebhookUrl) !== undefined,
       mirrors: settings.mirrors.map(mirrorHost),
+      mirrorProxy: Boolean(settings.mirrorProxy),
     },
     storage: { freeBytes },
     ...(options.localSongs ? { localSongs: options.localSongs.status() } : {}),
@@ -227,7 +230,8 @@ export async function collectDiagnostics(options: DiagnosticsOptions): Promise<D
     errors,
   };
   const scrub = createScrubber({
-    secrets: [settings.authToken, settings.osuClientSecret, ...webhookSecrets(settings.reportWebhookUrl)], renderIds: rows.map((row) => row.id),
+    secrets: [settings.authToken, settings.osuClientSecret, ...webhookSecrets(settings.reportWebhookUrl),
+      ...(settings.mirrorProxy ? [settings.mirrorProxy] : [])], renderIds: rows.map((row) => row.id),
     dataDir: options.paths.data,
   });
   const report = sanitizeValue(unsanitized, scrub, (text) => scrubPlayerNames(text, playerNames));

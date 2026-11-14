@@ -328,7 +328,7 @@ test('collectDiagnostics builds a redacted report from fake services', async () 
     assert.equal(report.encoderProbes[1].error, 'Error from <ip>');
     assert.deepEqual(report.config, {
       host: 'other', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: true,
-      reportWebhook: true, mirrors: ['mirror.example.com', 'invalid'],
+      reportWebhook: true, mirrors: ['mirror.example.com', 'invalid'], mirrorProxy: false,
     });
     assert.deepEqual(report.storage, { freeBytes: 42 });
     assert.equal(report.renders.length, 2);

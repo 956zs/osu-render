@@ -24,7 +24,7 @@ function fakeReport(overrides: Partial<DiagnosticsReport> = {}): DiagnosticsRepo
     },
     preflight: { renderer: true, display: true, encoder: 'h264_nvenc', probes: [{ encoder: 'h264_nvenc', ok: true, durationMs: 5 }] },
     encoderProbes: [],
-    config: { host: 'loopback', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: false, reportWebhook: true, mirrors: [] },
+    config: { host: 'loopback', port: 3030, renderEncoder: 'auto', oauthConfigured: true, authTokenSet: false, reportWebhook: true, mirrors: [], mirrorProxy: false },
     storage: { freeBytes: 1 },
     renders: [{
       index: 1, status: 'failed', encoder: 'h264_nvenc', width: 1920, height: 1080, createdAt: 1, startedAt: 1000,

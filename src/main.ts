@@ -1,7 +1,7 @@
 import { ensureDirectories, getPaths, limits, settings } from './config.js';
 import { RenderDatabase } from './database.js';
 import { BeatmapResolver } from './beatmap-resolver.js';
-import { HttpBeatmapMirror, MirrorChain } from './mirrors.js';
+import { HttpBeatmapMirror, MirrorChain, mirrorDispatcher } from './mirrors.js';
 import { OsuApiClient } from './osu-api.js';
 import { PreflightService, PreflightState } from './preflight.js';
 import { writeDanserSettings } from './danser-config.js';
@@ -46,8 +46,9 @@ const preflightState = new PreflightState(preflight, preflightResult, {
   onChange: async (result) => { await writeSettings(result.encoder); },
 });
 const osuApi = new OsuApiClient({ clientId: settings.osuClientId, clientSecret: settings.osuClientSecret });
+const mirrorTransport = mirrorDispatcher({ connectTimeoutMs: appConfig.mirrors.connectTimeoutMs, proxy: settings.mirrorProxy });
 const mirrors = new MirrorChain(
-  settings.mirrors.map((template) => new HttpBeatmapMirror(template, appConfig.mirrors.downloadTimeoutMs)),
+  settings.mirrors.map((template) => new HttpBeatmapMirror(template, appConfig.mirrors.downloadTimeoutMs, mirrorTransport)),
   { attempts: appConfig.mirrors.attempts, retryDelayMs: appConfig.mirrors.retryDelayMs },
 );
 const localSongs = new LocalSongsIndex(database.db,
