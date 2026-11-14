@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { BeatmapResolver } from '../src/beatmap-resolver.js';
 import { RenderDatabase } from '../src/database.js';
-import { MirrorChain, mirrorTemplates, type BeatmapMirror } from '../src/mirrors.js';
+import { MirrorChain, isTransientNetworkError, mirrorTemplates, type BeatmapMirror } from '../src/mirrors.js';
 import type { OsuApiClient } from '../src/osu-api.js';
 import type { Paths } from '../src/types.js';
 import { storeZip } from './skins-zip.js';
@@ -124,5 +124,58 @@ test('resolver installs the set from the first mirror that has the replay versio
     } finally {
       database.close();
     }
+  });
+});
+
+function fetchFailed(code: string): Error {
+  return new TypeError('fetch failed', { cause: Object.assign(new Error(code), { code }) });
+}
+
+test('isTransientNetworkError accepts connection failures only', () => {
+  assert.equal(isTransientNetworkError(fetchFailed('UND_ERR_CONNECT_TIMEOUT')), true);
+  assert.equal(isTransientNetworkError(Object.assign(new Error('reset'), { code: 'ECONNRESET' })), true);
+  assert.equal(isTransientNetworkError(fetchFailed('ENOTFOUND')), false);
+  assert.equal(isTransientNetworkError(new Error('HTTP 503')), false);
+  assert.equal(isTransientNetworkError(new Error('archive exceeds compressed size limit')), false);
+  assert.equal(isTransientNetworkError(null), false);
+  assert.equal(isTransientNetworkError('UND_ERR_SOCKET'), false);
+  const loop: { code?: string; cause?: unknown } = {};
+  loop.cause = loop;
+  assert.equal(isTransientNetworkError(loop), false);
+});
+
+test('a mirror with a flaky connection is retried before moving on', async () => {
+  await withTemp(async (directory) => {
+    let counter = 0;
+    const archivePath = (): string => path.join(directory, `${counter += 1}.osz`);
+    const waits: number[] = [];
+    let calls = 0;
+    const flaky: BeatmapMirror = {
+      name: 'flaky',
+      async downloadBeatmapset(_id, destination) {
+        calls += 1;
+        if (calls < 3) throw fetchFailed('UND_ERR_CONNECT_TIMEOUT');
+        await writeFile(destination, 'ok');
+      },
+    };
+    const chain = new MirrorChain([flaky], { attempts: 3, retryDelayMs: 10, sleep: async (ms) => { waits.push(ms); } });
+    assert.equal(await chain.download(1, 1024, archivePath, async () => 'done'), 'done');
+    assert.equal(calls, 3);
+    assert.deepEqual(waits, [10, 20]);
+  });
+});
+
+test('retries stop at the attempt limit and never repeat HTTP errors', async () => {
+  await withTemp(async (directory) => {
+    let counter = 0;
+    const archivePath = (): string => path.join(directory, `${counter += 1}.osz`);
+    let timeouts = 0;
+    let http = 0;
+    const timeout: BeatmapMirror = { name: 'timeout', async downloadBeatmapset() { timeouts += 1; throw fetchFailed('UND_ERR_CONNECT_TIMEOUT'); } };
+    const status: BeatmapMirror = { name: 'status', async downloadBeatmapset() { http += 1; throw new Error('HTTP 404'); } };
+    const chain = new MirrorChain([timeout, status], { attempts: 3, retryDelayMs: 0, sleep: async () => undefined });
+    await assert.rejects(chain.download(1, 1024, archivePath, async () => 'x'),
+      (error: { code?: string }) => error.code === 'BEATMAP_DOWNLOAD_FAILED');
+    assert.deepEqual([timeouts, http], [3, 1]);
   });
 });
