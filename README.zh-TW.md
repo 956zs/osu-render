@@ -485,7 +485,7 @@ journalctl --user -u osu-render.service -f
 | `RENDER_ENCODER` | `auto` | `auto`、`h264_nvenc`、`hevc_nvenc`、`h264_amf`、`hevc_amf`、`h264_qsv`、`hevc_qsv` 或 `libx264`。其他值會讓啟動失敗並顯示錯誤。 |
 | `OSU_CLIENT_ID` | 空 | osu! OAuth client ID。必填。 |
 | `OSU_CLIENT_SECRET` | 空 | osu! OAuth client secret。必填。 |
-| `BEATMAP_MIRRORS` | （空白） | 額外的 `.osz` 下載網址，以逗號分隔，會最先嘗試。`{id}` 是 beatmapset ID。之後一律會再試 `config/defaults.json` 內建的 mirror（`mirrors.fallback`：catboy.best、hinamizawa、osu.direct）。某個 mirror 的圖比 replay 舊時（剛更新過的 pending 圖很常見），會自動改試下一個。 |
+| `BEATMAP_MIRRORS` | （空白） | 額外的 `.osz` 下載網址，以逗號分隔，會最先嘗試。`{id}` 是 beatmapset ID。之後一律會再試 `config/defaults.json` 內建的 mirror（`mirrors.fallback`：catboy.best、beatconnect.io、hinamizawa、osu.direct）。某個 mirror 的圖比 replay 舊時（剛更新過的 pending 圖很常見），會自動改試下一個。 |
 | `BEATMAP_MIRRORS_ONLY` | （空白） | 設成 `true` 就只用 `BEATMAP_MIRRORS`，不接內建 mirror。 |
 | `MIRROR_PROXY` | （空白） | 選用的 `http://主機:port` 代理，只有圖譜 mirror 下載會走它（osu! API、更新檢查和 webhook 照常直連）。網路業者到某個 mirror 的國際線很塞時有用。`scripts/mirror-proxy.mjs` 是不需要任何套件的 CONNECT 代理，只放行允許清單裡的 mirror 主機的 443 埠；放在線路好的機器上，綁在私有位址（例如 Tailscale IP）：`MIRROR_PROXY_LISTEN=100.x.y.z:8319 node scripts/mirror-proxy.mjs`。mirror 連線另有 30 秒的連線上限（`mirrors.connectTimeoutMs`），連線類錯誤最多重試 3 次（`mirrors.attempts`）。 |
 | `AUTH_TOKEN` | 空 | 有設定時，每個 `/api/*` 請求都需要 `Authorization: Bearer <token>`。 |
