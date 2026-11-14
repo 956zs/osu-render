@@ -2,6 +2,7 @@ import { createWriteStream } from 'node:fs';
 import { rename, rm, stat } from 'node:fs/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { Agent, ProxyAgent, fetch as undiciFetch, type Dispatcher } from 'undici';
 import { AppError } from './errors.js';
 import { log } from './logger.js';
 
@@ -12,22 +13,51 @@ export interface BeatmapMirror {
   downloadBeatmapset(beatmapsetId: number, destination: string, maxBytes: number): Promise<void>;
 }
 
+/**
+ * Parses MIRROR_PROXY: an http(s) proxy URL with only a host and port (credentials allowed). Returns undefined
+ * when unset, throws a readable error when malformed so startup fails instead of silently going direct.
+ */
+export function parseProxyUrl(value: string | undefined): string | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  let url: URL;
+  try { url = new URL(text); } catch { throw new Error('MIRROR_PROXY must be a URL like http://100.64.0.1:8319'); }
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || (url.pathname !== '/' && url.pathname !== '')
+    || url.search || url.hash) {
+    throw new Error('MIRROR_PROXY must be http:// or https:// with only a host and port');
+  }
+  return url.href;
+}
+
+/** Connection pool for mirror downloads: a longer TCP+TLS connect limit than fetch's 10 s, optionally via a proxy. */
+export function mirrorDispatcher(options: { connectTimeoutMs: number; proxy?: string }): Dispatcher {
+  const connect = { timeout: options.connectTimeoutMs };
+  return options.proxy
+    ? new ProxyAgent({ uri: options.proxy, connect, proxyTls: connect, requestTls: connect })
+    : new Agent({ connect });
+}
+
 export class HttpBeatmapMirror implements BeatmapMirror {
   readonly name: string;
 
-  constructor(private readonly template: string, private readonly timeoutMs = 300_000) {
+  constructor(
+    private readonly template: string,
+    private readonly timeoutMs = 300_000,
+    private readonly dispatcher?: Dispatcher,
+  ) {
     this.name = new URL(template.replace('{id}', '1')).hostname;
   }
 
   async downloadBeatmapset(beatmapsetId: number, destination: string, maxBytes: number): Promise<void> {
     const url = this.template.replace('{id}', String(beatmapsetId));
-    const response = await fetch(url, {
+    const response = await undiciFetch(url, {
       headers: {
         Accept: 'application/octet-stream',
         'User-Agent': MIRROR_USER_AGENT,
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(this.timeoutMs),
+      ...(this.dispatcher ? { dispatcher: this.dispatcher } : {}),
     });
     if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
     const contentLength = Number(response.headers.get('content-length') ?? 0);

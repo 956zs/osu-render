@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { loadEnvFile } from 'node:process';
 import { appConfig } from './app-config.js';
 import { encoderCandidates } from './encoders.js';
-import { mirrorTemplates } from './mirrors.js';
+import { mirrorTemplates, parseProxyUrl } from './mirrors.js';
 import type { Paths } from './types.js';
 
 const GIB = 1024 ** 3;
@@ -60,6 +60,8 @@ export const settings = Object.freeze({
   osuClientSecret: process.env.OSU_CLIENT_SECRET ?? '',
   /** BEATMAP_MIRRORS first, then config mirrors.fallback (skipped when BEATMAP_MIRRORS_ONLY=true). */
   mirrors: mirrorTemplates(env('BEATMAP_MIRRORS'), appConfig.mirrors.fallback, env('BEATMAP_MIRRORS_ONLY') === 'true'),
+  /** Secret-ish (may hold credentials): never log it. Only beatmap mirror downloads use it. */
+  mirrorProxy: parseProxyUrl(env('MIRROR_PROXY')),
   authToken: process.env.AUTH_TOKEN ?? '',
   /** Secret: never log it. Validate with parseWebhookUrl (webhook-url.ts); invalid values disable reporting. */
   reportWebhookUrl: env('REPORT_WEBHOOK_URL') ?? '',

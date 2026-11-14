@@ -79,6 +79,7 @@
       "https://osu.direct/api/d/{id}"
     ],
     "attempts": 3,
+    "connectTimeoutMs": 30000,
     "retryDelayMs": 2000,
     "downloadTimeoutMs": 300000
   },
