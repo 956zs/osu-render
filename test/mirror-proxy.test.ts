@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { APP_ROOT } from '../src/app-config.js';
+import { APP_ROOT, appConfig } from '../src/app-config.js';
 import { HttpBeatmapMirror, mirrorDispatcher, parseProxyUrl } from '../src/mirrors.js';
 
 interface ProxyModule {
@@ -42,6 +42,14 @@ test('isAllowed matches exact names, not subdomains or suffixes', async () => {
   assert.equal(isAllowed('catboy.best.evil.com', DEFAULT_ALLOW), false);
   assert.equal(isAllowed('osu.ppy.sh', DEFAULT_ALLOW), false);
   assert.equal(isAllowed('', DEFAULT_ALLOW), false);
+});
+
+test('the proxy allowlist covers every built-in mirror host', async () => {
+  const { DEFAULT_ALLOW } = await load();
+  for (const template of appConfig.mirrors.fallback) {
+    const host = new URL(template.replace('{id}', '1')).hostname;
+    assert(DEFAULT_ALLOW.includes(host), `${host} is missing from DEFAULT_ALLOW`);
+  }
 });
 
 test('parseListen needs host:port', async () => {

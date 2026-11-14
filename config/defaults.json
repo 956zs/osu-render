@@ -75,6 +75,7 @@
   "mirrors": {
     "fallback": [
       "https://catboy.best/d/{id}",
+      "https://beatconnect.io/b/{id}/",
       "https://mirror.hinamizawa.ai/api/v1/hinai/d/{id}",
       "https://osu.direct/api/d/{id}"
     ],

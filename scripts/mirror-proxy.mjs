@@ -10,7 +10,8 @@ import http from 'node:http';
 import net from 'node:net';
 import { pathToFileURL } from 'node:url';
 
-export const DEFAULT_ALLOW = ['catboy.best', 'mirror.hinamizawa.ai', 'osu.direct'];
+// Hosts of the built-in osu-render mirrors, plus storage.osu.direct where osu.direct redirects downloads.
+export const DEFAULT_ALLOW = ['catboy.best', 'beatconnect.io', 'mirror.hinamizawa.ai', 'osu.direct', 'storage.osu.direct'];
 
 /** Parses `host:port` of a CONNECT request; returns null for anything but a plain hostname on an allowed port. */
 export function parseConnectTarget(target, ports = [443]) {
